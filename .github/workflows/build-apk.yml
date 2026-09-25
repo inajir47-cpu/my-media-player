@@ -1,4 +1,4 @@
-name: Build Original Android APK
+name: Build Original My Media APK
 
 on:
   push:
@@ -12,54 +12,33 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Setup Java 21
+      - name: Setup Java 21 for Android
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Build Real App APK
+      - name: Unpack & Compile My Media
         run: |
-          mkdir -p original-app
-          unzip -o real-media-player.zip -d original-app
-          cd original-app
-
-          echo "=== Checking rebuild-apk.sh ==="
-          cat android/rebuild-apk.sh || true
-
-          # Build the real frontend
+          mkdir -p my-media-app
+          unzip -o my-media-source.zip -d my-media-app
+          cd my-media-app
           npm install
           npx vite build
-
-          # Save custom native files from the original android folder
-          mkdir -p /tmp/backup-native
-          cp -r android/app/src/main/java/app /tmp/backup-native/ || true
-          cp -r android/app/src/main/res/mipmap* /tmp/backup-native/ || true
-          cp -r android/app/src/main/res/drawable* /tmp/backup-native/ || true
-
-          # Replace broken android folder with a clean Capacitor 6 Android project (like Run #4)
-          rm -rf android capacitor.config.ts capacitor.config.json
-          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
-          npx cap init "My Media" "app.mymedia.player" --web-dir dist
-          npx cap add android
-          npx cap sync android
-
-          # Restore custom icons and splash screens
-          cp -rf /tmp/backup-native/mipmap* android/app/src/main/res/ || true
-          cp -rf /tmp/backup-native/drawable* android/app/src/main/res/ || true
-
-          # Compile the clean Android APK
+          rm -rf android/app/src/main/assets/public
+          mkdir -p android/app/src/main/assets/public
+          cp -r dist/* android/app/src/main/assets/public/
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug --no-daemon
 
-      - name: Upload Original APK
+      - name: Upload Compiled APK
         uses: actions/upload-artifact@v4
         with:
-          name: Original-Media-Player-APK
-          path: "**/android/app/build/outputs/apk/debug/*.apk"
+          name: My-Media-Original-APK
+          path: "**/android/app/build/outputs/apk/**/*.apk"
