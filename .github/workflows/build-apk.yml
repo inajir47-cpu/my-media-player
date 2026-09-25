@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Original Android APK
 
 on:
   push:
@@ -12,7 +12,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -23,25 +23,21 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Extract Zip, Replace Files & Build APK
+      - name: Unpack Real App & Compile Native APK
         run: |
-          unzip -o media-player-source.zip
-          cp -f api.ts frontend/src/api.ts
-          cp -f Library.tsx frontend/src/pages/Library.tsx
-          cd frontend
+          mkdir -p original-app
+          unzip -o real-media-player.zip -d original-app
+          cd original-app
           npm install
           npx vite build
-          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
-          npx cap init "My Media Player" "com.mymediaplayer.tablet" --web-dir dist
-          npx cap add android
-          npx cap sync android
+          cp -r dist/* android/app/src/main/assets/public/
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: Upload Compiled APK
+      - name: Upload Original APK
         uses: actions/upload-artifact@v4
         with:
-          name: My-Media-Player-APK
-          path: "**/android/app/build/outputs/apk/debug/app-debug.apk"
+          name: Original-Media-Player-APK
+          path: "**/android/app/build/outputs/apk/debug/*.apk"
           
