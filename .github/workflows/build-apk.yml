@@ -23,22 +23,34 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Unpack, Fix Paths & Compile APK
+      - name: Inject Kotlin, Unpack & Compile APK
         run: |
           mkdir -p original-app
           unzip -o real-media-player.zip -d original-app
           cd original-app
-          cat android/rebuild-apk.sh || true
           npm install
           npx vite build
           npx cap sync android || true
           mkdir -p android/app/src/main/assets/public
           cp -r dist/* android/app/src/main/assets/public/
+          
           cd android
+          # 1. Add Kotlin plugin to root build.gradle classpath if missing
+          if ! grep -q "kotlin-gradle-plugin" build.gradle; then
+            sed -i '/classpath.*gradle:/a \        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24"' build.gradle
+          fi
+
+          # 2. Apply Kotlin plugin to app/build.gradle
+          if ! grep -q "kotlin-android" app/build.gradle; then
+            sed -i '1s/^/apply plugin: "kotlin-android"\n/' app/build.gradle
+          fi
+
+          # 3. Align Java / JVM target to 21
           find . -name "build.gradle" -exec sed -i 's/VERSION_17/VERSION_21/g' {} +
           find . -name "*.gradle" -exec sed -i 's/jvmTarget = "17"/jvmTarget = "21"/g' {} +
+
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload Original APK
         uses: actions/upload-artifact@v4
