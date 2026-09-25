@@ -17,11 +17,11 @@ jobs:
         with:
           node-version: 20
 
-      - name: Setup Java 17 for Android
+      - name: Setup Java 21 for Android
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
 
       - name: Extract Zip, Replace Files & Build APK
         run: |
@@ -30,8 +30,8 @@ jobs:
           cp -f Library.tsx frontend/src/pages/Library.tsx
           cd frontend
           npm install
-          npm run build
-          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npx vite build
+          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
           npx cap init "My Media Player" "com.mymediaplayer.tablet" --web-dir dist
           npx cap add android
           npx cap sync android
@@ -44,3 +44,4 @@ jobs:
         with:
           name: My-Media-Player-APK
           path: "**/android/app/build/outputs/apk/debug/app-debug.apk"
+          
