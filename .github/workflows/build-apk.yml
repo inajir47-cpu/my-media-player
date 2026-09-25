@@ -17,29 +17,28 @@ jobs:
         with:
           node-version: 20
 
-      - name: Setup Java 17
+      - name: Setup Java 21
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
 
-      - name: Unpack & Compile APK
+      - name: Unpack, Fix Paths & Compile APK
         run: |
           mkdir -p original-app
           unzip -o real-media-player.zip -d original-app
           cd original-app
+          cat android/rebuild-apk.sh || true
           npm install
           npx vite build
+          npx cap sync android || true
           mkdir -p android/app/src/main/assets/public
           cp -r dist/* android/app/src/main/assets/public/
           cd android
+          find . -name "build.gradle" -exec sed -i 's/VERSION_17/VERSION_21/g' {} +
+          find . -name "*.gradle" -exec sed -i 's/jvmTarget = "17"/jvmTarget = "21"/g' {} +
           chmod +x gradlew
-          if [ -f "rebuild-apk.sh" ]; then
-            chmod +x rebuild-apk.sh
-            bash rebuild-apk.sh || ./gradlew assembleDebug --stacktrace
-          else
-            ./gradlew assembleDebug --stacktrace
-          fi
+          ./gradlew assembleDebug
 
       - name: Upload Original APK
         uses: actions/upload-artifact@v4
