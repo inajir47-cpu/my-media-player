@@ -23,37 +23,43 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Inject Kotlin, Unpack & Compile APK
+      - name: Build Real App APK
         run: |
           mkdir -p original-app
           unzip -o real-media-player.zip -d original-app
           cd original-app
+
+          echo "=== Checking rebuild-apk.sh ==="
+          cat android/rebuild-apk.sh || true
+
+          # Build the real frontend
           npm install
           npx vite build
-          npx cap sync android || true
-          mkdir -p android/app/src/main/assets/public
-          cp -r dist/* android/app/src/main/assets/public/
-          
+
+          # Save custom native files from the original android folder
+          mkdir -p /tmp/backup-native
+          cp -r android/app/src/main/java/app /tmp/backup-native/ || true
+          cp -r android/app/src/main/res/mipmap* /tmp/backup-native/ || true
+          cp -r android/app/src/main/res/drawable* /tmp/backup-native/ || true
+
+          # Replace broken android folder with a clean Capacitor 6 Android project (like Run #4)
+          rm -rf android capacitor.config.ts capacitor.config.json
+          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
+          npx cap init "My Media" "app.mymedia.player" --web-dir dist
+          npx cap add android
+          npx cap sync android
+
+          # Restore custom icons and splash screens
+          cp -rf /tmp/backup-native/mipmap* android/app/src/main/res/ || true
+          cp -rf /tmp/backup-native/drawable* android/app/src/main/res/ || true
+
+          # Compile the clean Android APK
           cd android
-          # 1. Add Kotlin plugin to root build.gradle classpath if missing
-          if ! grep -q "kotlin-gradle-plugin" build.gradle; then
-            sed -i '/classpath.*gradle:/a \        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24"' build.gradle
-          fi
-
-          # 2. Apply Kotlin plugin to app/build.gradle
-          if ! grep -q "kotlin-android" app/build.gradle; then
-            sed -i '1s/^/apply plugin: "kotlin-android"\n/' app/build.gradle
-          fi
-
-          # 3. Align Java / JVM target to 21
-          find . -name "build.gradle" -exec sed -i 's/VERSION_17/VERSION_21/g' {} +
-          find . -name "*.gradle" -exec sed -i 's/jvmTarget = "17"/jvmTarget = "21"/g' {} +
-
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug
 
       - name: Upload Original APK
         uses: actions/upload-artifact@v4
         with:
           name: Original-Media-Player-APK
-          path: "**/android/app/build/outputs/apk/**/*.apk"
+          path: "**/android/app/build/outputs/apk/debug/*.apk"
