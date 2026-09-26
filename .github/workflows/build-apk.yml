@@ -127,7 +127,7 @@ jobs:
             '(window.__renderContinueAndHistory ? window.__renderContinueAndHistory({ activeTab: a, setTab: i, searchQuery: e, cwItems: A.data?.items ?? [], collections: R, onPlay: ra, onOpenCollection: o, u: u, v: v, k: k }) : null), a !== "history" && u("div", {\n          className: "rail-stack",'
           );
 
-          // 12. Expand Hero Carousel items & add Touch-Swipe gestures (onTouchStart/Move/End) + One-Tap Tablet Poster Card opening
+          // 12. Expand Hero Carousel items & add Touch-Swipe gestures + One-Tap Tablet Poster Card opening
           html = html.replace(
             'Me = [...R].sort((N, q) => Date.parse(q.createdAt) - Date.parse(N.createdAt)).slice(0, 3),\n    lt = (A.data?.items ?? []).slice(0, 2),',
             'Me = [...R].sort((N, q) => Date.parse(q.createdAt) - Date.parse(N.createdAt)).slice(0, 6),\n    lt = (A.data?.items ?? []).slice(0, 4),'
@@ -138,14 +138,165 @@ jobs:
             'onMouseEnter: () => y(!0),\n            onMouseLeave: () => y(!1),\n            onTouchStart: X => { y(!0); if (window.__carouselTouchStart) window.__carouselTouchStart(X); },\n            onTouchMove: X => { if (window.__carouselTouchMove) window.__carouselTouchMove(X); },\n            onTouchEnd: X => { y(!1); if (window.__carouselTouchEnd) window.__carouselTouchEnd(X, me.length, b); },\n            onTouchCancel: X => { y(!1); if (window.__carouselTouchCancel) window.__carouselTouchCancel(X); },'
           );
 
-          // Make Poster Cards open in 1 tap on tablets instead of requiring 2 taps
           html = html.replace(
             'onClick: () => {\n        if (r && !t) i();else l();\n      },',
             'onClick: () => { l(); },'
           );
 
-          // 13. Inject Custom CSS for Borderless Episode Cards, Tablet Touch Carousel, Continue Watching Rail, and History Tab
+          // 13. Upgrade VLC Player (rg) with YouTube Pinch-to-Zoom, Fit/Fill/Stretch, Swipe-Down Mini-Player & System PiP
+          html = html.replace(
+            'className: `player-modal vlc-player ${bt ? "" : "controls-hidden"}`,',
+            'className: `player-modal vlc-player ${bt ? "" : "controls-hidden"} ${window.__isMiniPlayer ? "yt-mini-player" : ""}`,'
+          );
+
+          html = html.replace(
+            'u("button", {\n        onClick: wg,\n        "aria-label": "Close player",\n        children: u(k, {\n          name: "close"\n        })\n      })',
+            'v("div", { className: "yt-toolbar-actions", children: [u("button", { type: "button", className: "yt-pill-btn", onClick: () => window.__toggleMiniPlayer && window.__toggleMiniPlayer(g.current), "aria-label": "Miniplayer", children: "⌄ Mini" }), u("button", { type: "button", className: "yt-pill-btn", onClick: () => window.__cycleVideoFit && window.__cycleVideoFit(c.current, pl), "aria-label": "Toggle screen fit", children: "⤢ Fit / Zoom" }), u("button", { type: "button", className: "yt-pill-btn", onClick: () => window.__enterVideoPiP && window.__enterVideoPiP(c.current, g.current), "aria-label": "Picture in Picture", children: "⧉ PiP" }), u("button", { type: "button", onClick: () => { if (window.__setMiniPlayerMode) window.__setMiniPlayerMode(false, g.current); wg(); }, "aria-label": "Close player", children: u(k, { name: "close" }) })] })'
+          );
+
+          html = html.replace(
+            'className: "player-stage",\n      onPointerDown: mg,\n      onPointerMove: gg,\n      onPointerUp: yg,\n      onPointerCancel: vg,',
+            'className: "player-stage",\n      onTouchStart: w => window.__stageTouchStart && window.__stageTouchStart(w, c.current, g.current),\n      onTouchMove: w => window.__stageTouchMove && window.__stageTouchMove(w, c.current, g.current, pl),\n      onTouchEnd: w => window.__stageTouchEnd && window.__stageTouchEnd(w, c.current, g.current, pl),\n      onPointerDown: w => { if (window.__isMiniPlayer) { window.__setMiniPlayerMode(false, g.current); return; } if (window.__pinchActive) return; mg(w); },\n      onPointerMove: w => { if (window.__isMiniPlayer || window.__pinchActive) return; gg(w); },\n      onPointerUp: w => { if (window.__isMiniPlayer || window.__pinchActive) return; yg(w); },\n      onPointerCancel: vg,'
+          );
+
+          html = html.replace(
+            'let w = window.setTimeout(() => Dc(!1), 6000);',
+            'if (window.__enterPlayerImmersive) window.__enterPlayerImmersive(true);\n    let w = window.setTimeout(() => Dc(!1), 6000);'
+          );
+
+          html = html.replace(
+            'if (He) URL.revokeObjectURL(He);\n    };',
+            'if (window.__enterPlayerImmersive) window.__enterPlayerImmersive(false);\n      if (He) URL.revokeObjectURL(He);\n    };'
+          );
+
+          // 14. Inject Complete Custom CSS for Redesigned YouTube Player, Mini-Player, Fullscreen Fit, Carousel & Borderless Cards
           const customUiCss = `<style id="custom-ui-overrides">
+            /* Redesigned YouTube-Style Fullscreen Video Player & Mini-Player */
+            .player-modal.vlc-player {
+              position: fixed !important;
+              inset: 0 !important;
+              width: 100vw !important;
+              height: 100dvh !important;
+              background: #000 !important;
+              z-index: 90 !important;
+              overflow: hidden !important;
+              transition: all 0.28s cubic-bezier(0.2, 0.9, 0.2, 1) !important;
+            }
+            .vlc-player .player-stage {
+              position: absolute !important;
+              inset: 0 !important;
+              width: 100% !important;
+              height: 100% !important;
+              background: #000 !important;
+              overflow: hidden !important;
+              touch-action: none !important;
+            }
+            .vlc-player .player-stage video {
+              width: 100vw !important;
+              height: 100dvh !important;
+              max-width: none !important;
+              max-height: none !important;
+              object-fit: var(--video-fit, contain) !important;
+              transform: scale(var(--video-zoom, 1)) !important;
+              transform-origin: center center !important;
+              transition: transform 0.15s ease-out !important;
+              background: #000 !important;
+            }
+            .vlc-player .player-toolbar {
+              position: absolute !important;
+              top: 0 !important;
+              left: 0 !important;
+              right: 0 !important;
+              z-index: 9 !important;
+              padding: 14px 18px !important;
+              background: linear-gradient(180deg, rgba(0, 0, 0, 0.88) 0%, rgba(0, 0, 0, 0.45) 65%, transparent 100%) !important;
+              border: 0 !important;
+            }
+            .yt-toolbar-actions {
+              display: flex !important;
+              align-items: center !important;
+              gap: 8px !important;
+            }
+            .yt-pill-btn {
+              background: rgba(255, 255, 255, 0.14) !important;
+              backdrop-filter: blur(10px) !important;
+              color: #fff !important;
+              border: 1px solid rgba(255, 255, 255, 0.22) !important;
+              border-radius: 999px !important;
+              padding: 0 13px !important;
+              height: 36px !important;
+              font-size: 12px !important;
+              font-weight: 800 !important;
+              cursor: pointer !important;
+              white-space: nowrap !important;
+            }
+            .yt-pill-btn:active,
+            .yt-pill-btn:hover {
+              background: var(--accent) !important;
+              color: #111 !important;
+              border-color: var(--accent) !important;
+            }
+            .vlc-player .player-control-deck {
+              position: absolute !important;
+              bottom: 0 !important;
+              left: 0 !important;
+              right: 0 !important;
+              z-index: 9 !important;
+              padding: 18px 18px max(16px, env(safe-area-inset-bottom)) !important;
+              background: linear-gradient(0deg, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.68) 65%, transparent 100%) !important;
+              border: 0 !important;
+              box-shadow: none !important;
+            }
+            .vlc-player .transport-controls .play-toggle {
+              border-radius: 999px !important;
+              width: 52px !important;
+              height: 52px !important;
+              background: #fff !important;
+              color: #090a0c !important;
+              box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5) !important;
+            }
+            .vlc-player .vlc-utilities > button,
+            .vlc-player .transport-controls button:not(.play-toggle) {
+              border-radius: 999px !important;
+              background: rgba(255, 255, 255, 0.12) !important;
+              backdrop-filter: blur(8px) !important;
+              margin: 0 2px !important;
+            }
+            .vlc-player .track-options {
+              background: rgba(18, 20, 24, 0.95) !important;
+              backdrop-filter: blur(16px) !important;
+              border: 1px solid rgba(255, 255, 255, 0.15) !important;
+              border-radius: 14px !important;
+              padding: 14px !important;
+              margin-top: 8px !important;
+            }
+            /* YouTube In-App Floating Mini-Player Mode (Swipe Down) */
+            .player-modal.vlc-player.yt-mini-player {
+              inset: auto 16px max(16px, env(safe-area-inset-bottom)) auto !important;
+              width: min(340px, calc(100vw - 32px)) !important;
+              height: 192px !important;
+              border-radius: 14px !important;
+              box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.18) !important;
+              z-index: 95 !important;
+            }
+            .player-modal.vlc-player.yt-mini-player .player-stage video {
+              width: 100% !important;
+              height: 100% !important;
+              object-fit: cover !important;
+              transform: scale(1) !important;
+            }
+            .player-modal.vlc-player.yt-mini-player .player-control-deck,
+            .player-modal.vlc-player.yt-mini-player .gesture-guide,
+            .player-modal.vlc-player.yt-mini-player .player-queue,
+            .player-modal.vlc-player.yt-mini-player .yt-pill-btn {
+              display: none !important;
+            }
+            .player-modal.vlc-player.yt-mini-player .player-toolbar {
+              opacity: 1 !important;
+              pointer-events: auto !important;
+              padding: 6px 10px !important;
+              min-height: 38px !important;
+            }
             /* Tablet Touch & Carousel Enhancements */
             .home-carousel {
               touch-action: pan-y !important;
@@ -204,7 +355,6 @@ jobs:
               scroll-behavior: smooth !important;
               touch-action: pan-x pan-y !important;
             }
-            /* Keep Search Bar visible on Tablet Portrait (600px - 760px) */
             @media (min-width: 600px) and (max-width: 760px) {
               .search-field {
                 display: flex !important;
@@ -260,7 +410,7 @@ jobs:
               color: var(--accent);
               font-weight: 700;
             }
-            /* Continue Watching & History Cards (Borderless Dark Style) */
+            /* Continue Watching & History Cards */
             .continue-section {
               padding: 32px clamp(18px, 4vw, 56px) 0 !important;
             }
@@ -330,12 +480,6 @@ jobs:
             .continue-copy {
               padding: 12px 14px !important;
               background: var(--surface) !important;
-            }
-            .continue-copy-row {
-              display: flex;
-              align-items: center;
-              justify-content: space-between;
-              gap: 8px;
             }
             .history-open-series {
               background: transparent;
@@ -507,6 +651,133 @@ jobs:
 
           const localRuntime = `<script data-hatch-cvm-bundle="">
           (function() {
+            // YouTube Pinch-to-Zoom, Fit/Fill/Stretch, Mini-Player & Native PiP Engine
+            window.__isMiniPlayer = false;
+            window.__videoFitMode = "contain";
+            window.__videoZoomScale = 1;
+            window.__pinchActive = false;
+            var __pinchStartDist = 0;
+            var __pinchStartScale = 1;
+            var __swipeDownStartY = null;
+            var __swipeDownStartX = null;
+
+            window.__enterPlayerImmersive = function(active) {
+              try {
+                if (window.AndroidPiP && window.AndroidPiP.setImmersive) {
+                  window.AndroidPiP.setImmersive(Boolean(active));
+                }
+              } catch (e) {}
+              if (!active) {
+                window.__isMiniPlayer = false;
+                window.__videoZoomScale = 1;
+              }
+            };
+
+            window.__setMiniPlayerMode = function(mini, modalEl) {
+              window.__isMiniPlayer = Boolean(mini);
+              var el = modalEl || document.querySelector(".player-modal.vlc-player");
+              if (el) {
+                if (window.__isMiniPlayer) {
+                  el.classList.add("yt-mini-player");
+                  window.__enterPlayerImmersive(false);
+                } else {
+                  el.classList.remove("yt-mini-player");
+                  window.__enterPlayerImmersive(true);
+                }
+              }
+            };
+
+            window.__toggleMiniPlayer = function(modalEl) {
+              window.__setMiniPlayerMode(!window.__isMiniPlayer, modalEl);
+            };
+
+            window.__cycleVideoFit = function(videoEl, showFeedback) {
+              if (!videoEl) return;
+              if (window.__videoFitMode === "contain" && window.__videoZoomScale === 1) {
+                window.__videoFitMode = "cover";
+                videoEl.style.setProperty("--video-fit", "cover");
+                videoEl.style.setProperty("--video-zoom", "1");
+                if (showFeedback) showFeedback({ kind: "brightness", label: "Display", value: "Zoomed to fill", progress: 100 });
+              } else if (window.__videoFitMode === "cover") {
+                window.__videoFitMode = "fill";
+                videoEl.style.setProperty("--video-fit", "fill");
+                videoEl.style.setProperty("--video-zoom", "1");
+                if (showFeedback) showFeedback({ kind: "brightness", label: "Display", value: "Stretch to screen", progress: 100 });
+              } else {
+                window.__videoFitMode = "contain";
+                window.__videoZoomScale = 1;
+                videoEl.style.setProperty("--video-fit", "contain");
+                videoEl.style.setProperty("--video-zoom", "1");
+                if (showFeedback) showFeedback({ kind: "brightness", label: "Display", value: "Original (Fit)", progress: 50 });
+              }
+            };
+
+            window.__enterVideoPiP = async function(videoEl, modalEl) {
+              try {
+                if (window.AndroidPiP && window.AndroidPiP.enterPiP) {
+                  window.AndroidPiP.enterPiP();
+                  return;
+                }
+                if (videoEl && videoEl.requestPictureInPicture) {
+                  await videoEl.requestPictureInPicture();
+                  return;
+                }
+              } catch (e) {}
+              window.__setMiniPlayerMode(true, modalEl);
+            };
+
+            window.__stageTouchStart = function(ev, videoEl, modalEl) {
+              if (ev.touches && ev.touches.length === 2) {
+                window.__pinchActive = true;
+                var dx = ev.touches[0].clientX - ev.touches[1].clientX;
+                var dy = ev.touches[0].clientY - ev.touches[1].clientY;
+                __pinchStartDist = Math.hypot(dx, dy);
+                __pinchStartScale = window.__videoZoomScale || 1;
+                __swipeDownStartY = null;
+              } else if (ev.touches && ev.touches.length === 1) {
+                __swipeDownStartY = ev.touches[0].clientY;
+                __swipeDownStartX = ev.touches[0].clientX;
+              }
+            };
+
+            window.__stageTouchMove = function(ev, videoEl, modalEl, showFeedback) {
+              if (ev.touches && ev.touches.length === 2 && __pinchStartDist > 10 && videoEl) {
+                window.__pinchActive = true;
+                var dx = ev.touches[0].clientX - ev.touches[1].clientX;
+                var dy = ev.touches[0].clientY - ev.touches[1].clientY;
+                var dist = Math.hypot(dx, dy);
+                var ratio = dist / __pinchStartDist;
+                var nextScale = Math.max(1, Math.min(2.2, __pinchStartScale * ratio));
+                window.__videoZoomScale = nextScale;
+                if (nextScale > 1.08) {
+                  window.__videoFitMode = "cover";
+                  videoEl.style.setProperty("--video-fit", "cover");
+                  videoEl.style.setProperty("--video-zoom", nextScale.toFixed(2));
+                  if (showFeedback) showFeedback({ kind: "brightness", label: "Zoom", value: Math.round(nextScale * 100) + "% · Fill", progress: (nextScale - 1) * 100 });
+                } else {
+                  window.__videoFitMode = "contain";
+                  videoEl.style.setProperty("--video-fit", "contain");
+                  videoEl.style.setProperty("--video-zoom", "1");
+                  if (showFeedback) showFeedback({ kind: "brightness", label: "Zoom", value: "Original (100%)", progress: 0 });
+                }
+              }
+            };
+
+            window.__stageTouchEnd = function(ev, videoEl, modalEl, showFeedback) {
+              if (window.__pinchActive && (!ev.touches || ev.touches.length === 0)) {
+                setTimeout(function() { window.__pinchActive = false; }, 120);
+                return;
+              }
+              if (__swipeDownStartY != null && ev.changedTouches && ev.changedTouches.length === 1 && !window.__isMiniPlayer) {
+                var dy = ev.changedTouches[0].clientY - __swipeDownStartY;
+                var dx = Math.abs(ev.changedTouches[0].clientX - (__swipeDownStartX || 0));
+                if (__swipeDownStartY < 160 && dy > 95 && dy > dx * 1.5) {
+                  window.__setMiniPlayerMode(true, modalEl);
+                }
+              }
+              __swipeDownStartY = null;
+            };
+
             // Tablet Touch-Swipe Gesture Engine for Home Hero Carousel
             var __cTouch = null;
 
@@ -604,7 +875,6 @@ jobs:
                 : (m + ":" + String(r).padStart(2, "0"));
             }
 
-            // Helper: Find the best file to Resume / Continue Watching inside a Series or Movie
             window.__getSeriesResumeTarget = function(col) {
               if (!col || !col.files || col.files.length === 0) return null;
               var files = col.files.slice().sort(function(a, b) {
@@ -940,8 +1210,11 @@ jobs:
               var queueClose = document.querySelector('.player-queue .queue-head button');
               if (queueClose) { queueClose.click(); return true; }
 
-              var playerClose = document.querySelector('.player-modal .player-toolbar > button');
-              if (playerClose) { playerClose.click(); return true; }
+              var playerModal = document.querySelector('.player-modal.vlc-player');
+              if (playerModal && !window.__isMiniPlayer) {
+                window.__setMiniPlayerMode(true, playerModal);
+                return true;
+              }
 
               var modalClose = document.querySelector('.random-clip-modal > .modal-close, .online-modal .modal-close, .trailer-modal .modal-close');
               if (modalClose) { modalClose.click(); return true; }
@@ -965,6 +1238,9 @@ jobs:
                 navButtons[0].click();
                 return true;
               }
+
+              var playerClose = document.querySelector('.player-modal .player-toolbar button[aria-label="Close player"]');
+              if (playerClose) { playerClose.click(); return true; }
 
               return false;
             };
@@ -1967,7 +2243,7 @@ jobs:
           name: patched-web-dir
           path: exact-app/www
 
-      - name: Build Android APK
+      - name: Build Android APK with Fullscreen Cutout & Native PiP
         run: |
           cd exact-app
           npm init -y
@@ -1976,18 +2252,59 @@ jobs:
           npx cap add android
           npx cap sync android
 
+          node -e '
+            const fs = require("fs");
+            const mfPath = "android/app/src/main/AndroidManifest.xml";
+            let mf = fs.readFileSync(mfPath, "utf8");
+            mf = mf.replace(
+              "android:configChanges=\"orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode\"",
+              "android:supportsPictureInPicture=\"true\" android:configChanges=\"orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode\""
+            );
+            fs.writeFileSync(mfPath, mf, "utf8");
+          '
+
           cat << 'EOF_JAVA' > android/app/src/main/java/com/exact/mediaplayer/MainActivity.java
           package com.exact.mediaplayer;
 
+          import android.app.PictureInPictureParams;
+          import android.os.Build;
           import android.os.Bundle;
+          import android.util.Rational;
+          import android.view.WindowManager;
+          import android.webkit.JavascriptInterface;
           import android.webkit.WebView;
           import androidx.activity.OnBackPressedCallback;
+          import androidx.core.view.WindowCompat;
+          import androidx.core.view.WindowInsetsCompat;
+          import androidx.core.view.WindowInsetsControllerCompat;
           import com.getcapacitor.BridgeActivity;
 
           public class MainActivity extends BridgeActivity {
+              private boolean isVideoPlayerActive = false;
+
               @Override
               public void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
+
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                      getWindow().getAttributes().layoutInDisplayCutoutMode =
+                          WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+                  }
+
+                  if (getBridge() != null && getBridge().getWebView() != null) {
+                      getBridge().getWebView().addJavascriptInterface(new Object() {
+                          @JavascriptInterface
+                          public void setImmersive(boolean active) {
+                              isVideoPlayerActive = active;
+                              runOnUiThread(() -> applyImmersiveMode(active));
+                          }
+
+                          @JavascriptInterface
+                          public void enterPiP() {
+                              runOnUiThread(() -> triggerNativePiP());
+                          }
+                      }, "AndroidPiP");
+                  }
 
                   getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
                       @Override
@@ -2013,6 +2330,40 @@ jobs:
                           }
                       }
                   });
+              }
+
+              private void applyImmersiveMode(boolean fullscreen) {
+                  WindowInsetsControllerCompat controller =
+                      WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+                  if (controller == null) return;
+                  if (fullscreen) {
+                      WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+                      controller.hide(WindowInsetsCompat.Type.systemBars());
+                      controller.setSystemBarsBehavior(
+                          WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                      );
+                  } else {
+                      WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+                      controller.show(WindowInsetsCompat.Type.systemBars());
+                  }
+              }
+
+              private void triggerNativePiP() {
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      try {
+                          PictureInPictureParams.Builder builder = new PictureInPictureParams.Builder();
+                          builder.setAspectRatio(new Rational(16, 9));
+                          enterPictureInPictureMode(builder.build());
+                      } catch (Exception ignored) {}
+                  }
+              }
+
+              @Override
+              protected void onUserLeaveHint() {
+                  super.onUserLeaveHint();
+                  if (isVideoPlayerActive) {
+                      triggerNativePiP();
+                  }
               }
           }
           EOF_JAVA
