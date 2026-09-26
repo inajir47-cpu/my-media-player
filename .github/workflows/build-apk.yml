@@ -1,4 +1,4 @@
-name: Build True KonoSuba Media Player APK
+name: Package Exact File into APK
 
 on:
   push:
@@ -23,51 +23,79 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Build Real Media Player APK (Dark Theme)
+      - name: Wrap Exact true-konosuba-player.txt into APK
         run: |
-          mkdir -p original-app
-          unzip -o real-media-player.zip -d original-app
-          cd original-app
+          mkdir -p exact-app/www
+          cp true-konosuba-player.txt exact-app/raw.html
+          cd exact-app
 
-          # Lock in the exact dark theme variables from true-konosuba-player.txt
-          cat << 'EOF' >> src/styles.css
-          :root {
-            color-scheme: dark !important;
-            --bg: #090a0c !important;
-            --surface: #15171a !important;
-            --surface-2: #24262a !important;
-            --text: #f6f2ea !important;
-            --dim: #a6a097 !important;
-            --border: #383b40 !important;
-            --accent: #ff6b1a !important;
-            --accent-strong: #ff8747 !important;
-            --cyan: #24c8c3 !important;
-            --shadow: 0 20px 60px #00000080 !important;
-          }
-          EOF
+          # Unlock Muse's iframe tunnel so the exact file runs standalone on Android
+          node -e '
+            const fs = require("fs");
+            let html = fs.readFileSync("raw.html", "utf8");
 
-          npm install
-          npx vite build
+            // 1. Remove Muse iframe bridge scripts
+            html = html.replace(/<script data-hatch-cvm-opaque-url-compat[\s\S]*?<\/script>/, "");
+            html = html.replace(/<script data-hatch-cvm-bridge[\s\S]*?<\/script>/, "");
 
-          mkdir -p /tmp/backup-native
-          cp -r android/app/src/main/res/mipmap* /tmp/backup-native/ || true
-          cp -r android/app/src/main/res/drawable* /tmp/backup-native/ || true
+            // 2. Clear frozen HTML snapshot so React mounts fresh
+            html = html.replace(
+              /(<div class="hatch-space-root" data-hatch-space-root="true">)[\s\S]*?(<\/div><\/div>\s*<script data-hatch-cvm-bundle)/,
+              "$1$2"
+            );
 
-          rm -rf android capacitor.config.ts capacitor.config.json
+            // 3. Replace Muse tunnel lock with direct native browser passthrough
+            const nativeShim = `<script data-hatch-cvm-bundle="">
+            window.__tunnel = {
+              fetch: window.fetch.bind(window),
+              XHR: window.XMLHttpRequest,
+              WebSocket: window.WebSocket,
+              EventSource: window.EventSource,
+              Image: window.Image,
+              Worker: window.Worker,
+              sendBeacon: navigator.sendBeacon ? navigator.sendBeacon.bind(navigator) : () => true,
+              setAttr: (el, name, val) => { if (val == null) el.removeAttribute(name); else el.setAttribute(name, String(val)); },
+              setAttrNS: (el, ns, name, val) => { if (val == null) el.removeAttributeNS(ns, name); else el.setAttributeNS(ns, name, String(val)); },
+              setUrlProp: (el, name, val) => { el[name] = val; return val; },
+              setStyle: (el, prop, val) => { if (String(prop).startsWith("--")) el.style.setProperty(prop, val ?? ""); else el.style[prop] = val ?? ""; },
+              getStyle: (el) => el ? el.style : {},
+              setStyleAttr: (el, val) => el.setAttribute("style", val ?? ""),
+              setStyleText: (el, txt) => { el.textContent = txt; },
+              setInnerHTML: (el, h, which = "innerHTML") => { el[which] = h ?? ""; },
+              insertAdjacentHTML: (el, pos, h) => el.insertAdjacentHTML(pos, h ?? ""),
+              rewriteCssText: async (t) => t,
+              resolveToBlobUrl: async (u) => u,
+              processDataHatchAttrs: () => {},
+              rewriteHtmlString: (h) => h,
+              _resolveUrlString: (v) => v,
+              _resolveCssValue: (v) => v,
+              _resolveCssText: (v) => v,
+              _resolveStyleProp: (v) => v,
+              _importMeta: { url: location.href },
+              _state: { port: null, inFlight: 0, blobCacheSize: 0, blobStats: {} }
+            };
+            ;(function () {`;
+
+            html = html.replace(
+              /<script data-hatch-cvm-bundle=""[^>]*>[\s\S]*?;\(function \(\) \{/,
+              nativeShim
+            );
+
+            fs.writeFileSync("www/index.html", html, "utf8");
+          '
+
+          npm init -y
           npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
-          npx cap init "Media Player" "app.mymedia.konosuba" --web-dir dist
+          npx cap init "Media Player" "com.exact.mediaplayer" --web-dir www
           npx cap add android
           npx cap sync android
-
-          cp -rf /tmp/backup-native/mipmap* android/app/src/main/res/ || true
-          cp -rf /tmp/backup-native/drawable* android/app/src/main/res/ || true
 
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 
-      - name: Upload True Media Player APK
+      - name: Upload Exact APK
         uses: actions/upload-artifact@v4
         with:
-          name: True-KonoSuba-Media-Player-APK
+          name: Exact-Media-Player-APK
           path: "**/android/app/build/outputs/apk/debug/*.apk"
