@@ -29,6 +29,9 @@ jobs:
         with:
           node-version: 20
 
+      - name: Fetch hls.js for online anime playback
+        run: curl -fsSL -o hls.min.js https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js
+
       - name: Build Patched Web App for Live Testing
         run: |
           mkdir -p www
@@ -645,9 +648,225 @@ jobs:
               border: 0 !important;
               border-radius: 10px !important;
             }
+            /* ===== Anime SUB/DUB watch (streaming API) ===== */
+            .aw-overlay{position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.74);display:flex;align-items:flex-start;justify-content:center;padding:18px 12px;overflow-y:auto}
+            .aw-modal{background:#14161c;color:#eef;border-radius:14px;width:min(620px,100%);max-height:94vh;display:flex;flex-direction:column;overflow:hidden;border:1px solid #2a2e38}
+            .aw-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:14px 16px 4px}
+            .aw-eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#9aa3b2;margin:0}
+            .aw-title{margin:2px 0 0;font-size:18px;line-height:1.25}
+            .aw-x{background:#23262e;border:0;color:#fff;width:32px;height:32px;min-width:32px;border-radius:50%;font-size:15px;cursor:pointer}
+            .aw-server,.aw-search{display:flex;gap:8px;padding:6px 16px}
+            .aw-hint{padding:0 16px 2px;color:#9aa3b2;font-size:11px}
+            .aw-server input,.aw-search input{flex:1;min-width:0;background:#0f1116;border:1px solid #2a2e38;color:#fff;border-radius:8px;padding:8px 10px;font-size:13px}
+            .aw-server button,.aw-search button,.aw-back,.aw-nav,.aw-abtn{background:#e8632c;border:0;color:#fff;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+            .aw-server button{background:#2a2e38}
+            .aw-body{padding:12px 16px 16px;overflow-y:auto}
+            .aw-status{color:#9aa3b2;padding:18px 4px;font-size:14px;line-height:1.5}
+            .aw-err{background:#3a1d1d;border:1px solid #7a2e2e;color:#ffc9c9;border-radius:8px;padding:12px;font-size:13px;line-height:1.55}
+            .aw-err b{color:#fff}
+            .aw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:10px}
+            .aw-card{background:#0f1116;border:1px solid #2a2e38;border-radius:10px;padding:0;overflow:hidden;cursor:pointer;text-align:left;color:#fff}
+            .aw-card img{width:100%;aspect-ratio:3/4;object-fit:cover;display:block}
+            .aw-noimg{aspect-ratio:3/4;display:flex;align-items:center;justify-content:center;font-size:30px;background:#1c1f26}
+            .aw-card-t{font-size:12px;padding:8px 8px 2px;font-weight:600;line-height:1.3}
+            .aw-badges{display:flex;gap:6px;padding:6px 8px 10px}
+            .aw-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:.04em}
+            .aw-badge.sub{background:#1d3a5f;color:#7fb7ff}
+            .aw-badge.dub{background:#3a2a1d;color:#ffb37f}
+            .aw-backrow{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px}
+            .aw-count{color:#9aa3b2;font-size:12px}
+            .aw-eps{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:8px}
+            .aw-ep{background:#0f1116;border:1px solid #2a2e38;color:#fff;border-radius:8px;padding:10px 4px;font-size:12px;font-weight:600;cursor:pointer}
+            .aw-ep-cur{border-color:#e8632c;color:#ff9a5c}
+            .aw-ep-t{display:block;font-size:10px;font-weight:400;color:#9aa3b2;margin-top:4px;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+            .aw-reviews{display:flex;flex-direction:column;gap:10px;margin-top:4px}
+            .aw-review{background:#0f1116;border:1px solid #2a2e38;border-radius:10px;padding:10px 12px}
+            .aw-review-h{display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:6px;gap:8px}
+            .aw-review-a{font-weight:700;color:#ffd36a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+            .aw-review-r{color:#9aa3b2;font-size:11px;flex-shrink:0}
+            .aw-review-t{font-size:12px;color:#c9c4bb;line-height:1.55}
+            .aw-delcf{position:fixed;inset:0;z-index:100004;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:24px}
+            .aw-delbox{background:#171b23;border:1px solid #2e3440;border-radius:14px;max-width:380px;width:100%;padding:20px}
+            .aw-delt{font-size:16px;font-weight:800;margin-bottom:8px;color:#fff}
+            .aw-delm{font-size:13px;color:#b8b3aa;line-height:1.55;margin-bottom:18px}
+            .aw-delbtns{display:flex;gap:10px;justify-content:flex-end}
+            .aw-delcancel{background:#23262e;border:1px solid #2e3440;color:#fff;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer}
+            .aw-delyes{background:#b3372c;border:1px solid #b3372c;color:#fff;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer}
+            .aw-player{display:block;padding:4px 2px}
+            .awp{position:relative;background:#000;border-radius:14px;overflow:hidden;aspect-ratio:16/9;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+            .awp-video{position:absolute;inset:0;width:100%;height:100%;background:#000;object-fit:contain}
+            .awp-top{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:10px;padding:12px 12px 30px;background:linear-gradient(180deg,rgba(0,0,0,.72),rgba(0,0,0,0));opacity:0;pointer-events:none;transition:opacity .25s;z-index:3}
+            .awp.showui .awp-top{opacity:1;pointer-events:auto}
+            .awp-tbtn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.16);color:#fff;border-radius:999px;padding:7px 13px;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+            .awp-tbtn:disabled{opacity:.35;cursor:default}
+            .awp-title{flex:1;min-width:0;font-size:13.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 6px rgba(0,0,0,.6)}
+            .awp-topnav{display:flex;gap:8px}
+            .awp-center{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:2;pointer-events:none}
+            .awp-big{pointer-events:auto;width:78px;height:78px;border-radius:50%;border:0;background:rgba(232,99,44,.96);color:#fff;font-size:30px;line-height:1;cursor:pointer;box-shadow:0 8px 30px rgba(232,99,44,.45);display:flex;align-items:center;justify-content:center;padding:0 0 4px 6px}
+            .awp-big:active{transform:scale(.94)}
+            .awp-spin{display:none;width:54px;height:54px;border-radius:50%;border:4px solid rgba(255,255,255,.22);border-top-color:#e8632c;animation:awpspin .9s linear infinite}
+            @keyframes awpspin{to{transform:rotate(360deg)}}
+            .awp-err{display:none;position:absolute;bottom:88px;left:16px;right:16px;text-align:center;color:#ffb3b3;font-size:13px;background:rgba(0,0,0,.66);padding:10px 14px;border-radius:10px;pointer-events:auto}
+            .awp-bot{position:absolute;left:0;right:0;bottom:0;padding:30px 12px 10px;background:linear-gradient(0deg,rgba(0,0,0,.8),rgba(0,0,0,0));opacity:0;pointer-events:none;transition:opacity .25s;z-index:3}
+            .awp.showui .awp-bot{opacity:1;pointer-events:auto}
+            .awp-prog{position:relative;height:24px;cursor:pointer;touch-action:none}
+            .awp-track{position:absolute;left:0;right:0;top:10px;height:4px;border-radius:2px;background:rgba(255,255,255,.28)}
+            .awp-buf{position:absolute;left:0;top:10px;height:4px;border-radius:2px;background:rgba(255,255,255,.4);width:0}
+            .awp-fill{position:absolute;left:0;top:10px;height:4px;border-radius:2px;background:#e8632c;width:0;box-shadow:0 0 8px rgba(232,99,44,.7)}
+            .awp-knob{position:absolute;left:0;top:12px;width:13px;height:13px;margin-left:-6.5px;border-radius:50%;background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.55)}
+            .awp-row{display:flex;align-items:center;gap:2px;margin-top:2px}
+            .awp-btn{background:none;border:0;color:#fff;font-size:17px;min-width:42px;height:42px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0 8px}
+            .awp-btn:active{background:rgba(255,255,255,.14)}
+            .awp-sk{position:relative;font-size:20px;line-height:1}
+            .awp-sk i{position:absolute;left:50%;top:50%;transform:translate(-50%,-40%);font-style:normal;font-size:8px;font-weight:800}
+            .awp-rate{font-size:13px;font-weight:800}
+            .awp-time{font-size:12px;color:#ececec;font-variant-numeric:tabular-nums;margin-left:8px;white-space:nowrap}
+            .awp-flex{flex:1}
+            .awp-sheet{position:absolute;right:10px;bottom:72px;min-width:210px;max-width:80%;max-height:62%;overflow:auto;background:rgba(18,20,25,.97);border:1px solid rgba(255,255,255,.12);border-radius:12px;z-index:4;display:none;box-shadow:0 12px 40px rgba(0,0,0,.5);padding:4px}
+            .awp-sheet.open{display:block}
+            .awp-sh{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#9aa3b2;padding:10px 12px 4px}
+            .awp-sheet button{display:block;width:100%;text-align:left;background:none;border:0;color:#fff;font-size:13.5px;padding:10px 12px;border-radius:8px;cursor:pointer}
+            .awp-sheet button.on{color:#ff8a3d;font-weight:700;background:rgba(232,99,44,.12)}
+            .awp-none{font-size:12.5px;color:#9aa3b2;padding:10px 12px}
+            .aw-online{padding:20px 24px 34px;max-width:1150px;margin:0 auto}
+            .aw-ohead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:4px 0 10px}
+            .aw-ohead .aw-ot{font-size:17px;font-weight:800;color:var(--text,#111)}
+            .aw-ohead .aw-osub{font-size:12.5px;color:var(--dim,#9aa3b2)}
+            .aw-oserver{display:flex;gap:8px;align-items:center;margin:0 0 12px;font-size:12.5px;color:var(--dim,#9aa3b2);flex-wrap:wrap}
+            .aw-oserver input{background:var(--surface,#0f1319);border:1px solid var(--border,#2a3140);color:var(--text,#e8ecf3);border-radius:8px;padding:7px 10px;font-size:12.5px;width:min(280px,60vw)}
+            .aw-oserver button{background:var(--text,#2a3140);border:0;color:var(--bg,#fff);border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:700;cursor:pointer}
+            .aw-ostatus{color:var(--dim,#9aa3b2);padding:20px 4px;font-size:14px;display:flex;align-items:center;gap:10px}
+            .aw-choo{position:fixed;inset:0;z-index:100001;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;padding:20px}
+            .aw-choo-box{background:#161a22;border:1px solid #2a3140;border-radius:14px;max-width:430px;width:100%;padding:20px}
+            .aw-choo-t{font-size:16px;font-weight:800;margin:0 0 4px;color:#fff}
+            .aw-choo-s{font-size:13px;color:#9aa3b2;margin:0 0 14px}
+            .aw-choo-btn{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:#20262f;border:1px solid #2a3140;color:#fff;border-radius:10px;padding:13px 14px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px}
+            .aw-choo-btn small{display:block;font-weight:400;color:#9aa3b2;font-size:12px;margin-top:3px}
+            .aw-choo-btn .em{font-size:22px}
+            .aw-choo-btn.online{background:#e8632c;border-color:#e8632c}
+            .aw-choo-btn.online small{color:#ffe1d1}
+            .aw-choo-x{display:block;width:100%;background:transparent;border:0;color:#9aa3b2;font-size:13.5px;padding:8px;cursor:pointer}
+            .aw-toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:100002;background:#1c212b;border:1px solid #2a3140;color:#fff;border-radius:10px;padding:11px 16px;font-size:13.5px;max-width:min(480px,90vw);box-shadow:0 8px 24px rgba(0,0,0,.5)}
+            button.episode-online.__aw-busy{opacity:.55}
+            .aw-link{background:none;border:0;color:#ff9a5c;font-size:12px;cursor:pointer;text-decoration:underline;padding:0}
+            .aw-dback{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+            .aw-dbanner{margin:0 -16px 12px;overflow:hidden;max-height:120px}
+            .aw-dbanner img{width:100%;height:120px;object-fit:cover;display:block}
+            .aw-dhead{display:flex;gap:12px;margin-bottom:10px}
+            .aw-dposter{width:96px;height:136px;object-fit:cover;border-radius:8px;flex-shrink:0;background:#23262e}
+            .aw-dinfo{min-width:0;flex:1}
+            .aw-dtitle{font-size:17px;font-weight:700;line-height:1.3;margin-bottom:4px}
+            .aw-dscore{color:#ffc44d;font-size:15px;font-weight:700}
+            .aw-dscore10{color:#9aa3b2;font-weight:400;font-size:12px}
+            .aw-dmeta{color:#9aa3b2;font-size:12px;margin-top:2px}
+            .aw-dgenres{color:#c9d1dd;font-size:12px;margin-top:6px;line-height:1.5}
+            .aw-dsyn{font-size:13px;line-height:1.6;color:#d7dce5;max-height:110px;overflow-y:auto;background:#0f1116;border-radius:8px;padding:10px 12px;margin-bottom:8px;white-space:pre-line}
+            .aw-dstudios{font-size:12px;color:#9aa3b2;margin-bottom:2px}
+            .aw-sect{font-size:14px;font-weight:700;margin:14px 0 8px}
+            .aw-hint2{font-size:11px;color:#9aa3b2;margin-top:8px}
+            .spinner{display:inline-block;width:14px;height:14px;border:2px solid #444;border-top-color:#e8632c;border-radius:50%;animation:awspin .7s linear infinite;vertical-align:-2px;margin-right:6px}
+            @keyframes awspin{to{transform:rotate(360deg)}}
+            /* ===== Local video player redesign v2 (Netflix-style polish) ===== */
+            .vlc-player{--lp-orange:#ff7a12;--lp-orange-hi:#ff9a2e}
+            .vlc-player .player-toolbar{display:flex !important;align-items:flex-start !important;justify-content:space-between !important;gap:12px !important;padding:16px 20px !important;background:linear-gradient(rgba(0,0,0,.75),rgba(0,0,0,.35) 62%,transparent) !important;border:0 !important}
+            .vlc-player .player-title{min-width:0 !important;flex:1 1 auto !important}
+            .vlc-player .player-title strong{display:block !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;font-size:16px !important}
+            .vlc-player .player-title small{color:#ffb066 !important;letter-spacing:.14em !important;font-size:10px !important;font-weight:800 !important}
+            .vlc-player .playing-indicator{background:var(--lp-orange) !important}
+            .vlc-player .yt-toolbar-actions{display:flex !important;align-items:center !important;gap:8px !important;flex-shrink:0 !important;margin-left:auto !important}
+            .vlc-player .yt-pill-btn{width:40px !important;height:40px !important;min-width:40px !important;padding:0 !important;border-radius:999px !important;font-size:0 !important;line-height:1 !important;background:rgba(20,20,22,.55) !important;border:1px solid rgba(255,255,255,.16) !important;backdrop-filter:blur(10px) !important;color:#fff !important;display:inline-grid !important;place-items:center !important}
+            .vlc-player .yt-pill-btn::before{font-size:18px !important;line-height:1 !important;color:#fff !important}
+            .vlc-player .yt-pill-btn[aria-label="Miniplayer"]::before{content:"⌄"}
+            .vlc-player .yt-pill-btn[aria-label="Toggle screen fit"]::before{content:"⤢"}
+            .vlc-player .yt-pill-btn[aria-label="Picture in Picture"]::before{content:"⧉"}
+            .vlc-player .yt-pill-btn:hover{background:rgba(255,255,255,.22) !important;border-color:rgba(255,255,255,.35) !important;color:#fff !important}
+            .vlc-player .yt-toolbar-actions>button:last-child{width:40px !important;height:40px !important;border-radius:999px !important;background:rgba(20,20,22,.55) !important;border:1px solid rgba(255,255,255,.16) !important;backdrop-filter:blur(10px) !important;color:#fff !important;display:inline-grid !important;place-items:center !important}
+            .vlc-player .yt-toolbar-actions>button:last-child:hover{background:#e5484d !important;border-color:#e5484d !important;color:#fff !important}
+            .vlc-player .player-control-deck{background:linear-gradient(transparent,rgba(0,0,0,.55) 34%,rgba(0,0,0,.88)) !important;border:0 !important;box-shadow:none !important;padding:10px 20px max(18px,env(safe-area-inset-bottom)) !important;gap:8px !important}
+            .vlc-player .seek-row{grid-template-columns:48px minmax(0,1fr) 48px !important;gap:12px !important;min-height:30px !important}
+            .vlc-player .seek-row span{font-size:12.5px !important;color:#eceef1 !important;font-weight:600 !important}
+            .vlc-player .seek-row input[type="range"]{height:22px !important}
+            .vlc-player .seek-row input[type="range"]::-webkit-slider-runnable-track{height:5px !important;border-radius:999px !important;background:linear-gradient(90deg,var(--lp-orange) 0 var(--seek-progress,0%),rgba(255,255,255,.28) var(--seek-progress,0%) 100%) !important}
+            .vlc-player .seek-row input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none !important;appearance:none !important;width:15px !important;height:15px !important;border-radius:50% !important;background:#fff !important;border:0 !important;margin-top:-5px !important;box-shadow:0 2px 10px rgba(0,0,0,.55) !important;transition:transform .15s ease !important}
+            .vlc-player .seek-row input[type="range"]:hover::-webkit-slider-thumb{transform:scale(1.3) !important}
+            .vlc-player .seek-row input[type="range"]::-moz-range-track{height:5px !important;border-radius:999px !important;background:rgba(255,255,255,.28) !important}
+            .vlc-player .seek-row input[type="range"]::-moz-range-progress{height:5px !important;border-radius:999px !important;background:var(--lp-orange) !important}
+            .vlc-player .seek-row input[type="range"]::-moz-range-thumb{width:15px !important;height:15px !important;border-radius:50% !important;background:#fff !important;border:0 !important;box-shadow:0 2px 10px rgba(0,0,0,.55) !important}
+            .vlc-player .vlc-control-row{display:flex !important;align-items:center !important;gap:6px !important}
+            .vlc-player .transport-controls{display:flex !important;align-items:center !important;gap:2px !important}
+            .vlc-player .transport-controls .play-toggle{width:58px !important;height:58px !important;min-width:58px !important;border-radius:999px !important;background:var(--lp-orange) !important;color:#141414 !important;box-shadow:0 8px 24px rgba(255,122,18,.45) !important;margin:0 6px !important;transition:transform .15s ease,background .15s ease !important}
+            .vlc-player .transport-controls .play-toggle:hover{background:var(--lp-orange-hi) !important;transform:scale(1.06) !important;color:#141414 !important}
+            .vlc-player .transport-controls .play-toggle svg{width:26px !important;height:26px !important}
+            .vlc-player .transport-controls button:not(.play-toggle){width:44px !important;min-width:44px !important;height:44px !important;border-radius:999px !important;background:transparent !important;color:#fff !important;backdrop-filter:none !important;border:0 !important}
+            .vlc-player .transport-controls button:not(.play-toggle):hover:not(:disabled){background:rgba(255,255,255,.14) !important;color:#fff !important}
+            .vlc-player .transport-controls button:not(.play-toggle) svg{width:24px !important;height:24px !important}
+            .vlc-player .transport-controls button:disabled{opacity:.32 !important}
+            .vlc-player .vlc-utilities{display:flex !important;align-items:center !important;gap:2px !important;margin-left:auto !important}
+            .vlc-player .vlc-utilities>button{width:42px !important;min-width:42px !important;height:42px !important;border-radius:999px !important;background:transparent !important;color:#fff !important;backdrop-filter:none !important;border:0 !important}
+            .vlc-player .vlc-utilities>button:hover{background:rgba(255,255,255,.14) !important;color:#fff !important}
+            .vlc-player .vlc-utilities>button.active{background:var(--lp-orange) !important;color:#141414 !important}
+            .vlc-player .vlc-utilities>button.active svg{color:#141414 !important}
+            .vlc-player .volume-control{display:flex !important;align-items:center !important;gap:0 !important;width:auto !important;border:0 !important;padding:0 !important}
+            .vlc-player .volume-control button{width:42px !important;min-width:42px !important;height:42px !important;border-radius:999px !important;background:transparent !important;color:#fff !important}
+            .vlc-player .volume-control button:hover{background:rgba(255,255,255,.14) !important;color:#fff !important}
+            .vlc-player .volume-control input[type="range"]{display:block !important;width:76px !important;height:22px !important;margin:0 4px 0 0 !important;cursor:pointer !important;-webkit-appearance:none !important;appearance:none !important;background:transparent !important}
+            .vlc-player .volume-control input[type="range"]::-webkit-slider-runnable-track{height:4px !important;border-radius:999px !important;background:rgba(255,255,255,.30) !important}
+            .vlc-player .volume-control input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none !important;appearance:none !important;width:12px !important;height:12px !important;border-radius:50% !important;background:var(--lp-orange) !important;border:0 !important;margin-top:-4px !important;box-shadow:0 1px 6px rgba(0,0,0,.5) !important}
+            .vlc-player .volume-control input[type="range"]::-moz-range-track{height:4px !important;border-radius:999px !important;background:rgba(255,255,255,.30) !important}
+            .vlc-player .volume-control input[type="range"]::-moz-range-thumb{width:12px !important;height:12px !important;border-radius:50% !important;background:var(--lp-orange) !important;border:0 !important}
+            .vlc-player .stage-play{width:84px !important;height:84px !important;border-radius:999px !important;background:rgba(255,122,18,.94) !important;color:#141414 !important;border:0 !important;box-shadow:0 12px 34px rgba(0,0,0,.5) !important;transition:transform .16s ease !important}
+            .vlc-player .stage-play:hover{transform:scale(1.07) !important}
+            .vlc-player .stage-play svg{width:36px !important;height:36px !important;color:#141414 !important}
+            .vlc-player .track-options{background:rgba(14,15,18,.97) !important;backdrop-filter:blur(16px) !important;border:1px solid rgba(255,255,255,.10) !important;border-radius:18px !important;padding:20px !important;gap:16px !important;box-shadow:0 22px 60px rgba(0,0,0,.6) !important}
+            .vlc-player .track-options>label{display:grid !important;gap:8px !important}
+            .vlc-player .track-options label>span{display:flex !important;align-items:center !important;gap:8px !important;justify-content:flex-start !important;font-size:12.5px !important;font-weight:700 !important;color:#dfe3e8 !important}
+            .vlc-player .track-options label>span output{margin-left:auto !important;color:var(--lp-orange) !important;font-weight:800 !important}
+            .vlc-player .track-options label>span small{color:#8b9097 !important;font-weight:500 !important}
+            .vlc-player .track-options select{background:#22252b !important;border:1px solid rgba(255,255,255,.14) !important;border-radius:10px !important;color:#fff !important;font-size:13.5px !important;padding:10px 12px !important;width:100% !important;outline:none !important}
+            .vlc-player .track-options select:focus{border-color:var(--lp-orange) !important}
+            .vlc-player .track-options .load-subtitle{border:1px solid rgba(255,255,255,.18) !important;border-radius:10px !important;color:#fff !important;font-size:13px !important;font-weight:700 !important;padding:10px 14px !important;display:inline-flex !important;align-items:center !important;gap:8px !important;justify-content:center !important;background:rgba(255,255,255,.06) !important}
+            .vlc-player .track-options .load-subtitle:hover{background:var(--lp-orange) !important;border-color:var(--lp-orange) !important;color:#141414 !important}
+            .vlc-player .picture-control input[type="range"]{height:22px !important}
+            .vlc-player .picture-control input[type="range"]::-webkit-slider-runnable-track{height:4px !important;border-radius:999px !important;background:rgba(255,255,255,.25) !important}
+            .vlc-player .picture-control input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none !important;appearance:none !important;width:13px !important;height:13px !important;border-radius:50% !important;background:var(--lp-orange) !important;margin-top:-4.5px !important;border:0 !important}
+            .vlc-player .picture-control input[type="range"]::-moz-range-track{height:4px !important;border-radius:999px !important;background:rgba(255,255,255,.25) !important}
+            .vlc-player .picture-control input[type="range"]::-moz-range-thumb{width:13px !important;height:13px !important;border-radius:50% !important;background:var(--lp-orange) !important;border:0 !important}
+            .vlc-player .player-queue{background:rgba(12,13,16,.98) !important;backdrop-filter:blur(16px) !important;border-left:1px solid rgba(255,255,255,.08) !important}
+            .vlc-player .queue-head{padding:14px 16px !important;border-bottom:1px solid rgba(255,255,255,.08) !important;font-size:14px !important;font-weight:800 !important}
+            .vlc-player .queue-list>button{border-radius:10px !important;margin:2px 8px !important}
+            .vlc-player .queue-list>button.active{background:rgba(255,122,18,.14) !important;box-shadow:inset 3px 0 0 var(--lp-orange) !important}
+            .vlc-player .gesture-feedback{background:rgba(10,10,12,.82) !important;backdrop-filter:blur(8px) !important;border-radius:14px !important;border:1px solid rgba(255,255,255,.10) !important}
+            @media (max-width:640px){
+              .vlc-player .player-control-deck{padding:8px 12px max(14px,env(safe-area-inset-bottom)) !important;grid-template-columns:minmax(0,1fr) !important}
+              .vlc-player .player-control-deck>*{min-width:0 !important;max-width:100% !important}
+              .vlc-player .seek-row{grid-template-columns:44px minmax(0,1fr) 44px !important;gap:8px !important}
+              .vlc-player .seek-row input[type="range"]{min-width:0 !important}
+              .vlc-player .vlc-control-row{gap:4px !important}
+              .vlc-player .transport-controls{flex:1 1 auto !important;min-width:0 !important;gap:0 !important}
+              .vlc-player .transport-controls .play-toggle{width:50px !important;height:50px !important;min-width:50px !important;margin:0 4px !important}
+              .vlc-player .transport-controls .play-toggle svg{width:22px !important;height:22px !important}
+              .vlc-player .transport-controls button:not(.play-toggle){width:36px !important;min-width:36px !important;height:36px !important}
+              .vlc-player .transport-controls button:not(.play-toggle) svg{width:20px !important;height:20px !important}
+              .vlc-player .vlc-utilities{flex:0 0 auto !important;gap:0 !important;margin-left:auto !important}
+              .vlc-player .vlc-utilities>button{width:38px !important;min-width:38px !important;height:38px !important}
+              .vlc-player .volume-control button{width:38px !important;min-width:38px !important;height:38px !important}
+              .vlc-player .volume-control input[type="range"]{display:none !important}
+              .vlc-player .track-options{grid-template-columns:1fr 1fr !important;gap:14px !important;padding:16px !important}
+              .vlc-player .track-options .picture-control{grid-column:1/-1 !important}
+              .vlc-player .track-options .load-subtitle{grid-column:1/-1 !important;width:100% !important}
+              .vlc-player .stage-play{width:72px !important;height:72px !important}
+              .vlc-player .yt-pill-btn{width:36px !important;height:36px !important;min-width:36px !important}
+              .vlc-player .yt-toolbar-actions>button:last-child{width:36px !important;height:36px !important}
+            }
           </style></head>`;
 
           html = html.replace("</head>", customUiCss);
+
+          // Inline hls.js so online anime (HLS) plays with no runtime CDN dependency
+          try {
+            var hlsBundle = fs.readFileSync("hls.min.js", "utf8").replace(/<\/script/gi, "<\\/script");
+            html = html.replace("</head>", "<script>" + hlsBundle + "</script></head>");
+          } catch (e) { console.log("hls.min.js not found - online anime playback disabled"); }
 
           const localRuntime = `<script data-hatch-cvm-bundle="">
           (function() {
@@ -2087,13 +2306,18 @@ jobs:
               }
 
               if (action === "getOnlineAvailability") {
-                var eq = encodeURIComponent(args.title || "");
+                // Anime SUB/DUB streaming via the Media Player backend API.
+                // Returns one "Watch now" row; clicks are intercepted and open
+                // the in-app anime player (search -> episodes -> HLS + audio switch).
+                var colA = db.collections.find(function(c) { return Number(c.id) === Number(args.collectionId); });
+                var cleanTitle = colA ? colA.title : (args.title || "");
+                var epNum = 0;
+                var mEp = String(args.itemKey || "").match(/episode-\d+-(\d+)/);
+                if (mEp) epNum = parseInt(mEp[1], 10);
                 return {
                   checkedAt: new Date().toISOString(),
                   providers: [
-                    { name: "Crunchyroll", url: "https://www.crunchyroll.com/search?q=" + eq, languages: ["Japanese (Sub)", "English (Dub)"] },
-                    { name: "Netflix", url: "https://www.netflix.com/search?q=" + eq, languages: ["Japanese", "English"] },
-                    { name: "YouTube", url: "https://www.youtube.com/results?search_query=" + eq, languages: ["Multiple"] }
+                    { name: "▶ Watch now", url: "#anime-watch:" + encodeURIComponent(cleanTitle) + ":" + epNum, languages: ["Japanese (Sub)", "English (Dub)"] }
                   ]
                 };
               }
@@ -2191,6 +2415,764 @@ jobs:
               _importMeta: { url: location.href },
               _state: { port: null, inFlight: 0, blobCacheSize: 0, blobStats: {} }
             };
+            /* ===== Anime SUB/DUB watch via streaming API backend ===== */
+            (function () {
+              'use strict';
+              var BASE_KEY = '__anime_api_base_v1';
+              function apiBase() {
+                try { return (localStorage.getItem(BASE_KEY) || 'http://localhost:4000').replace(/\\/+$/, ''); }
+                catch (e) { return 'http://localhost:4000'; }
+              }
+              function setApiBase(v) {
+                try { localStorage.setItem(BASE_KEY, String(v || '').replace(/\\/+$/, '')); } catch (e) {}
+              }
+              function apiGet(path) {
+                var base = apiBase();
+                return fetch(base + path).then(function (r) {
+                  if (!r.ok) throw new Error('Server returned HTTP ' + r.status);
+                  return r.json();
+                }, function () { throw new Error('Cannot reach the server at ' + base); });
+              }
+              function esc(s) {
+                return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+                  return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+                });
+              }
+              function errBox(msg) {
+                return '<div class="aw-err"><b>Could not reach the streaming server.</b><br>' + esc(msg) +
+                  '<br><br>Start the Media Player backend on your computer (port 4000) and set the server address above. ' +
+                  'On your phone use your computer\\u2019s Wi-Fi IP, e.g. http://192.168.1.10:4000</div>';
+              }
+
+              /* Intercept taps on the "Watch now" provider row in the Watch-online modal. */
+
+              /* v4: native episode-card globe button -> play that exact episode online, dub, no search UI. */
+              function awToast(msg) {
+                var old = document.getElementById('awToast');
+                if (old) old.remove();
+                var d = document.createElement('div');
+                d.className = 'aw-toast'; d.id = 'awToast';
+                d.textContent = msg;
+                document.body.appendChild(d);
+                setTimeout(function () { if (d.parentNode) d.parentNode.removeChild(d); }, 4200);
+              }
+              function titleMatchesSeason(title, season) {
+                var t = ' ' + String(title).toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\\s+/g, ' ').trim() + ' ';
+                var romans = { 2: 'ii', 3: 'iii', 4: 'iv', 5: 'v', 6: 'vi' };
+                var pats = [' season ' + season + ' ', ' s' + season + ' '];
+                pats.push(' ' + season + ' ');
+                if (romans[season]) pats.push(' ' + romans[season] + ' ');
+                return pats.some(function (p) { return t.indexOf(p) >= 0; });
+              }
+              function pickSeasonEntry(results, season) {
+                if (!results || !results.length) return null;
+                function better(a, b) { return ((b.hasDub ? 1 : 0) - (a.hasDub ? 1 : 0)) || ((b.subbed || 0) - (a.subbed || 0)); }
+                if (season >= 2) {
+                  var c = results.filter(function (r) { return titleMatchesSeason(r.title, season); }).sort(better);
+                  return c[0] || null;
+                }
+                var explicit = results.filter(function (r) { return titleMatchesSeason(r.title, 1); }).sort(better);
+                if (explicit.length) return explicit[0];
+                var unmarked = results.filter(function (r) {
+                  for (var s = 2; s <= 9; s++) if (titleMatchesSeason(r.title, s)) return false;
+                  return true;
+                });
+                if (unmarked.length) return unmarked[0];
+                return results.slice().sort(better)[0] || null;
+              }
+              function autoPlaySeasonEpisode(title, season, ep) {
+                apiGet('/api/anime/search?q=' + encodeURIComponent(title)).then(function (d) {
+                  var pick = pickSeasonEntry((d && d.results) || [], season);
+                  if (!pick) { awToast('No online match for ' + title + ' season ' + season); return; }
+                  apiGet('/api/anime/detail?animeId=' + encodeURIComponent(pick.animeId) + '&enrich=0').then(function (dd) {
+                    var eps = (dd && dd.episodes) || [];
+                    openAnimeWatchShell(pick.title);
+                    playEpisode(pick, dd.anilistId, ep, eps, { preferDub: true });
+                  }, function (err) { awToast('Could not load episodes: ' + (err.message || 'network error')); });
+                }, function (err) { awToast('Online search failed: ' + (err.message || 'network error')); });
+              }
+              document.addEventListener('click', function (e) {
+                var btn = e.target && e.target.closest ? e.target.closest('button.episode-online') : null;
+                if (!btn) return;
+                e.preventDefault();
+                e.stopPropagation();
+                if (btn.__awBusy) return;
+                var epM = (btn.getAttribute('aria-label') || '').match(/episode\\s+(\\d+)/i);
+                var ep = epM ? parseInt(epM[1], 10) : 0;
+                var panel = btn.closest('.episode-panel');
+                var h3 = panel ? panel.querySelector('.episode-panel-heading h3') : null;
+                var sM = h3 ? (h3.textContent || '').match(/season\\s+(\\d+)/i) : null;
+                var season = sM ? parseInt(sM[1], 10) : 1;
+                var h1 = document.querySelector('main.detail-view h1');
+                var title = h1 ? h1.textContent.trim() : '';
+                if (!ep || !title) { awToast('Could not tell which episode this is.'); return; }
+                btn.__awBusy = true;
+                btn.classList.add('__aw-busy');
+                try { autoPlaySeasonEpisode(title, season, ep); }
+                finally { setTimeout(function () { btn.__awBusy = false; btn.classList.remove('__aw-busy'); }, 8000); }
+              }, true);
+              document.addEventListener('click', function (e) {
+                var t = e.target;
+                var a = t && t.closest ? t.closest('.online-provider-list a[href^="#anime-watch:"]') : null;
+                if (!a) return;
+                e.preventDefault();
+                e.stopPropagation();
+                var rest = a.getAttribute('href').slice('#anime-watch:'.length);
+                var ci = rest.lastIndexOf(':');
+                var title = decodeURIComponent(rest.slice(0, ci));
+                var ep = parseInt(rest.slice(ci + 1), 10) || 0;
+                autoPlayOnline(title, ep);
+              }, true);
+              // Delete confirmation: the library detail view deletes immediately
+              // on tap — ask first.
+              document.addEventListener('click', function (e) {
+                var btn = e.target && e.target.closest ? e.target.closest('button.ghost-danger') : null;
+                if (!btn || btn.__awDelOk) return;
+                e.preventDefault();
+                e.stopPropagation();
+                var label = btn.getAttribute('aria-label') || '';
+                var dTitle = label.replace(/^Delete\\s+/i, '').trim() || 'this title';
+                openAwDeleteConfirm(dTitle, function (ok) {
+                  if (!ok) return;
+                  btn.__awDelOk = true;
+                  try { btn.click(); } finally { setTimeout(function () { btn.__awDelOk = false; }, 2000); }
+                });
+              }, true);
+              function closeAwDeleteConfirm() {
+                var w = document.getElementById('awDelCf');
+                if (w && w.parentNode) w.parentNode.removeChild(w);
+              }
+              function openAwDeleteConfirm(dTitle, cb) {
+                closeAwDeleteConfirm();
+                var w = document.createElement('div');
+                w.className = 'aw-delcf';
+                w.id = 'awDelCf';
+                w.innerHTML = '<div class="aw-delbox" role="alertdialog" aria-modal="true" aria-label="Confirm delete">' +
+                  '<div class="aw-delt">Delete from library?</div>' +
+                  '<div class="aw-delm">Remove &ldquo;' + esc(dTitle) + '&rdquo; and all its seasons and episodes? This can&rsquo;t be undone.</div>' +
+                  '<div class="aw-delbtns"><button type="button" class="aw-delcancel" id="awDelNo">Cancel</button>' +
+                  '<button type="button" class="aw-delyes" id="awDelYes">Delete</button></div></div>';
+                document.body.appendChild(w);
+                var done = function (ok) { closeAwDeleteConfirm(); cb(ok); };
+                w.querySelector('#awDelNo').onclick = function () { done(false); };
+                w.querySelector('#awDelYes').onclick = function () { done(true); };
+                w.addEventListener('click', function (ev) { if (ev.target === w) done(false); });
+                var escH = function (ev) { if (ev.key === 'Escape') { done(false); document.removeEventListener('keydown', escH); } };
+                document.addEventListener('keydown', escH);
+              }
+
+              var overlay = null;
+              var playerHls = null;
+              var lastResults = [], lastQuery = '', lastAnime = null;
+              function destroyPlayer() {
+                if (playerHls) { try { playerHls.destroy(); } catch (e) {} playerHls = null; }
+              }
+              function closeAnimeWatch() {
+                destroyPlayer();
+                if (overlay) { overlay.remove(); overlay = null; }
+              }
+              window.__openAnimeWatch = openAnimeWatch;
+
+              function body() { return overlay && overlay.querySelector('#awBody'); }
+              function setStatus(html) {
+                var b = body();
+                if (b) b.innerHTML = '<div class="aw-status">' + html + '</div>';
+              }
+
+              function openAnimeWatchShell(title) {
+                closeAnimeWatch();
+                overlay = document.createElement('div');
+                overlay.className = 'aw-overlay';
+                overlay.innerHTML =
+                  '<div class="aw-modal">' +
+                    '<div class="aw-head">' +
+                      '<div><p class="aw-eyebrow">Watch online &middot; SUB/DUB</p>' +
+                      '<h2 class="aw-title">' + esc(title || 'Search anime') + '</h2></div>' +
+                      '<button class="aw-x" id="awClose" aria-label="Close">&#10005;</button>' +
+                    '</div>' +
+                    '<div class="aw-server"><input id="awServer" value="' + esc(apiBase()) + '" spellcheck="false" />' +
+                    '<button id="awServerSave" type="button">Use server</button></div>' +
+                    '<div class="aw-hint">Server = the computer running the Media Player backend (port 4000).</div>' +
+                    '<div class="aw-search"><input id="awQ" value="' + esc(title) + '" />' +
+                    '<button id="awGo" type="button">Search</button></div>' +
+                    '<div class="aw-body" id="awBody"></div>' +
+                  '</div>';
+                document.body.appendChild(overlay);
+                overlay.querySelector('#awClose').onclick = closeAnimeWatch;
+                overlay.addEventListener('click', function (e) { if (e.target === overlay) closeAnimeWatch(); });
+                var doGo = function () {
+                  var q = overlay.querySelector('#awQ').value.trim();
+                  setApiBase(overlay.querySelector('#awServer').value.trim());
+                  if (q) searchAnime(q, 0);
+                };
+                overlay.querySelector('#awGo').onclick = doGo;
+                overlay.querySelector('#awQ').addEventListener('keydown', function (e) { if (e.key === 'Enter') doGo(); });
+                overlay.querySelector('#awServerSave').onclick = function () {
+                  setApiBase(overlay.querySelector('#awServer').value.trim());
+                  overlay.querySelector('#awServer').value = apiBase();
+                };
+              }
+              function openAnimeWatch(title, initialEp) {
+                openAnimeWatchShell(title);
+                if (title) searchAnime(title, initialEp || 0);
+                else setStatus('Type an anime name above and hit Search.');
+              }
+
+              function searchAnime(q, initialEp) {
+                setStatus('<span class="spinner"></span>Searching\\u2026');
+                apiGet('/api/anime/search?q=' + encodeURIComponent(q)).then(function (d) {
+                  lastResults = (d && d.results) || [];
+                  lastQuery = q;
+                  if (!lastResults.length) {
+                    setStatus('No anime found for \\u201C' + esc(q) + '\\u201D. Try the exact Japanese or English title.');
+                    return;
+                  }
+                  renderResultCards(lastResults, initialEp);
+                }, function (err) { setStatus(errBox(err.message)); });
+              }
+
+              function renderResultCards(res, initialEp) {
+                var b = body();
+                if (!b) return;
+                b.innerHTML = '<div class="aw-grid">' + res.map(function (r, i) {
+                  return '<button type="button" class="aw-card" data-i="' + i + '">' +
+                    (r.image ? '<img loading="lazy" src="' + esc(r.image) + '" alt="" />' : '<div class="aw-noimg">\\u{1F3AC}</div>') +
+                    '<div class="aw-card-t">' + esc(r.title) + '</div>' +
+                    '<div class="aw-badges">' +
+                      (r.subbed ? '<span class="aw-badge sub">SUB</span>' : '') +
+                      (r.hasDub ? '<span class="aw-badge dub">DUB</span>' : '') +
+                    '</div></button>';
+                }).join('') + '</div>';
+                Array.prototype.forEach.call(b.querySelectorAll('.aw-card'), function (card) {
+                  card.onclick = function () { showDetail(res[+card.getAttribute('data-i')], initialEp); };
+                });
+              }
+
+              function showDetail(anime, initialEp) {
+                lastAnime = anime;
+                setStatus('<span class="spinner"></span>Loading details\\u2026');
+                apiGet('/api/anime/detail?animeId=' + encodeURIComponent(anime.animeId)).then(function (d) {
+                  var eps = (d && d.episodes) || [];
+                  var info = (d && d.info) || {};
+                  var em = (d && d.meta) || null;
+                  var emT = {};
+                  ((em && em.episodes) || []).forEach(function (x) { if (x.title) emT[x.n] = x.title; });
+                  var b = body();
+                  if (!b) return;
+                  var score = info.averageScore != null ? info.averageScore : info.meanScore;
+                  if (score == null && em && em.rating != null) score = em.rating * 10;
+                  var scoreTxt = score != null ? (Math.round(score) / 10).toFixed(1) : null;
+                  var syn = info.description || (em && em.synopsis) || '';
+                  var revHtml = '';
+                  if (em && em.reviews && em.reviews.length) {
+                    revHtml = '<div class="aw-sect">Reviews</div><div class="aw-reviews">' + em.reviews.map(function (r) {
+                      return '<div class="aw-review"><div class="aw-review-h"><span class="aw-review-a">' + esc(r.author || 'User') + '</span>' +
+                        (r.rating != null ? '<span class="aw-review-r">' + '\\u2605 ' + esc(String(r.rating)) + '/10</span>' : '') + '</div>' +
+                        (r.text ? '<div class="aw-review-t">' + esc(r.text) + '</div>' : '') + '</div>';
+                    }).join('') + '</div>';
+                  }
+                  var meta = [info.year, info.format, info.status, info.duration ? info.duration + ' min/ep' : null].filter(Boolean).join(' \\u00B7 ');
+                  var genresArr = (info.genres && info.genres.length) ? info.genres : ((em && em.genres) || []);
+                  var genres = genresArr.join(' \\u00B7 ');
+                  var html = '<div class="aw-dback"><button type="button" class="aw-back" id="awBack">\\u2039 Results</button>' +
+                    '<span class="aw-count">' + eps.length + ' episodes</span></div>' +
+                    (info.banner ? '<div class="aw-dbanner"><img loading="lazy" src="' + esc(info.banner) + '" alt="" /></div>' : '') +
+                    '<div class="aw-dhead">' +
+                    ((info.image || anime.image) ? '<img class="aw-dposter" src="' + esc(info.image || anime.image) + '" alt="" />' : '') +
+                    '<div class="aw-dinfo">' +
+                    '<div class="aw-dtitle">' + esc(info.title || anime.title) + '</div>' +
+                    (scoreTxt ? '<div class="aw-dscore">\\u2605 ' + esc(scoreTxt) + '<span class="aw-dscore10">/10</span></div>' : '') +
+                    (meta ? '<div class="aw-dmeta">' + esc(meta) + '</div>' : '') +
+                    '<div class="aw-badges">' +
+                    '<span class="aw-badge sub">SUB' + (info.subbed ? ' ' + info.subbed + ' EP' : '') + '</span>' +
+                    ((info.hasDub || anime.hasDub) ? '<span class="aw-badge dub">DUB' + (info.dubbed ? ' ' + info.dubbed + ' EP' : '') + '</span>' : '') +
+                    '</div>' +
+                    (genres ? '<div class="aw-dgenres">' + esc(genres) + '</div>' : '') +
+                    '</div></div>' +
+                    (syn ? '<div class="aw-dsyn">' + esc(syn) + '</div>' : '') +
+                    ((info.studios && info.studios.length) ? '<div class="aw-dstudios">Studio: ' + esc(info.studios.join(', ')) + '</div>' : '') +
+                    (info.ageRating ? '<div class="aw-dstudios">Rated: ' + esc(info.ageRating) + '</div>' : '') +
+                    revHtml +
+                    '<div class="aw-sect">Watch order</div>' +
+                    (eps.length ? '<div class="aw-eps">' + eps.map(function (e) {
+                      var n = e.number;
+                      var n = e.number;
+                      var et = emT[n] || e.title || '';
+                      return '<button type="button" class="aw-ep' + (n === initialEp ? ' aw-ep-cur' : '') + '" data-ep="' + n + '" title="' + esc(et) + '">' + 'EP ' + n + (et ? '<span class="aw-ep-t">' + esc(et) + '</span>' : '') + '</button>';
+                    }).join('') + '</div><div class="aw-hint2">Tap an episode \\u2014 it plays online with English dub.</div>'
+                    : '<div class="aw-status">No episodes found for this title.</div>');
+                  b.innerHTML = html;
+                  b.querySelector('#awBack').onclick = function () {
+                    if (lastQuery) searchAnime(lastQuery, 0);
+                    else if (lastResults.length) renderResultCards(lastResults, 0);
+                    else closeAnimeWatch();
+                  };
+                  Array.prototype.forEach.call(b.querySelectorAll('.aw-ep'), function (btn) {
+                    btn.onclick = function () { openEpisodeChooser(anime, d.anilistId, +btn.getAttribute('data-ep'), eps); };
+                  });
+                }, function (err) { setStatus(errBox(err.message)); });
+              }
+
+              function autoPlayOnline(title, ep) {
+                openAnimeWatchShell(title);
+                var qi = overlay.querySelector('#awQ');
+                if (qi) qi.value = title || '';
+                setStatus('<span class="spinner"></span>Searching for \\u201C' + esc(title) + '\\u201D\\u2026');
+                apiGet('/api/anime/search?q=' + encodeURIComponent(title)).then(function (d) {
+                  var res = (d && d.results) || [];
+                  lastResults = res; lastQuery = title;
+                  if (!res.length) { setStatus(errBox('No anime found for \\u201C' + title + '\\u201D.')); return; }
+                  var pick = res[0];
+                  var b = body();
+                  if (!b) return;
+                  b.innerHTML = '<div class="aw-status"><span class="spinner"></span>Found <b>' + esc(pick.title) + '</b> \\u2014 loading episodes\\u2026 ' +
+                    '<button type="button" class="aw-link" id="awWrong">Wrong title? pick another</button></div>';
+                  b.querySelector('#awWrong').onclick = function () { renderResultCards(res, ep || 0); };
+                  apiGet('/api/anime/detail?animeId=' + encodeURIComponent(pick.animeId) + '&enrich=0').then(function (dd) {
+                    var eps = (dd && dd.episodes) || [];
+                    var want = ep || 1, target = null, i;
+                    for (i = 0; i < eps.length; i++) if (eps[i].number === want) target = eps[i].number;
+                    if (target == null && eps.length) target = eps[0].number;
+                    if (target == null) { setStatus(errBox('No episodes found for ' + pick.title + '.')); return; }
+                    playEpisode(pick, dd.anilistId, target, eps, { preferDub: true });
+                  }, function (err) { setStatus(errBox(err.message)); });
+                }, function (err) { setStatus(errBox(err.message)); });
+              }
+
+              function playEpisode(anime, anilistId, ep, episodes, opts) {
+                var b = body();
+                if (!b) return;
+                destroyPlayer();
+                b.innerHTML = '<div class="aw-player">' +
+                  '<div class="aw-status"><span class="spinner"></span>Resolving EP ' + ep + '\\u2026 (can take ~30 seconds)</div>' +
+                  '<button type="button" class="aw-back" id="awBack2">\\u2039 Episodes</button></div>';
+                b.querySelector('#awBack2').onclick = function () { showDetail(anime, ep); };
+                apiGet('/api/anime/watch?animeId=' + encodeURIComponent(anime.animeId) +
+                  '&anilistId=' + anilistId + '&ep=' + ep).then(function (w) {
+                    renderPlayer(anime, anilistId, ep, episodes, w, opts);
+                  }, function (err) {
+                    var b2 = body();
+                    if (!b2) return;
+                    b2.innerHTML = '<div class="aw-player"><div class="aw-err"><b>Stream unavailable for EP ' + ep + '.</b><br>' +
+                      esc(err.message) + '<br><br>Try another episode or title.</div>' +
+                      '<button type="button" class="aw-back" id="awBack3">\\u2039 Episodes</button></div>';
+                    b2.querySelector('#awBack3').onclick = function () { showDetail(anime, ep); };
+                  });
+              }
+
+              function audioLabel(audioDefs, lang) {
+                var q = String(lang || '').toLowerCase();
+                for (var i = 0; i < audioDefs.length; i++) {
+                  var a = String(audioDefs[i].lang || '').toLowerCase();
+                  if (a && q && (a === q || a.indexOf(q.slice(0, 2)) === 0 || q.indexOf(a.slice(0, 2)) === 0)) {
+                    if (/eng/.test(a)) return 'English (Dub)';
+                    if (/jpn|jap/.test(a)) return 'Japanese (Sub)';
+                    return audioDefs[i].label || a;
+                  }
+                }
+                return q || 'Audio';
+              }
+
+              function renderPlayer(anime, anilistId, ep, episodes, w, opts) {
+                var b = body();
+                if (!b) return;
+                var base = apiBase();
+                destroyPlayer();
+                b.innerHTML = '<div class=\"awp showui\" id=\"awp\">' +
+                  '<video class=\"awp-video\" playsinline crossorigin=\"anonymous\" preload=\"auto\"></video>' +
+                  '<div class=\"awp-top\">' +
+                    '<button type=\"button\" class=\"awp-tbtn\" id=\"awpBack\">‹ Episodes</button>' +
+                    '<div class=\"awp-title\">' + esc(anime.title) + ' · EP ' + ep + '</div>' +
+                    '<div class=\"awp-topnav\">' +
+                      '<button type=\"button\" class=\"awp-tbtn\" id=\"awpPrev\"' + (ep <= 1 ? ' disabled' : '') + '>‹ Prev</button>' +
+                      '<button type=\"button\" class=\"awp-tbtn\" id=\"awpNext\">Next ›</button>' +
+                    '</div>' +
+                  '</div>' +
+                  '<div class=\"awp-center\">' +
+                    '<div class=\"awp-spin\" id=\"awpSpin\"></div>' +
+                    '<button type=\"button\" class=\"awp-big\" id=\"awpBig\" aria-label=\"Play or pause\">▶</button>' +
+                    '<div class=\"awp-err\" id=\"awpErr\"></div>' +
+                  '</div>' +
+                  '<div class=\"awp-bot\">' +
+                    '<div class=\"awp-prog\" id=\"awpProg\"><div class=\"awp-track\"></div><div class=\"awp-buf\" id=\"awpBuf\"></div><div class=\"awp-fill\" id=\"awpFill\"></div><div class=\"awp-knob\" id=\"awpKnob\"></div></div>' +
+                    '<div class=\"awp-row\">' +
+                      '<button type=\"button\" class=\"awp-btn\" id=\"awpPlay\" aria-label=\"Play or pause\">⏸</button>' +
+                      '<button type=\"button\" class=\"awp-btn\" id=\"awpRw\" aria-label=\"Back 10 seconds\"><span class=\"awp-sk\">↺<i>10</i></span></button>' +
+                      '<button type=\"button\" class=\"awp-btn\" id=\"awpFf\" aria-label=\"Forward 10 seconds\"><span class=\"awp-sk\">↻<i>10</i></span></button>' +
+                      '<span class=\"awp-time\"><span id=\"awpCur\">0:00</span> / <span id=\"awpDur\">0:00</span></span>' +
+                      '<span class=\"awp-flex\"></span>' +
+                      '<button type=\"button\" class=\"awp-btn\" id=\"awpAud\" aria-label=\"Audio track\">🎧</button>' +
+                      '<button type=\"button\" class=\"awp-btn\" id=\"awpSub\" aria-label=\"Subtitles\">CC</button>' +
+                      '<button type=\"button\" class=\"awp-btn awp-rate\" id=\"awpRate\" aria-label=\"Playback speed\">1×</button>' +
+                      '<button type=\"button\" class=\"awp-btn\" id=\"awpFs\" aria-label=\"Fullscreen\">⛶</button>' +
+                    '</div>' +
+                  '</div>' +
+                  '<div class=\"awp-sheet\" id=\"awpAudSheet\"><div class=\"awp-sh\">Audio</div><div id=\"awpAudList\"></div></div>' +
+                  '<div class=\"awp-sheet\" id=\"awpSubSheet\"><div class=\"awp-sh\">Subtitles</div><div id=\"awpSubList\"></div></div>' +
+                '</div>';
+                var root = b.querySelector('#awp');
+                var video = root.querySelector('.awp-video');
+                opts = opts || {};
+                var dubApplied = false;
+                function engTrackIdx(trs) {
+                  for (var ei = 0; ei < trs.length; ei++) {
+                    var tl = String(trs[ei].lang || trs[ei].name || '').toLowerCase();
+                    if (/eng/.test(tl)) return ei;
+                  }
+                  return -1;
+                }
+                var errBox = root.querySelector('#awpErr');
+                var audioDefs = w.audioTracks || [];
+                (w.subtitles || []).forEach(function (s) {
+                  var tr = document.createElement('track');
+                  tr.kind = 'subtitles';
+                  tr.label = s.label || 'English';
+                  tr.srclang = s.lang || 'en';
+                  tr.src = base + s.url;
+                  if (/english/i.test(tr.label)) tr.default = true;
+                  video.appendChild(tr);
+                });
+                var src = base + w.stream;
+                function fmt(t) {
+                  t = Math.max(0, Math.floor(t || 0));
+                  var h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), s = t % 60;
+                  var mm = (h && m < 10) ? '0' + m : '' + m, ss = s < 10 ? '0' + s : '' + s;
+                  return (h ? h + ':' + mm : mm) + ':' + ss;
+                }
+                var playBtn = root.querySelector('#awpPlay'), bigBtn = root.querySelector('#awpBig'),
+                  spin = root.querySelector('#awpSpin'), prog = root.querySelector('#awpProg'),
+                  fill = root.querySelector('#awpFill'), bufEl = root.querySelector('#awpBuf'),
+                  knob = root.querySelector('#awpKnob'), curEl = root.querySelector('#awpCur'),
+                  durEl = root.querySelector('#awpDur');
+                function togglePlay() { if (video.paused) { video.play(); } else { video.pause(); } }
+                function poke() {
+                  clearTimeout(root.__ht);
+                  root.__ht = setTimeout(function () {
+                    if (!video.paused && !root.__scrub) root.classList.remove('showui');
+                  }, 3200);
+                }
+                function showUI() { root.classList.add('showui'); poke(); }
+                function toggleUI() {
+                  if (root.classList.contains('showui')) { clearTimeout(root.__ht); root.classList.remove('showui'); }
+                  else showUI();
+                }
+                function closeSheets() {
+                  var sh = root.querySelectorAll('.awp-sheet');
+                  for (var i = 0; i < sh.length; i++) sh[i].classList.remove('open');
+                }
+                function toggleSheet(el) {
+                  var was = el.classList.contains('open');
+                  closeSheets();
+                  if (!was) el.classList.add('open');
+                }
+                video.addEventListener('click', function () { closeSheets(); toggleUI(); });
+                root.addEventListener('pointermove', function () { if (!video.paused) showUI(); });
+                playBtn.onclick = function (e) { if (e) e.stopPropagation(); togglePlay(); };
+                bigBtn.onclick = function (e) { if (e) e.stopPropagation(); togglePlay(); };
+                video.addEventListener('play', function () { playBtn.textContent = '⏸'; bigBtn.style.display = 'none'; poke(); });
+                video.addEventListener('pause', function () { playBtn.textContent = '▶'; bigBtn.style.display = ''; clearTimeout(root.__ht); root.classList.add('showui'); });
+                video.addEventListener('waiting', function () { spin.style.display = 'block'; });
+                video.addEventListener('playing', function () { spin.style.display = 'none'; });
+                video.addEventListener('canplay', function () { spin.style.display = 'none'; });
+                video.addEventListener('loadedmetadata', function () { durEl.textContent = fmt(video.duration); });
+                video.addEventListener('durationchange', function () { durEl.textContent = fmt(video.duration); });
+                video.addEventListener('timeupdate', function () {
+                  var d = video.duration || 0, c = video.currentTime || 0;
+                  curEl.textContent = fmt(c);
+                  if (d) durEl.textContent = fmt(d);
+                  var p = d ? Math.min(100, c / d * 100) : 0;
+                  fill.style.width = p + '%';
+                  knob.style.left = p + '%';
+                });
+                video.addEventListener('progress', function () {
+                  try {
+                    var d = video.duration || 0;
+                    if (d && video.buffered && video.buffered.length) {
+                      bufEl.style.width = Math.min(100, video.buffered.end(video.buffered.length - 1) / d * 100) + '%';
+                    }
+                  } catch (e) {}
+                });
+                function seekTo(clientX) {
+                  var r = prog.getBoundingClientRect();
+                  var p = (clientX - r.left) / r.width;
+                  p = Math.max(0, Math.min(1, p));
+                  if (video.duration) video.currentTime = p * video.duration;
+                }
+                prog.addEventListener('pointerdown', function (e) {
+                  root.__scrub = true; showUI(); seekTo(e.clientX);
+                  try { prog.setPointerCapture(e.pointerId); } catch (x) {}
+                });
+                prog.addEventListener('pointermove', function (e) { if (root.__scrub) seekTo(e.clientX); });
+                prog.addEventListener('pointerup', function () { root.__scrub = false; poke(); });
+                prog.addEventListener('pointercancel', function () { root.__scrub = false; poke(); });
+                root.querySelector('#awpRw').onclick = function (e) {
+                  if (e) e.stopPropagation();
+                  video.currentTime = Math.max(0, (video.currentTime || 0) - 10); showUI();
+                };
+                root.querySelector('#awpFf').onclick = function (e) {
+                  if (e) e.stopPropagation();
+                  var d = video.duration || 1e15;
+                  video.currentTime = Math.min(d, (video.currentTime || 0) + 10); showUI();
+                };
+                var rates = [1, 1.25, 1.5, 2, 0.5], ri = 0, rateBtn = root.querySelector('#awpRate');
+                rateBtn.onclick = function (e) {
+                  if (e) e.stopPropagation();
+                  ri = (ri + 1) % rates.length;
+                  video.playbackRate = rates[ri];
+                  rateBtn.textContent = rates[ri] + '×';
+                  showUI();
+                };
+                root.querySelector('#awpFs').onclick = function (e) {
+                  if (e) e.stopPropagation();
+                  if (document.fullscreenElement) { if (document.exitFullscreen) document.exitFullscreen(); }
+                  else if (root.requestFullscreen) { root.requestFullscreen(); }
+                  else if (video.webkitEnterFullscreen) { try { video.webkitEnterFullscreen(); } catch (x) {} }
+                  showUI();
+                };
+                var audSheet = root.querySelector('#awpAudSheet'), subSheet = root.querySelector('#awpSubSheet');
+                root.querySelector('#awpAud').onclick = function (e) { if (e) e.stopPropagation(); toggleSheet(audSheet); showUI(); };
+                root.querySelector('#awpSub').onclick = function (e) { if (e) e.stopPropagation(); buildSubs(); toggleSheet(subSheet); showUI(); };
+                function renderHlsAudio(hls) {
+                  var list = root.querySelector('#awpAudList');
+                  var tracks = hls.audioTracks || [];
+                  list.innerHTML = '';
+                  if (!tracks.length) { list.innerHTML = '<div class=\"awp-none\">Single audio track</div>'; return; }
+                  tracks.forEach(function (t, i) {
+                    var btn = document.createElement('button');
+                    btn.type = 'button';
+                    if (i === hls.audioTrack) btn.className = 'on';
+                    btn.textContent = audioLabel(audioDefs, t.lang || t.name);
+                    btn.onclick = function () { hls.audioTrack = i; renderHlsAudio(hls); showUI(); };
+                    list.appendChild(btn);
+                  });
+                  if (opts.preferDub && !dubApplied) {
+                    var dei = engTrackIdx(tracks);
+                    if (dei >= 0 && dei !== hls.audioTrack) { dubApplied = true; hls.audioTrack = dei; renderHlsAudio(hls); }
+                    else dubApplied = true;
+                  }
+                }
+                function renderNativeAudio() {
+                  var list = root.querySelector('#awpAudList');
+                  var at = null;
+                  try { at = video.audioTracks; } catch (e) {}
+                  list.innerHTML = '';
+                  if (!at || at.length < 2) { list.innerHTML = '<div class=\"awp-none\">Single audio track</div>'; return; }
+                  for (var i = 0; i < at.length; i++) (function (idx) {
+                    var btn = document.createElement('button');
+                    btn.type = 'button';
+                    if (at[idx].enabled) btn.className = 'on';
+                    btn.textContent = audioLabel(audioDefs, at[idx].language);
+                    btn.onclick = function () {
+                      for (var j = 0; j < at.length; j++) at[j].enabled = (j === idx);
+                      renderNativeAudio(); showUI();
+                    };
+                    list.appendChild(btn);
+                  })(i);
+                  if (opts.preferDub) {
+                    var arr = [];
+                    for (var k = 0; k < at.length; k++) arr.push({ lang: at[k].language });
+                    var dei2 = engTrackIdx(arr);
+                    if (dei2 > 0) {
+                      for (var dj = 0; dj < at.length; dj++) at[dj].enabled = (dj === dei2);
+                      renderNativeAudio();
+                    }
+                  }
+                }
+                function buildSubs() {
+                  var list = root.querySelector('#awpSubList');
+                  list.innerHTML = '';
+                  var tt = video.textTracks;
+                  function refresh() {
+                    var btns = list.querySelectorAll('button');
+                    for (var i = 0; i < btns.length; i++) (function (btn) {
+                      var idx = btn.getAttribute('data-i'), on = false, k;
+                      if (idx === 'off') {
+                        on = true;
+                        for (k = 0; k < tt.length; k++) if (tt[k].mode === 'showing') on = false;
+                      } else if (tt[+idx] && tt[+idx].mode === 'showing') on = true;
+                      btn.className = on ? 'on' : '';
+                    })(btns[i]);
+                  }
+                  var off = document.createElement('button');
+                  off.type = 'button';
+                  off.setAttribute('data-i', 'off');
+                  off.textContent = 'Off';
+                  off.onclick = function () {
+                    for (var j = 0; j < tt.length; j++) tt[j].mode = 'disabled';
+                    refresh(); showUI();
+                  };
+                  list.appendChild(off);
+                  for (var i = 0; i < tt.length; i++) (function (idx) {
+                    var btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.setAttribute('data-i', '' + idx);
+                    var tr = tt[idx];
+                    btn.textContent = tr.label || ('Track ' + (idx + 1));
+                    btn.onclick = function () {
+                      for (var j = 0; j < tt.length; j++) tt[j].mode = (j === idx ? 'showing' : 'disabled');
+                      refresh(); showUI();
+                    };
+                    list.appendChild(btn);
+                  })(i);
+                  refresh();
+                  if (!buildSubs.__wired && tt.addEventListener) {
+                    buildSubs.__wired = true;
+                    tt.addEventListener('addtrack', function () { buildSubs(); });
+                  }
+                }
+                function onKey(e) {
+                  if (!document.contains(root)) { document.removeEventListener('keydown', onKey); return; }
+                  var k = e.key;
+                  if (k === ' ') { e.preventDefault(); togglePlay(); }
+                  else if (k === 'ArrowRight') { video.currentTime = Math.min(video.duration || 1e15, (video.currentTime || 0) + 5); showUI(); }
+                  else if (k === 'ArrowLeft') { video.currentTime = Math.max(0, (video.currentTime || 0) - 5); showUI(); }
+                  else if (k === 'f' || k === 'F') { root.querySelector('#awpFs').click(); }
+                  else if (k === 'm' || k === 'M') { video.muted = !video.muted; showUI(); }
+                }
+                document.addEventListener('keydown', onKey);
+                if (window.Hls && window.Hls.isSupported()) {
+                  var hls = new window.Hls({ maxBufferLength: 30 });
+                  playerHls = hls;
+                  hls.on(window.Hls.Events.ERROR, function (ev, data) {
+                    if (data && data.fatal && errBox) {
+                      errBox.textContent = 'Playback error. Try another episode.';
+                      errBox.style.display = 'block';
+                      bigBtn.style.display = 'none';
+                      spin.style.display = 'none';
+                    }
+                  });
+                  hls.on(window.Hls.Events.AUDIO_TRACKS_UPDATED, function () { renderHlsAudio(hls); });
+                  hls.on(window.Hls.Events.MANIFEST_PARSED, function () {
+                    if (!hls.audioTracks || !hls.audioTracks.length) renderHlsAudio(hls);
+                  });
+                  hls.loadSource(src);
+                  hls.attachMedia(video);
+                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                  video.src = src;
+                  renderNativeAudio();
+                } else if (errBox) {
+                  errBox.textContent = 'This browser cannot play HLS streams.';
+                  errBox.style.display = 'block';
+                }
+                spin.style.display = 'block';
+                try { var pr = video.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (e) {}
+                root.querySelector('#awpBack').onclick = function () { showDetail(anime, ep); };
+                root.querySelector('#awpPrev').onclick = function () { if (ep > 1) playEpisode(anime, anilistId, ep - 1, episodes, opts); };
+                root.querySelector('#awpNext').onclick = function () { playEpisode(anime, anilistId, ep + 1, episodes, opts); };
+              }
+              hookDefaultSearch();
+
+              /* ---- v3: integrated default-search hook ---- */
+              var lastOnlineQ = '', onlineTimer = null, moActive = false;
+              function appSearchInput() { return document.querySelector('input[aria-label="Search library"]'); }
+              function onlineSection() { return document.querySelector('main.library-main .aw-online'); }
+              function clearOnlineSection() { var s = onlineSection(); if (s) s.remove(); }
+              function hookDefaultSearch() {
+                var inp = appSearchInput();
+                if (!inp) { setTimeout(hookDefaultSearch, 800); return; }
+                if (inp.__awHooked) return;
+                inp.__awHooked = true;
+                function schedule() { clearTimeout(onlineTimer); onlineTimer = setTimeout(maybeOnlineSearch, 900); }
+                inp.addEventListener('input', schedule);
+                inp.addEventListener('change', schedule);
+                inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { clearTimeout(onlineTimer); setTimeout(maybeOnlineSearch, 400); } });
+                function watchMain() {
+                  var m = document.querySelector('main.library-main');
+                  if (m && !moActive) {
+                    moActive = true;
+                    new MutationObserver(function () { schedule(); }).observe(m, { childList: true, subtree: false });
+                  } else if (!m) setTimeout(watchMain, 1000);
+                }
+                watchMain();
+              }
+              function serverRowHtml() {
+                return '<div class="aw-oserver"><span>Server</span><input id="awOServer" value="' + esc(apiBase()) + '" />' +
+                  '<button type="button" id="awOUse">Use</button>' +
+                  '<span>PC running the backend (port 4000); on phone use PC Wi-Fi IP.</span></div>';
+              }
+              function wireServerRow(sec) {
+                var btn = sec.querySelector('#awOUse'), inp = sec.querySelector('#awOServer');
+                if (btn && inp) btn.onclick = function () { setApiBase(inp.value); maybeOnlineSearch(true); };
+              }
+              function maybeOnlineSearch(force) {
+                var inp = appSearchInput();
+                if (!inp) return;
+                var q = (inp.value || '').trim();
+                if (q.length < 3) { clearOnlineSection(); lastOnlineQ = ''; return; }
+                var main = document.querySelector('main.library-main');
+                if (!main) return;
+                var empty = main.querySelector('.empty-library');
+                if (!empty) { clearOnlineSection(); lastOnlineQ = ''; return; }
+                if (!force && q === lastOnlineQ && onlineSection()) return;
+                lastOnlineQ = q;
+                clearOnlineSection();
+                var sec = document.createElement('section');
+                sec.className = 'aw-online';
+                sec.innerHTML = '<div class="aw-ohead"><span class="aw-ot">\\u{1F310} Online</span>' +
+                  '<span class="aw-osub">not in your library &mdash; full details, rating &amp; episodes</span></div>' +
+                  serverRowHtml() +
+                  '<div class="aw-ostatus"><span class="spinner"></span>Searching online for &ldquo;' + esc(q) + '&rdquo;&hellip;</div>';
+                empty.parentNode.insertBefore(sec, empty.nextSibling);
+                wireServerRow(sec);
+                apiGet('/api/anime/search?q=' + encodeURIComponent(q)).then(function (d) {
+                  var res = (d && d.results) || [];
+                  if (!document.body.contains(sec)) return;
+                  if (res.length) renderOnlineCards(sec, res, q);
+                  else sec.querySelector('.aw-ostatus').innerHTML = 'No online results for &ldquo;' + esc(q) + '&rdquo;.';
+                }, function (err) {
+                  if (!document.body.contains(sec)) return;
+                  sec.querySelector('.aw-ostatus').innerHTML = errBox(err.message || 'network error');
+                });
+              }
+              function renderOnlineCards(sec, res, q) {
+                sec.innerHTML = '<div class="aw-ohead"><span class="aw-ot">\\u{1F310} Online</span>' +
+                  '<span class="aw-osub">' + res.length + ' result' + (res.length === 1 ? '' : 's') + ' for &ldquo;' + esc(q) + '&rdquo; &mdash; tap for rating, story &amp; episodes</span></div>' +
+                  serverRowHtml() +
+                  '<div class="aw-grid">' + res.map(function (r, i) {
+                    return '<button type="button" class="aw-card" data-i="' + i + '">' +
+                      (r.image ? '<img loading="lazy" src="' + esc(r.image) + '" alt="" />' : '<div class="aw-noimg">\\u{1F3AC}</div>') +
+                      '<div class="aw-card-t">' + esc(r.title) + '</div>' +
+                      '<div class="aw-badges">' +
+                        (r.subbed ? '<span class="aw-badge sub">SUB</span>' : '') +
+                        (r.hasDub ? '<span class="aw-badge dub">DUB</span>' : '') +
+                      '</div></button>';
+                  }).join('') + '</div>';
+                wireServerRow(sec);
+                Array.prototype.forEach.call(sec.querySelectorAll('.aw-card'), function (card) {
+                  card.onclick = function () { var r = res[+card.getAttribute('data-i')]; openAnimeWatchShell(r.title); showDetail(r, 0); };
+                });
+              }
+              /* ---- v3: episode chooser - local file vs online dub ---- */
+              function closeChooser() { var c = document.getElementById('awChoo'); if (c) c.remove(); }
+              function openEpisodeChooser(anime, anilistId, ep, episodes) {
+                closeChooser();
+                var c = document.createElement('div');
+                c.className = 'aw-choo'; c.id = 'awChoo';
+                c.innerHTML = '<div class="aw-choo-box">' +
+                  '<p class="aw-choo-t">' + esc(anime.title) + ' &middot; EP ' + ep + '</p>' +
+                  '<p class="aw-choo-s">Where do you want to play it from?</p>' +
+                  '<button type="button" class="aw-choo-btn" id="awChooLocal"><span class="em">\\u{1F4C1}</span><span>Play local file<small>Search your library for this title</small></span></button>' +
+                  '<button type="button" class="aw-choo-btn online" id="awChooOnline"><span class="em">\\u{1F310}</span><span>Watch online<small>English dub &middot; plays right away</small></span></button>' +
+                  '<button type="button" class="aw-choo-x" id="awChooX">Cancel</button></div>';
+                document.body.appendChild(c);
+                c.querySelector('#awChooX').onclick = closeChooser;
+                c.addEventListener('click', function (e) { if (e.target === c) closeChooser(); });
+                c.querySelector('#awChooLocal').onclick = function () { closeChooser(); playLocalFile(anime.title); };
+                c.querySelector('#awChooOnline').onclick = function () { closeChooser(); playEpisode(anime, anilistId, ep, episodes, { preferDub: true }); };
+              }
+              function playLocalFile(title) {
+                closeAnimeWatch();
+                var inp = appSearchInput();
+                if (!inp) return;
+                try {
+                  var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                  setter.call(inp, title);
+                } catch (e) { inp.value = title; }
+                inp.dispatchEvent(new Event('input', { bubbles: true }));
+                inp.focus();
+              }
+              window.__autoPlayOnline = autoPlayOnline;
+            })();
           })();
           ;(function () {`;
 
