@@ -4013,7 +4013,6 @@ jobs:
           import android.view.WindowManager;
           import android.webkit.JavascriptInterface;
           import android.webkit.WebView;
-          import androidx.activity.OnBackPressedCallback;
           import androidx.core.view.WindowCompat;
           import androidx.core.view.WindowInsetsCompat;
           import androidx.core.view.WindowInsetsControllerCompat;
@@ -4046,8 +4045,6 @@ jobs:
                   }
 
                   if (getBridge() != null && getBridge().getWebView() != null) {
-                      // Allow the WebView to load the loopback stream proxy (http://127.0.0.1:18923)
-                      // used by Online Watch direct mode.
                       getBridge().getWebView().getSettings().setMixedContentMode(
                           android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
                       getBridge().getWebView().addJavascriptInterface(new Object() {
@@ -4063,35 +4060,27 @@ jobs:
                           }
                       }, "AndroidPiP");
                   }
-
-                  getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
-                      @Override
-                      public void handleOnBackPressed() {
-                          if (getBridge() != null && getBridge().getWebView() != null) {
-                              WebView webView = getBridge().getWebView();
-                              webView.evaluateJavascript(
-                                  "(function() { return window.__handleAndroidBack ? window.__handleAndroidBack() : false; })()",
-                                  value -> {
-                                      if (!"true".equals(value)) {
-                                          runOnUiThread(() -> {
-                                              setEnabled(false);
-                                              MainActivity.super.onBackPressed();
-                                              setEnabled(true);
-                                          });
-                                      }
-                                  }
-                              );
-                          } else {
-                              setEnabled(false);
-                              MainActivity.super.onBackPressed();
-                              setEnabled(true);
-                          }
-                      }
-                  });
               }
 
               @Override
-              protected void onDestroy() {
+              public void onBackPressed() {
+                  if (getBridge() != null && getBridge().getWebView() != null) {
+                      WebView webView = getBridge().getWebView();
+                      webView.evaluateJavascript(
+                          "(function() { return window.__handleAndroidBack ? window.__handleAndroidBack() : false; })()",
+                          value -> {
+                              if (!"true".equals(value)) {
+                                  runOnUiThread(() -> MainActivity.super.onBackPressed());
+                              }
+                          }
+                      );
+                  } else {
+                      super.onBackPressed();
+                  }
+              }
+
+              @Override
+              public void onDestroy() {
                   try {
                       if (streamProxyServer != null) streamProxyServer.close();
                   } catch (Exception ignored) {}
@@ -4125,17 +4114,13 @@ jobs:
               }
 
               @Override
-              protected void onUserLeaveHint() {
+              public void onUserLeaveHint() {
                   super.onUserLeaveHint();
                   if (isVideoPlayerActive) {
                       triggerNativePiP();
                   }
               }
 
-              // ===== Local stream proxy for Online Watch (phone-only mode) =====
-              // Serves http://127.0.0.1:18923/r?u=<encoded upstream URL>.
-              // Adds the Referer header the video CDN requires (browsers cannot set
-              // Referer from JS) and adds CORS headers so the WebView can read it.
               private void startStreamProxy() {
                   Thread t = new Thread(() -> {
                       try {
