@@ -1,4 +1,4 @@
-name: Package Exact File into APK
+name: Build Exact Media Player APK
 
 on:
   push:
@@ -23,66 +23,521 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Wrap Exact true-konosuba-player.txt into APK
+      - name: Package Exact true-konosuba-player.txt with Local Actions
         run: |
           mkdir -p exact-app/www
           cp true-konosuba-player.txt exact-app/raw.html
           cd exact-app
 
-          # Unlock Muse's iframe tunnel so the exact file runs standalone on Android
-          node -e '
-            const fs = require("fs");
-            let html = fs.readFileSync("raw.html", "utf8");
+          cat << 'EOF_PATCH' > patch.js
+          const fs = require("fs");
+          let html = fs.readFileSync("raw.html", "utf8");
 
-            // 1. Remove Muse iframe bridge scripts
-            html = html.replace(/<script data-hatch-cvm-opaque-url-compat[\s\S]*?<\/script>/, "");
-            html = html.replace(/<script data-hatch-cvm-bridge[\s\S]*?<\/script>/, "");
+          // 1. Remove Muse iframe bridge scripts
+          html = html.replace(/<script data-hatch-cvm-opaque-url-compat[\s\S]*?<\/script>/, "");
+          html = html.replace(/<script data-hatch-cvm-bridge[\s\S]*?<\/script>/, "");
 
-            // 2. Clear frozen HTML snapshot so React mounts fresh
-            html = html.replace(
-              /(<div class="hatch-space-root" data-hatch-space-root="true">)[\s\S]*?(<\/div><\/div>\s*<script data-hatch-cvm-bundle)/,
-              "$1$2"
-            );
+          // 2. Clear static HTML snapshot so React mounts cleanly
+          html = html.replace(
+            /(<div class="hatch-space-root" data-hatch-space-root="true">)[\s\S]*?(<\/div><\/div>\s*<script data-hatch-cvm-bundle)/,
+            "$1$2"
+          );
 
-            // 3. Replace Muse tunnel lock with direct native browser passthrough
-            const nativeShim = `<script data-hatch-cvm-bundle="">
+          // 3. Inject local ./actions handler so Add, Connect, Watch Order, Artwork & Reviews return valid JSON
+          const localRuntime = `<script data-hatch-cvm-bundle="">
+          (function() {
+            var DB_KEY = "media_player_exact_db_v2";
+            var SEED_DB = {
+              nextId: 3,
+              nextFileId: 100,
+              collections: [
+                {
+                  id: 1,
+                  title: "KONOSUBA",
+                  kind: "series",
+                  year: 2016,
+                  posterUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21202-TfzXuWQf2oLQ.png",
+                  rating: 7.1,
+                  ratingScale: 10,
+                  ratingSource: "TVmaze",
+                  sourceUrl: "https://www.tvmaze.com/shows/13202/konosuba-gods-blessing-on-this-wonderful-world",
+                  synopsis: "The life of Satou Kazuma, a hikikomori who likes games, all too soon came to an end because of a traffic accident... It was supposed to, but when he woke up, a beautiful girl who called herself a goddess was in front of his eyes.",
+                  genres: ["Adventure", "Comedy", "Fantasy"],
+                  seasonCount: 3,
+                  metadataStatus: "complete",
+                  metadataNote: null,
+                  createdAt: "2026-09-25T10:00:00.000Z",
+                  seasons: [
+                    { seasonNumber: 1, releaseYear: 2016, firstAirDate: "2016-01-13", thumbnailUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21202-TfzXuWQf2oLQ.png" },
+                    { seasonNumber: 2, releaseYear: 2017, firstAirDate: "2017-01-11", thumbnailUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21699-Fkbnbfv2fb8y.png" },
+                    { seasonNumber: 3, releaseYear: 2024, firstAirDate: "2024-04-10", thumbnailUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21202-TfzXuWQf2oLQ.png" }
+                  ],
+                  episodes: [
+                    { id: 101, seasonNumber: 1, episodeNumber: 1, title: "This Self-Proclaimed Goddess and Reincarnation in Another World!", airDate: "2016-01-13", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 102, seasonNumber: 1, episodeNumber: 2, title: "An Explosion for This Chunibyo!", airDate: "2016-01-20", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 103, seasonNumber: 1, episodeNumber: 3, title: "A Panty Treasure in This Right Hand!", airDate: "2016-01-27", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 104, seasonNumber: 1, episodeNumber: 4, title: "Explosion Magic for This Formidable Enemy!", airDate: "2016-02-03", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 105, seasonNumber: 1, episodeNumber: 5, title: "A Price for This Cursed Sword!", airDate: "2016-02-10", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 106, seasonNumber: 1, episodeNumber: 6, title: "A Conclusion to This Worthless Fight!", airDate: "2016-02-17", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 107, seasonNumber: 1, episodeNumber: 7, title: "A Second Death in This Freezing Season!", airDate: "2016-02-24", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 108, seasonNumber: 1, episodeNumber: 8, title: "A Loving Hand for Our Party When We Can't Make It Through Winter!", airDate: "2016-03-02", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 109, seasonNumber: 1, episodeNumber: 9, title: "God's Blessing on This Wonderful Shop!", airDate: "2016-03-09", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 110, seasonNumber: 1, episodeNumber: 10, title: "A Final Flame for This Over-the-Top Fortress!", airDate: "2016-03-16", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null }
+                  ],
+                  relatedMedia: [
+                    { id: 11, contentType: "ova", title: "KONOSUBA OVA 1: God's Blessings on This Wonderful Choker!", releaseYear: 2016, releaseDate: "2016-06-24", relation: "Side story", rating: 7.6, ratingScale: 10, synopsis: "Kazuma puts on a mysterious choker in Wiz's shop that grants wishes.", thumbnailUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21202-TfzXuWQf2oLQ.png", sourceUrl: "https://anilist.co/anime/21698" },
+                    { id: 12, contentType: "ova", title: "KONOSUBA OVA 2: God's Blessings on These Wonderful Works of Art!", releaseYear: 2017, releaseDate: "2017-07-24", relation: "Side story", rating: 7.8, ratingScale: 10, synopsis: "Kazuma and the party take on a quest to investigate a rogue golem.", thumbnailUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21699-Fkbnbfv2fb8y.png", sourceUrl: "https://anilist.co/anime/97996" },
+                    { id: 13, contentType: "movie", title: "KONOSUBA Movie: Legend of Crimson", releaseYear: 2019, releaseDate: "2019-08-30", relation: "Sequel", rating: 8.3, ratingScale: 10, synopsis: "Kazuma, Aqua, Megumin, and Darkness travel to the Crimson Demon Village.", thumbnailUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx102976-8AOI9Y2g0B1I.jpg", sourceUrl: "https://anilist.co/anime/102976" }
+                  ],
+                  files: [],
+                  reviews: [
+                    { id: 1, reviewType: "audience", sourceName: "AniList", excerpt: "A masterclass in fantasy parody that turns every isekai trope upside down.", author: "Community Reviewer", sourceUrl: "https://anilist.co/anime/21202", fetchedAt: "2026-09-25T10:00:00.000Z" }
+                  ]
+                },
+                {
+                  id: 2,
+                  title: "Your Name",
+                  kind: "movie",
+                  year: 2016,
+                  posterUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21519-fPhvy69vnQqS.png",
+                  rating: 85.0,
+                  ratingScale: 100,
+                  ratingSource: "AniList",
+                  sourceUrl: "https://anilist.co/anime/21519",
+                  synopsis: "Mitsuha Miyamizu, a high school girl, yearns to live the life of a boy in the bustling city of Tokyo.",
+                  genres: ["Drama", "Romance", "Supernatural"],
+                  seasonCount: 0,
+                  metadataStatus: "complete",
+                  metadataNote: null,
+                  createdAt: "2026-09-25T11:00:00.000Z",
+                  seasons: [],
+                  episodes: [],
+                  relatedMedia: [],
+                  files: [],
+                  reviews: [
+                    { id: 2, reviewType: "critic", sourceName: "AniList", excerpt: "Breathtaking visuals paired with an emotional story that lingers long after the credits roll.", author: "Film Critic", sourceUrl: "https://anilist.co/anime/21519", fetchedAt: "2026-09-25T11:00:00.000Z" }
+                  ]
+                }
+              ]
+            };
+
+            function loadDB() {
+              try {
+                var raw = localStorage.getItem(DB_KEY);
+                if (raw) return JSON.parse(raw);
+              } catch (e) {}
+              saveDB(SEED_DB);
+              return JSON.parse(JSON.stringify(SEED_DB));
+            }
+
+            function saveDB(db) {
+              try { localStorage.setItem(DB_KEY, JSON.stringify(db)); } catch (e) {}
+            }
+
+            function parseFileEntry(fileName, kind, idx, nextFileId) {
+              var base = fileName.replace(/\.[^/.]+$/, "");
+              var m = base.match(/S(\d{1,2})[\s._-]*E(\d{1,3})/i) || base.match(/(\d{1,2})x(\d{1,3})/i);
+              var epOnly = !m && base.match(/(?:^|[\s._-])(?:E|EP|Episode)?[\s._-]*(\d{1,3})(?:$|[\s._-])/i);
+              var yearMatch = base.match(/\b(19\d{2}|20\d{2})\b/);
+              var isOva = /\b(ova|oad)\b/i.test(base);
+              var isSpecial = /\b(special|sp)\b/i.test(base);
+              var isMovie = /\b(movie|film)\b/i.test(base);
+              var seasonNumber = m ? Number(m[1]) : (kind === "series" && !isOva && !isSpecial && !isMovie ? 1 : null);
+              var episodeNumber = m ? Number(m[2]) : (epOnly && kind === "series" ? Number(epOnly[1]) : (kind === "series" && !isOva && !isSpecial && !isMovie ? idx + 1 : null));
+              return {
+                id: nextFileId,
+                fileName: fileName,
+                displayTitle: base.replace(/[._]+/g, " ").trim(),
+                mediaKind: kind === "music" ? "music" : (kind === "series" && !isOva && !isSpecial && !isMovie ? "episode" : "movie"),
+                contentType: isOva ? "ova" : isSpecial ? "special" : (kind === "music" ? "music" : (kind === "series" && !isMovie ? "episode" : "movie")),
+                seasonNumber: seasonNumber,
+                episodeNumber: episodeNumber,
+                releaseYear: yearMatch ? Number(yearMatch[1]) : null,
+                sortOrder: idx + 1,
+                positionSeconds: 0,
+                durationSeconds: 0,
+                completed: false
+              };
+            }
+
+            async function lookupAllMetadata(title, kind, year) {
+              var result = {
+                posterUrl: null,
+                rating: null,
+                ratingScale: null,
+                ratingSource: "Local",
+                sourceUrl: null,
+                synopsis: null,
+                genres: [],
+                year: year || null,
+                seasons: [],
+                episodes: [],
+                relatedMedia: [],
+                reviews: []
+              };
+
+              // 1. Try AniList for anime/movies/OVAs/reviews
+              try {
+                var query = "query ($search: String) { Media(search: $search, type: ANIME) { id title { english romaji } description(asHtml: false) seasonYear episodes duration genres averageScore siteUrl coverImage { extraLarge large } relations { edges { relationType node { id title { english romaji } format seasonYear averageScore description(asHtml: false) siteUrl coverImage { large } } } } reviews(perPage: 4) { nodes { id summary score user { name } siteUrl } } } }";
+                var r1 = await origFetch("https://graphql.anilist.co", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ query: query, variables: { search: title } })
+                });
+                var j1 = await r1.json();
+                var m = j1 && j1.data && j1.data.Media;
+                if (m) {
+                  result.posterUrl = (m.coverImage && (m.coverImage.extraLarge || m.coverImage.large)) || null;
+                  result.rating = m.averageScore || null;
+                  result.ratingScale = m.averageScore ? 100 : null;
+                  result.ratingSource = "AniList";
+                  result.sourceUrl = m.siteUrl || null;
+                  result.synopsis = m.description ? m.description.replace(/<[^>]+>/g, "") : null;
+                  result.genres = m.genres || [];
+                  result.year = result.year || m.seasonYear || null;
+                  var edges = (m.relations && m.relations.edges) || [];
+                  result.relatedMedia = edges
+                    .filter(function(e) { return e.node && ["MOVIE", "OVA", "SPECIAL"].indexOf(e.node.format) !== -1; })
+                    .map(function(e, idx) {
+                      return {
+                        id: Date.now() + idx + 1,
+                        contentType: e.node.format === "OVA" ? "ova" : (e.node.format === "SPECIAL" ? "special" : "movie"),
+                        title: (e.node.title && (e.node.title.english || e.node.title.romaji)) || "Related Title",
+                        releaseYear: e.node.seasonYear || null,
+                        releaseDate: e.node.seasonYear ? (e.node.seasonYear + "-01-01") : null,
+                        relation: e.relationType ? e.relationType.replace(/_/g, " ") : "Related",
+                        rating: e.node.averageScore ? Number((e.node.averageScore / 10).toFixed(1)) : null,
+                        ratingScale: 10,
+                        synopsis: (e.node.description || "").replace(/<[^>]+>/g, ""),
+                        thumbnailUrl: (e.node.coverImage && e.node.coverImage.large) || result.posterUrl,
+                        sourceUrl: e.node.siteUrl || null
+                      };
+                    });
+                  var revNodes = (m.reviews && m.reviews.nodes) || [];
+                  result.reviews = revNodes.map(function(rv, idx) {
+                    return {
+                      id: Date.now() + 500 + idx,
+                      reviewType: idx % 2 === 0 ? "critic" : "audience",
+                      sourceName: "AniList",
+                      excerpt: rv.summary || "Great watch.",
+                      author: (rv.user && rv.user.name) || "Reviewer",
+                      sourceUrl: rv.siteUrl || m.siteUrl || "https://anilist.co",
+                      fetchedAt: new Date().toISOString()
+                    };
+                  });
+                }
+              } catch (e) {}
+
+              // 2. Try TVmaze for multi-season & episode lists
+              if (kind === "series") {
+                try {
+                  var r2 = await origFetch("https://api.tvmaze.com/singlesearch/shows?q=" + encodeURIComponent(title) + "&embed[]=episodes&embed[]=seasons");
+                  if (r2.ok) {
+                    var show = await r2.json();
+                    if (show) {
+                      result.posterUrl = result.posterUrl || (show.image && (show.image.original || show.image.medium)) || null;
+                      result.synopsis = result.synopsis || (show.summary ? show.summary.replace(/<[^>]+>/g, "") : null);
+                      if (show.rating && show.rating.average) {
+                        result.rating = show.rating.average;
+                        result.ratingScale = 10;
+                        result.ratingSource = "TVmaze";
+                      }
+                      result.sourceUrl = show.url || result.sourceUrl;
+                      result.genres = (show.genres && show.genres.length > 0) ? show.genres : result.genres;
+                      var rawSeasons = (show._embedded && show._embedded.seasons) || [];
+                      result.seasons = rawSeasons.map(function(s) {
+                        return {
+                          seasonNumber: s.number || 1,
+                          releaseYear: s.premiereDate ? Number(s.premiereDate.slice(0, 4)) : result.year,
+                          firstAirDate: s.premiereDate || null,
+                          thumbnailUrl: (s.image && (s.image.original || s.image.medium)) || result.posterUrl
+                        };
+                      });
+                      var rawEps = (show._embedded && show._embedded.episodes) || [];
+                      result.episodes = rawEps.map(function(ep, idx) {
+                        return {
+                          id: ep.id || (Date.now() + 1000 + idx),
+                          seasonNumber: ep.season || 1,
+                          episodeNumber: ep.number || (idx + 1),
+                          title: ep.name || ("Episode " + (ep.number || idx + 1)),
+                          airDate: ep.airdate || null,
+                          runtimeMinutes: ep.runtime || show.averageRuntime || 24,
+                          sourceUrl: ep.url || null,
+                          thumbnailUrl: (ep.image && (ep.image.original || ep.image.medium)) || null,
+                          localFileName: null
+                        };
+                      });
+                    }
+                  }
+                } catch (e) {}
+              }
+              return result;
+            }
+
+            async function handleAction(action, args) {
+              var db = loadDB();
+              args = args || {};
+
+              if (action === "listCollections") {
+                var list = db.collections.slice();
+                if (args.kind && args.kind !== "all") {
+                  list = list.filter(function(c) { return c.kind === args.kind; });
+                }
+                if (args.query) {
+                  var q = String(args.query).toLowerCase();
+                  list = list.filter(function(c) { return c.title.toLowerCase().indexOf(q) !== -1; });
+                }
+                return { collections: list };
+              }
+
+              if (action === "listContinueWatching") {
+                var cw = [];
+                db.collections.forEach(function(col) {
+                  (col.files || []).forEach(function(f) {
+                    if (f.positionSeconds > 3 && !f.completed && f.durationSeconds > 0) {
+                      cw.push({
+                        collectionId: col.id,
+                        collectionTitle: col.title,
+                        mediaFileId: f.id,
+                        fileName: f.fileName,
+                        displayTitle: f.displayTitle,
+                        posterUrl: col.posterUrl,
+                        seasonNumber: f.seasonNumber,
+                        episodeNumber: f.episodeNumber,
+                        contentType: f.contentType,
+                        positionSeconds: f.positionSeconds,
+                        durationSeconds: f.durationSeconds,
+                        progressPercent: (f.positionSeconds / f.durationSeconds) * 100
+                      });
+                    }
+                  });
+                });
+                return { items: cw.slice(0, args.limit || 12) };
+              }
+
+              if (action === "getCollection") {
+                var found = db.collections.find(function(c) { return Number(c.id) === Number(args.id); });
+                return { collection: found || null };
+              }
+
+              if (action === "addCollection") {
+                var id = db.nextId++;
+                var kind = args.kind || "series";
+                var rawFiles = args.files || [];
+                var files = rawFiles.map(function(f, idx) {
+                  return parseFileEntry(f.fileName, kind, idx, db.nextFileId++);
+                });
+
+                var meta = await lookupAllMetadata(args.title, kind, args.year);
+                var posterUrl = args.posterDataBase64
+                  ? ("data:" + (args.posterMimeType || "image/jpeg") + ";base64," + args.posterDataBase64)
+                  : meta.posterUrl;
+
+                var seasons = meta.seasons;
+                var episodes = meta.episodes;
+
+                if (kind === "series") {
+                  if (seasons.length === 0) {
+                    seasons = [{
+                      seasonNumber: 1,
+                      releaseYear: args.year || meta.year || new Date().getFullYear(),
+                      firstAirDate: null,
+                      thumbnailUrl: posterUrl
+                    }];
+                  }
+                  if (episodes.length === 0) {
+                    var count = Math.max(files.length, 12);
+                    for (var i = 0; i < count; i++) {
+                      var epNum = i + 1;
+                      var mf = files.find(function(x) { return x.episodeNumber === epNum; });
+                      episodes.push({
+                        id: id * 1000 + epNum,
+                        seasonNumber: 1,
+                        episodeNumber: epNum,
+                        title: mf ? mf.displayTitle : ("Episode " + epNum),
+                        airDate: null,
+                        runtimeMinutes: 24,
+                        sourceUrl: null,
+                        thumbnailUrl: posterUrl,
+                        localFileName: mf ? mf.fileName : null
+                      });
+                    }
+                  } else {
+                    episodes.forEach(function(ep) {
+                      var mf = files.find(function(x) {
+                        return x.seasonNumber === ep.seasonNumber && x.episodeNumber === ep.episodeNumber;
+                      });
+                      if (mf) ep.localFileName = mf.fileName;
+                    });
+                  }
+                }
+
+                var newCol = {
+                  id: id,
+                  title: args.title,
+                  kind: kind,
+                  year: args.year || meta.year || new Date().getFullYear(),
+                  posterUrl: posterUrl,
+                  rating: meta.rating,
+                  ratingScale: meta.ratingScale,
+                  ratingSource: meta.ratingSource,
+                  sourceUrl: meta.sourceUrl,
+                  synopsis: meta.synopsis || "Local media collection ready to play.",
+                  genres: meta.genres,
+                  seasonCount: kind === "series" ? seasons.length : 0,
+                  metadataStatus: "complete",
+                  metadataNote: null,
+                  createdAt: new Date().toISOString(),
+                  seasons: seasons,
+                  episodes: episodes,
+                  relatedMedia: meta.relatedMedia,
+                  files: files,
+                  reviews: meta.reviews
+                };
+
+                db.collections.unshift(newCol);
+                saveDB(db);
+                return { collection: newCol };
+              }
+
+              if (action === "updateArtwork") {
+                var col = db.collections.find(function(c) { return Number(c.id) === Number(args.collectionId); });
+                if (!col) return { ok: false, message: "Collection not found" };
+                var dataUrl = "data:" + (args.imageMimeType || "image/jpeg") + ";base64," + args.imageDataBase64;
+                if (args.target === "collection") {
+                  col.posterUrl = dataUrl;
+                } else if (args.target === "episode") {
+                  var ep = (col.episodes || []).find(function(e) { return Number(e.id) === Number(args.episodeId); });
+                  if (ep) ep.thumbnailUrl = dataUrl;
+                } else if (args.target === "season") {
+                  var s = (col.seasons || []).find(function(x) { return Number(x.seasonNumber) === Number(args.seasonNumber); });
+                  if (s) s.thumbnailUrl = dataUrl;
+                }
+                saveDB(db);
+                return { ok: true, message: "Updated" };
+              }
+
+              if (action === "updatePlaybackProgress") {
+                var colP = db.collections.find(function(c) { return Number(c.id) === Number(args.collectionId); });
+                if (colP) {
+                  var fl = (colP.files || []).find(function(x) { return Number(x.id) === Number(args.mediaFileId); });
+                  if (fl) {
+                    fl.positionSeconds = args.positionSeconds || 0;
+                    fl.durationSeconds = args.durationSeconds || 0;
+                    fl.completed = Boolean(args.completed);
+                    saveDB(db);
+                  }
+                }
+                return { ok: true };
+              }
+
+              if (action === "getOnlineAvailability") {
+                var eq = encodeURIComponent(args.title || "");
+                return {
+                  checkedAt: new Date().toISOString(),
+                  providers: [
+                    { name: "Crunchyroll", url: "https://www.crunchyroll.com/search?q=" + eq, languages: ["Japanese (Sub)", "English (Dub)"] },
+                    { name: "Netflix", url: "https://www.netflix.com/search?q=" + eq, languages: ["Japanese", "English"] },
+                    { name: "YouTube", url: "https://www.youtube.com/results?search_query=" + eq, languages: ["Multiple"] }
+                  ]
+                };
+              }
+
+              if (action === "getReviews") {
+                var colR = db.collections.find(function(c) { return Number(c.id) === Number(args.collectionId); });
+                return { reviews: (colR && colR.reviews) || [], checkedAt: new Date().toISOString() };
+              }
+
+              if (action === "refreshMetadata") {
+                var colM = db.collections.find(function(c) { return Number(c.id) === Number(args.id); });
+                if (colM) {
+                  var refreshed = await lookupAllMetadata(colM.title, colM.kind, colM.year);
+                  if (refreshed.posterUrl && !colM.posterUrl) colM.posterUrl = refreshed.posterUrl;
+                  if (refreshed.synopsis) colM.synopsis = refreshed.synopsis;
+                  if (refreshed.seasons.length > 0) {
+                    colM.seasons = refreshed.seasons;
+                    colM.seasonCount = refreshed.seasons.length;
+                  }
+                  if (refreshed.episodes.length > 0) colM.episodes = refreshed.episodes;
+                  if (refreshed.relatedMedia.length > 0) colM.relatedMedia = refreshed.relatedMedia;
+                  if (refreshed.reviews.length > 0) colM.reviews = refreshed.reviews;
+                  saveDB(db);
+                }
+                return { ok: true };
+              }
+
+              if (action === "deleteCollection") {
+                db.collections = db.collections.filter(function(c) { return Number(c.id) !== Number(args.id); });
+                saveDB(db);
+                return { ok: true };
+              }
+
+              return {};
+            }
+
+            var origFetch = window.fetch.bind(window);
+            window.fetch = async function(input, init) {
+              var url = typeof input === "string" ? input : ((input && input.url) || "");
+              var isAction = url.indexOf("/actions") !== -1 || (init && init.method === "POST" && typeof init.body === "string" && init.body.indexOf("actionCallId") !== -1);
+              if (isAction) {
+                try {
+                  var bodyText = init && init.body ? String(init.body) : "{}";
+                  var parsed = JSON.parse(bodyText);
+                  var data = await handleAction(parsed.action, parsed.args || {});
+                  return new Response(JSON.stringify({ data: data }), {
+                    status: 200,
+                    headers: { "content-type": "application/json" }
+                  });
+                } catch (err) {
+                  return new Response(JSON.stringify({ error: String(err && err.message ? err.message : err) }), {
+                    status: 500,
+                    headers: { "content-type": "application/json" }
+                  });
+                }
+              }
+              return origFetch(input, init);
+            };
+
             window.__tunnel = {
-              fetch: window.fetch.bind(window),
+              fetch: window.fetch,
               XHR: window.XMLHttpRequest,
               WebSocket: window.WebSocket,
               EventSource: window.EventSource,
               Image: window.Image,
               Worker: window.Worker,
-              sendBeacon: navigator.sendBeacon ? navigator.sendBeacon.bind(navigator) : () => true,
-              setAttr: (el, name, val) => { if (val == null) el.removeAttribute(name); else el.setAttribute(name, String(val)); },
-              setAttrNS: (el, ns, name, val) => { if (val == null) el.removeAttributeNS(ns, name); else el.setAttributeNS(ns, name, String(val)); },
-              setUrlProp: (el, name, val) => { el[name] = val; return val; },
-              setStyle: (el, prop, val) => { if (String(prop).startsWith("--")) el.style.setProperty(prop, val ?? ""); else el.style[prop] = val ?? ""; },
-              getStyle: (el) => el ? el.style : {},
-              setStyleAttr: (el, val) => el.setAttribute("style", val ?? ""),
-              setStyleText: (el, txt) => { el.textContent = txt; },
-              setInnerHTML: (el, h, which = "innerHTML") => { el[which] = h ?? ""; },
-              insertAdjacentHTML: (el, pos, h) => el.insertAdjacentHTML(pos, h ?? ""),
-              rewriteCssText: async (t) => t,
-              resolveToBlobUrl: async (u) => u,
-              processDataHatchAttrs: () => {},
-              rewriteHtmlString: (h) => h,
-              _resolveUrlString: (v) => v,
-              _resolveCssValue: (v) => v,
-              _resolveCssText: (v) => v,
-              _resolveStyleProp: (v) => v,
+              sendBeacon: navigator.sendBeacon ? navigator.sendBeacon.bind(navigator) : function() { return true; },
+              setAttr: function(el, name, val) { if (val == null) el.removeAttribute(name); else el.setAttribute(name, String(val)); },
+              setAttrNS: function(el, ns, name, val) { if (val == null) el.removeAttributeNS(ns, name); else el.setAttributeNS(ns, name, String(val)); },
+              setUrlProp: function(el, name, val) { el[name] = val; return val; },
+              setStyle: function(el, prop, val) { if (String(prop).indexOf("--") === 0) el.style.setProperty(prop, val == null ? "" : val); else el.style[prop] = val == null ? "" : val; },
+              getStyle: function(el) { return el ? el.style : {}; },
+              setStyleAttr: function(el, val) { el.setAttribute("style", val == null ? "" : val); },
+              setStyleText: function(el, txt) { el.textContent = txt; },
+              setInnerHTML: function(el, h, which) { el[which || "innerHTML"] = h == null ? "" : h; },
+              insertAdjacentHTML: function(el, pos, h) { el.insertAdjacentHTML(pos, h == null ? "" : h); },
+              rewriteCssText: async function(t) { return t; },
+              resolveToBlobUrl: async function(u) { return u; },
+              processDataHatchAttrs: function() {},
+              rewriteHtmlString: function(h) { return h; },
+              _resolveUrlString: function(v) { return v; },
+              _resolveCssValue: function(v) { return v; },
+              _resolveCssText: function(v) { return v; },
+              _resolveStyleProp: function(v) { return v; },
               _importMeta: { url: location.href },
               _state: { port: null, inFlight: 0, blobCacheSize: 0, blobStats: {} }
             };
-            ;(function () {`;
+          })();
+          ;(function () {`;
 
-            html = html.replace(
-              /<script data-hatch-cvm-bundle=""[^>]*>[\s\S]*?;\(function \(\) \{/,
-              nativeShim
-            );
+          html = html.replace(
+            /<script data-hatch-cvm-bundle=""[^>]*>[\s\S]*?;\(function \(\) \{/,
+            localRuntime
+          );
 
-            fs.writeFileSync("www/index.html", html, "utf8");
-          '
+          fs.writeFileSync("www/index.html", html, "utf8");
+          EOF_PATCH
+
+          node patch.js
 
           npm init -y
           npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
