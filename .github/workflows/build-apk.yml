@@ -49,134 +49,35 @@ jobs:
           );
 
           // 3. Patch IndexedDB & localMedia in bundle to key by (webkitRelativePath || name)
-          //    so two different files with the same name in different folders never collide
           html = html.replace(
-            'for (let r of e) n.put({\n      name: r.name,\n      type: r.type,\n      blob: r,\n      savedAt: Date.now()\n    });',
+            /for \(let r of e\) n\.put\(\{[\s\S]*?savedAt: Date\.now\(\)\s*\}\);/,
             'for (let r of e) { let k = window.__getMediaFileKey ? window.__getMediaFileKey(r) : (r.webkitRelativePath || r.name); n.put({ name: k, rawName: r.name, relativePath: r.webkitRelativePath || null, type: r.type, blob: r, savedAt: Date.now() }); if (k !== r.name) n.put({ name: r.name, rawName: r.name, relativePath: r.webkitRelativePath || null, type: r.type, blob: r, savedAt: Date.now() }); }'
           );
 
           html = html.replace(
-            'for (let f of N) {\n        let C = ve.get(f.name);\n        if (C) URL.revokeObjectURL(C.url);\n        ve.set(f.name, {\n          url: URL.createObjectURL(f),\n          mimeType: f.type || (f.name.match(/\\.(mp3|m4a|wav|flac)$/i) ? "audio/mpeg" : "video/mp4"),\n          fileName: f.name\n        });\n      }',
-            'for (let f of N) {\n        let k = window.__getMediaFileKey ? window.__getMediaFileKey(f) : (f.webkitRelativePath || f.name);\n        let objUrl = URL.createObjectURL(f);\n        let entry = {\n          url: objUrl,\n          mimeType: f.type || (f.name.match(/\\.(mp3|m4a|wav|flac)$/i) ? "audio/mpeg" : "video/mp4"),\n          fileName: k\n        };\n        ve.set(k, entry);\n        if (!ve.has(f.name)) ve.set(f.name, entry);\n      }'
+            /for \(let f of N\) \{[\s\S]*?fileName: f\.name\s*\}\);\s*\}/,
+            'for (let f of N) { let k = window.__getMediaFileKey ? window.__getMediaFileKey(f) : (f.webkitRelativePath || f.name); let objUrl = URL.createObjectURL(f); let entry = { url: objUrl, mimeType: f.type || (f.name.match(/\\.(mp3|m4a|wav|flac)$/i) ? "audio/mpeg" : "video/mp4"), fileName: k }; ve.set(k, entry); if (!ve.has(f.name)) ve.set(f.name, entry); }'
           );
 
-          // 4. Patch Add Sheet (yb) to support:
-          //    - Picking a whole folder in one tap + individual files
-          //    - Deduplicating selected files by (folder + fileName)
-          //    - Suggesting the series/movie/music title from folder name or file name into the editable input
-          const oldAddFilesInput = `u("input", {
-              "aria-label": "Choose local media files",
-              type: "file",
-              multiple: !0,
-              accept: "video/*,audio/*,.mkv",
-              onChange: m => g(Array.from(m.target.files ?? []))
-            })`;
+          // 4. Patch Add Sheet (yb) file input to deduplicate by (folder + fileName) and suggest title
+          html = html.replace(
+            /u\("input",\s*\{\s*"aria-label":\s*"Choose local media files"[\s\S]*?onChange:\s*m\s*=>\s*g\(Array\.from\(m\.target\.files\s*\?\?\s*\[\]\)\)\s*\}\)/,
+            'u("input", { "aria-label": "Choose local media files", type: "file", multiple: !0, accept: "video/*,audio/*,.mkv,.mp3,.flac,.m4a,.wav", onChange: m => { var incoming = Array.from(m.target.files ?? []).filter(f => /\\.(mp4|mkv|webm|mov|m4v|avi|mp3|flac|m4a|wav|ogg)$/i.test(f.name) || (f.type && (f.type.startsWith("video/") || f.type.startsWith("audio/")))); if (incoming.length === 0) return; g(prev => window.__mergeUniquePickerFiles ? window.__mergeUniquePickerFiles(prev, incoming) : incoming); var suggested = window.__suggestTitleFromFiles ? window.__suggestTitleFromFiles(incoming) : ""; if (suggested) { window.__lastSuggestedTitle = suggested; r(curr => curr.trim() ? curr : suggested); } m.target.value = ""; } })'
+          );
 
-          const newAddFilesInput = `u("input", {
-              "aria-label": "Choose local media files",
-              type: "file",
-              multiple: !0,
-              accept: "video/*,audio/*,.mkv,.mp3,.flac,.m4a,.wav",
-              onChange: m => {
-                var incoming = Array.from(m.target.files ?? []).filter(f => /\\.(mp4|mkv|webm|mov|m4v|avi|mp3|flac|m4a|wav|ogg)$/i.test(f.name) || (f.type && (f.type.startsWith("video/") || f.type.startsWith("audio/"))));
-                if (incoming.length === 0) return;
-                g(prev => window.__mergeUniquePickerFiles ? window.__mergeUniquePickerFiles(prev, incoming) : incoming);
-                var suggested = window.__suggestTitleFromFiles ? window.__suggestTitleFromFiles(incoming) : "";
-                if (suggested) {
-                  window.__lastSuggestedTitle = suggested;
-                  r(curr => curr.trim() ? curr : suggested);
-                }
-                m.target.value = "";
-              }
-            })`;
+          // 5. Add editable title suggestion bar right below the title input
+          html = html.replace(
+            /u\("input",\s*\{\s*"aria-label":\s*"Collection title"[\s\S]*?required:\s*!0\s*\}\)/,
+            'u("input", { "aria-label": "Collection title", value: n, onChange: m => r(m.target.value), placeholder: i === "series" ? "e.g. KonoSuba" : i === "movie" ? "e.g. Dune: Part Two" : "e.g. Night drive", required: !0 }), c.length > 0 && window.__suggestTitleFromFiles && (() => { var sug = window.__suggestTitleFromFiles(c); return sug ? v("div", { className: "title-suggestion-bar", children: [v("span", { children: ["Suggested: ", u("strong", { children: sug })] }), n.trim() !== sug ? u("button", { type: "button", className: "suggestion-apply-btn", onClick: () => r(sug), children: "Use title" }) : u("small", { className: "suggestion-active-note", children: "✓ Editable above" })] }) : null; })()'
+          );
 
-          html = html.replace(oldAddFilesInput, newAddFilesInput);
+          // 6. Add One-Tap Folder Picker button and updated file summary
+          html = html.replace(
+            /c\.length > 0 && v\("p",\s*\{\s*className:\s*"file-summary"[\s\S]*?matched automatically\."\]\s*\}\)/,
+            'v("div", { className: "folder-picker-row", children: [v("label", { className: "secondary-action folder-pick-btn", children: [u(k, { name: "folder", size: 17 }), " Pick entire folder in one tap", u("input", { type: "file", webkitdirectory: "", directory: "", multiple: !0, className: "sr-only", onChange: m => { var incoming = Array.from(m.target.files ?? []).filter(f => /\\.(mp4|mkv|webm|mov|m4v|avi|mp3|flac|m4a|wav|ogg)$/i.test(f.name) || (f.type && (f.type.startsWith("video/") || f.type.startsWith("audio/")))); if (incoming.length === 0) return; g(prev => window.__mergeUniquePickerFiles ? window.__mergeUniquePickerFiles(prev, incoming) : incoming); var suggested = window.__suggestTitleFromFiles ? window.__suggestTitleFromFiles(incoming) : ""; if (suggested) { window.__lastSuggestedTitle = suggested; r(curr => curr.trim() ? curr : suggested); } m.target.value = ""; } })] }), c.length > 0 && u("button", { type: "button", className: "secondary-action clear-files-btn", onClick: () => g([]), children: "Clear" })] }), c.length > 0 && v("p", { className: "file-summary", children: [u("strong", { children: c.length }), " unique local ", c.length === 1 ? "file" : "files", " ready (checked by folder + filename). Same title merges into one entry."] })'
+          );
 
-          // Add "Choose folder" one-tap button & editable title suggestion pill to the Add Sheet
-          const oldTitleField = `u("input", {
-            "aria-label": "Collection title",
-            value: n,
-            onChange: m => r(m.target.value),
-            placeholder: i === "series" ? "e.g. KonoSuba" : i === "movie" ? "e.g. Dune: Part Two" : "e.g. Night drive",
-            required: !0
-          })`;
-
-          const newTitleField = `u("input", {
-            "aria-label": "Collection title",
-            value: n,
-            onChange: m => r(m.target.value),
-            placeholder: i === "series" ? "e.g. KonoSuba" : i === "movie" ? "e.g. Dune: Part Two" : "e.g. Night drive",
-            required: !0
-          }), c.length > 0 && window.__suggestTitleFromFiles && (() => {
-            var sug = window.__suggestTitleFromFiles(c);
-            return sug ? v("div", {
-              className: "title-suggestion-bar",
-              children: [
-                v("span", { children: ["Suggested from folder/files: ", u("strong", { children: sug })] }),
-                n.trim() !== sug ? u("button", {
-                  type: "button",
-                  className: "suggestion-apply-btn",
-                  onClick: () => r(sug),
-                  children: "Use this title"
-                }) : u("small", { className: "suggestion-active-note", children: "✓ Editable above" })
-              ]
-            }) : null;
-          })()`;
-
-          html = html.replace(oldTitleField, newTitleField);
-
-          const oldUploadSummary = `c.length > 0 && v("p", {
-          className: "file-summary",
-          children: [u("strong", {
-            children: c.length
-          }), " local ", c.length === 1 ? "file" : "files", " ready. Episode numbers such as S02E05 are matched automatically."]
-        })`;
-
-          const newUploadSummary = `v("div", {
-          className: "folder-picker-row",
-          children: [
-            v("label", {
-              className: "secondary-action folder-pick-btn",
-              children: [
-                u(k, { name: "folder", size: 17 }),
-                " Pick entire folder in one tap",
-                u("input", {
-                  type: "file",
-                  webkitdirectory: "",
-                  directory: "",
-                  multiple: !0,
-                  className: "sr-only",
-                  onChange: m => {
-                    var incoming = Array.from(m.target.files ?? []).filter(f => /\\.(mp4|mkv|webm|mov|m4v|avi|mp3|flac|m4a|wav|ogg)$/i.test(f.name) || (f.type && (f.type.startsWith("video/") || f.type.startsWith("audio/"))));
-                    if (incoming.length === 0) return;
-                    g(prev => window.__mergeUniquePickerFiles ? window.__mergeUniquePickerFiles(prev, incoming) : incoming);
-                    var suggested = window.__suggestTitleFromFiles ? window.__suggestTitleFromFiles(incoming) : "";
-                    if (suggested) {
-                      window.__lastSuggestedTitle = suggested;
-                      r(curr => curr.trim() ? curr : suggested);
-                    }
-                    m.target.value = "";
-                  }
-                })
-              ]
-            }),
-            c.length > 0 && u("button", {
-              type: "button",
-              className: "secondary-action clear-files-btn",
-              onClick: () => g([]),
-              children: "Clear selection"
-            })
-          ]
-        }), c.length > 0 && v("p", {
-          className: "file-summary",
-          children: [u("strong", {
-            children: c.length
-          }), " unique local ", c.length === 1 ? "file" : "files", " ready (checked by folder + filename). Same title merges into one entry automatically."]
-        })`;
-
-          html = html.replace(oldUploadSummary, newUploadSummary);
-
-          // 5. Keep our Episode & Watch Order UI enhancements
+          // 7. Episode & Watch Order UI enhancements (listed count + arrive date)
           html = html.replace(
             /children:\s*\[u\("h3",\s*\{\s*children:\s*r\s*==\s*null\s*\?\s*"Episodes"\s*:\s*ve\(r\)\s*\}\)/,
             'children: [u("h3", { children: (r == null ? "Episodes" : ve(r)) + (U.length > 0 ? ` · ${U.length} listed` : " · 0 listed") })'
@@ -202,7 +103,7 @@ jobs:
             '(Me.find(ae => ae.seasonNumber === r)?.isComingSoon ? "⏳ Coming Soon — This season has been announced and has not started airing yet." : "No episode list was found for this season. Your imported files are still kept.")'
           );
 
-          // 6. Inject Custom CSS for Borderless Episode Cards + Folder Picker & Title Suggestion Banner
+          // 8. Inject Custom CSS for Borderless Episode Cards + Folder Picker & Title Suggestion Banner
           const customUiCss = `<style id="custom-ui-overrides">
             .folder-picker-row {
               display: flex;
@@ -407,7 +308,6 @@ jobs:
 
           const localRuntime = `<script data-hatch-cvm-bundle="">
           (function() {
-            // Helper: Composite key using BOTH folder and file name
             window.__getMediaFileKey = function(fileOrObj) {
               if (!fileOrObj) return "";
               var rel = String(fileOrObj.webkitRelativePath || fileOrObj.relativePath || "").replace(/\\\\/g, "/").replace(/^\\/+/, "").trim();
@@ -416,7 +316,6 @@ jobs:
               return name;
             };
 
-            // Helper: Deduplicate File picker selections by (folder + fileName)
             window.__mergeUniquePickerFiles = function(existingFiles, incomingFiles) {
               var map = new Map();
               (existingFiles || []).forEach(function(f) {
@@ -429,7 +328,6 @@ jobs:
               return Array.from(map.values());
             };
 
-            // Helper: Cleanly suggest Series / Movie / Music title from folder name or file names
             window.__suggestTitleFromFiles = function(files) {
               if (!files || files.length === 0) return "";
               var first = files[0];
@@ -439,7 +337,6 @@ jobs:
               if (rel && rel.indexOf("/") !== -1) {
                 var parts = rel.split("/").filter(Boolean);
                 var folder = parts[0];
-                // If the immediate folder is just "Season 1" or "S01", use the parent folder if available
                 if (parts.length >= 2 && /^(?:season|s|series|vol|volume|disc|cd)[\\s._-]*\\d+$/i.test(parts[parts.length - 2])) {
                   folder = parts[0];
                 }
@@ -656,7 +553,6 @@ jobs:
               return (str || "").replace(/<[^>]+>/g, "").replace(/\\s+/g, " ").trim();
             }
 
-            // Preserves exact S01E02 filename parsing while storing composite folder + filename key
             function parseFileEntry(fileInput, kind, idx, nextFileId) {
               var rawFileName = typeof fileInput === "string" ? fileInput : (fileInput.fileName || "");
               var relPath = (typeof fileInput === "object" && fileInput && fileInput.relativePath)
@@ -700,7 +596,6 @@ jobs:
               };
             }
 
-            // Deezer Music Cover & Metadata Lookup via JSONP (works without CORS proxy)
             function lookupDeezerMusic(title) {
               return new Promise(function(resolve) {
                 var cbName = "__deezer_cb_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
@@ -745,10 +640,6 @@ jobs:
               });
             }
 
-            // Unified One-Time Metadata Lookup:
-            // - Deezer for music covers
-            // - TVmaze for series (seasons, episodes, ratings)
-            // - AniList for anime movies and watch order
             async function lookupAllMetadata(title, kind, year) {
               var result = {
                 posterUrl: null,
@@ -765,7 +656,6 @@ jobs:
                 reviews: []
               };
 
-              // 1. MUSIC: Deezer cover lookup
               if (kind === "music") {
                 var dz = await lookupDeezerMusic(title);
                 if (dz) {
@@ -778,7 +668,6 @@ jobs:
                 return result;
               }
 
-              // 2. SERIES: Fetch TVmaze for seasons, episodes & ratings
               var tvmazeEpisodesBySeason = new Map();
               var tvmazeRatings = null;
               if (kind === "series") {
@@ -837,55 +726,9 @@ jobs:
                 } catch (e) {}
               }
 
-              // 3. ANILIST: Fetch anime movies, OVAs, reviews, and full chronological Watch Order
               var VALID_RELATIONS = ["SEQUEL", "PREQUEL", "SIDE_STORY", "PARENT", "SPIN_OFF", "SUMMARY", "ALTERNATIVE"];
               try {
-                var searchQuery = \`
-                  query ($search: String) {
-                    Media(search: $search, type: ANIME, sort: [SEARCH_MATCH, POPULARITY_DESC]) {
-                      id
-                      title { english romaji }
-                      description(asHtml: false)
-                      seasonYear
-                      startDate { year month day }
-                      format
-                      status
-                      episodes
-                      duration
-                      genres
-                      averageScore
-                      siteUrl
-                      nextAiringEpisode { episode airingAt timeUntilAiring }
-                      airingSchedule(perPage: 50) { nodes { episode airingAt timeUntilAiring } }
-                      coverImage { extraLarge large }
-                      reviews(perPage: 4, sort: [RATING_DESC]) {
-                        nodes { id summary score user { name } siteUrl }
-                      }
-                      relations {
-                        edges {
-                          relationType(version: 2)
-                          node {
-                            id type format
-                            relations {
-                              edges {
-                                relationType(version: 2)
-                                node {
-                                  id type format
-                                  relations {
-                                    edges {
-                                      relationType(version: 2)
-                                      node { id type format }
-                                    }
-                                  }
-                                }
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                \`;
+                var searchQuery = "query ($search: String) { Media(search: $search, type: ANIME, sort: [SEARCH_MATCH, POPULARITY_DESC]) { id title { english romaji } description(asHtml: false) seasonYear startDate { year month day } format status episodes duration genres averageScore siteUrl nextAiringEpisode { episode airingAt timeUntilAiring } airingSchedule(perPage: 50) { nodes { episode airingAt timeUntilAiring } } coverImage { extraLarge large } reviews(perPage: 4, sort: [RATING_DESC]) { nodes { id summary score user { name } siteUrl } } relations { edges { relationType(version: 2) node { id type format relations { edges { relationType(version: 2) node { id type format relations { edges { relationType(version: 2) node { id type format } } } } } } } } } } }";
 
                 var r1 = await origFetch("https://graphql.anilist.co", {
                   method: "POST",
@@ -942,47 +785,7 @@ jobs:
                   walkEdges(rootMedia.relations && rootMedia.relations.edges);
 
                   var allIds = Array.from(idSet).slice(0, 45);
-                  var batchQuery = \`
-                    query ($ids: [Int]) {
-                      Page(perPage: 50) {
-                        media(id_in: $ids, type: ANIME) {
-                          id
-                          title { english romaji }
-                          description(asHtml: false)
-                          seasonYear
-                          startDate { year month day }
-                          format
-                          status
-                          episodes
-                          duration
-                          averageScore
-                          siteUrl
-                          nextAiringEpisode { episode airingAt timeUntilAiring }
-                          airingSchedule(perPage: 50) { nodes { episode airingAt timeUntilAiring } }
-                          coverImage { extraLarge large }
-                          streamingEpisodes { title thumbnail url }
-                          relations {
-                            edges {
-                              relationType(version: 2)
-                              node {
-                                id type format status
-                                title { english romaji }
-                                description(asHtml: false)
-                                seasonYear
-                                startDate { year month day }
-                                episodes
-                                duration
-                                averageScore
-                                siteUrl
-                                nextAiringEpisode { episode airingAt timeUntilAiring }
-                                coverImage { extraLarge large }
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  \`;
+                  var batchQuery = "query ($ids: [Int]) { Page(perPage: 50) { media(id_in: $ids, type: ANIME) { id title { english romaji } description(asHtml: false) seasonYear startDate { year month day } format status episodes duration averageScore siteUrl nextAiringEpisode { episode airingAt timeUntilAiring } airingSchedule(perPage: 50) { nodes { episode airingAt timeUntilAiring } } coverImage { extraLarge large } streamingEpisodes { title thumbnail url } relations { edges { relationType(version: 2) node { id type format status title { english romaji } description(asHtml: false) seasonYear startDate { year month day } episodes duration averageScore siteUrl nextAiringEpisode { episode airingAt timeUntilAiring } coverImage { extraLarge large } } } } } } }";
 
                   var rBatch = await origFetch("https://graphql.anilist.co", {
                     method: "POST",
@@ -1174,7 +977,6 @@ jobs:
               return result;
             }
 
-            // Links local files (S01E02) into a collection's episode list & creates missing season stubs if needed
             function attachFilesToCollection(col, newFiles) {
               if (!col.files) col.files = [];
               var existingKeys = new Set(
@@ -1286,7 +1088,6 @@ jobs:
                 var titleKey = normalizeTitleKey(cleanTitle);
                 var rawFiles = args.files || [];
 
-                // Deduplicate incoming files by (folder + fileName)
                 var seenIncoming = new Set();
                 var uniqueRawFiles = [];
                 rawFiles.forEach(function(f) {
@@ -1301,8 +1102,6 @@ jobs:
                   return parseFileEntry(f, kind, idx, db.nextFileId++);
                 });
 
-                // Check if a collection with the same title (case-insensitive) already exists!
-                // If it exists -> merge new files into the existing entry and DO NOT fetch metadata again.
                 var existingCol = db.collections.find(function(c) {
                   return normalizeTitleKey(c.title) === titleKey && c.kind === kind;
                 }) || db.collections.find(function(c) {
@@ -1318,7 +1117,6 @@ jobs:
                   return { collection: existingCol };
                 }
 
-                // New Collection -> Fetch metadata ONE time (TVmaze / AniList / Deezer)
                 var id = db.nextId++;
                 var meta = await lookupAllMetadata(cleanTitle, kind, args.year);
                 var posterUrl = args.posterDataBase64
