@@ -246,7 +246,7 @@ jobs:
               }
             });
 
-            var DB_KEY = "media_player_exact_db_v2";
+            var DB_KEY = "media_player_exact_db_v3";
             var SEED_DB = {
               nextId: 3,
               nextFileId: 100,
@@ -257,10 +257,10 @@ jobs:
                   kind: "series",
                   year: 2016,
                   posterUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21202-TfzXuWQf2oLQ.png",
-                  rating: 7.1,
+                  rating: 8.0,
                   ratingScale: 10,
-                  ratingSource: "TVmaze",
-                  sourceUrl: "https://www.tvmaze.com/shows/13202/konosuba-gods-blessing-on-this-wonderful-world",
+                  ratingSource: "AniList",
+                  sourceUrl: "https://anilist.co/anime/21202",
                   synopsis: "The life of Satou Kazuma, a hikikomori who likes games, all too soon came to an end because of a traffic accident... It was supposed to, but when he woke up, a beautiful girl who called herself a goddess was in front of his eyes.",
                   genres: ["Adventure", "Comedy", "Fantasy"],
                   seasonCount: 3,
@@ -268,26 +268,29 @@ jobs:
                   metadataNote: null,
                   createdAt: "2026-09-25T10:00:00.000Z",
                   seasons: [
-                    { seasonNumber: 1, releaseYear: 2016, firstAirDate: "2016-01-13", thumbnailUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21202-TfzXuWQf2oLQ.png" },
-                    { seasonNumber: 2, releaseYear: 2017, firstAirDate: "2017-01-11", thumbnailUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21699-Fkbnbfv2fb8y.png" },
-                    { seasonNumber: 3, releaseYear: 2024, firstAirDate: "2024-04-10", thumbnailUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21202-TfzXuWQf2oLQ.png" }
+                    { seasonNumber: 1, releaseYear: 2016, firstAirDate: "2016-01-14", thumbnailUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21202-TfzXuWQf2oLQ.png" },
+                    { seasonNumber: 2, releaseYear: 2017, firstAirDate: "2017-01-12", thumbnailUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21699-Fkbnbfv2fb8y.png" },
+                    { seasonNumber: 3, releaseYear: 2024, firstAirDate: "2024-04-10", thumbnailUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx153845-C47ao07L1c7b.jpg" }
                   ],
                   episodes: [
-                    { id: 101, seasonNumber: 1, episodeNumber: 1, title: "This Self-Proclaimed Goddess and Reincarnation in Another World!", airDate: "2016-01-13", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
-                    { id: 102, seasonNumber: 1, episodeNumber: 2, title: "An Explosion for This Chunibyo!", airDate: "2016-01-20", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
-                    { id: 103, seasonNumber: 1, episodeNumber: 3, title: "A Panty Treasure in This Right Hand!", airDate: "2016-01-27", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
-                    { id: 104, seasonNumber: 1, episodeNumber: 4, title: "Explosion Magic for This Formidable Enemy!", airDate: "2016-02-03", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
-                    { id: 105, seasonNumber: 1, episodeNumber: 5, title: "A Price for This Cursed Sword!", airDate: "2016-02-10", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
-                    { id: 106, seasonNumber: 1, episodeNumber: 6, title: "A Conclusion to This Worthless Fight!", airDate: "2016-02-17", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
-                    { id: 107, seasonNumber: 1, episodeNumber: 7, title: "A Second Death in This Freezing Season!", airDate: "2016-02-24", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
-                    { id: 108, seasonNumber: 1, episodeNumber: 8, title: "A Loving Hand for Our Party When We Can't Make It Through Winter!", airDate: "2016-03-02", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
-                    { id: 109, seasonNumber: 1, episodeNumber: 9, title: "God's Blessing on This Wonderful Shop!", airDate: "2016-03-09", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
-                    { id: 110, seasonNumber: 1, episodeNumber: 10, title: "A Final Flame for This Over-the-Top Fortress!", airDate: "2016-03-16", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null }
+                    { id: 101, seasonNumber: 1, episodeNumber: 1, title: "This Self-Proclaimed Goddess and Reincarnation in Another World!", airDate: "2016-01-14", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 102, seasonNumber: 1, episodeNumber: 2, title: "An Explosion for This Chunibyo!", airDate: "2016-01-21", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 103, seasonNumber: 1, episodeNumber: 3, title: "A Panty Treasure in This Right Hand!", airDate: "2016-01-28", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 104, seasonNumber: 1, episodeNumber: 4, title: "Explosion Magic for This Formidable Enemy!", airDate: "2016-02-04", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 105, seasonNumber: 1, episodeNumber: 5, title: "A Price for This Cursed Sword!", airDate: "2016-02-11", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 106, seasonNumber: 1, episodeNumber: 6, title: "A Conclusion to This Worthless Fight!", airDate: "2016-02-18", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 107, seasonNumber: 1, episodeNumber: 7, title: "A Second Death in This Freezing Season!", airDate: "2016-02-25", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 108, seasonNumber: 1, episodeNumber: 8, title: "A Loving Hand for Our Party When We Can't Make It Through Winter!", airDate: "2016-03-03", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 109, seasonNumber: 1, episodeNumber: 9, title: "God's Blessing on This Wonderful Shop!", airDate: "2016-03-10", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 110, seasonNumber: 1, episodeNumber: 10, title: "A Final Flame for This Over-the-Top Fortress!", airDate: "2016-03-17", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 201, seasonNumber: 2, episodeNumber: 1, title: "Give Me Deliverance from This Judicial Injustice!", airDate: "2017-01-12", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 202, seasonNumber: 2, episodeNumber: 2, title: "A Friend for This Crimson Demon Girl!", airDate: "2017-01-19", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 301, seasonNumber: 3, episodeNumber: 1, title: "God's Blessing on This Bright Future!", airDate: "2024-04-10", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null }
                   ],
                   relatedMedia: [
-                    { id: 11, contentType: "ova", title: "KONOSUBA OVA 1: God's Blessings on This Wonderful Choker!", releaseYear: 2016, releaseDate: "2016-06-24", relation: "Side story", rating: 7.6, ratingScale: 10, synopsis: "Kazuma puts on a mysterious choker in Wiz's shop that grants wishes.", thumbnailUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21202-TfzXuWQf2oLQ.png", sourceUrl: "https://anilist.co/anime/21698" },
-                    { id: 12, contentType: "ova", title: "KONOSUBA OVA 2: God's Blessings on These Wonderful Works of Art!", releaseYear: 2017, releaseDate: "2017-07-24", relation: "Side story", rating: 7.8, ratingScale: 10, synopsis: "Kazuma and the party take on a quest to investigate a rogue golem.", thumbnailUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21699-Fkbnbfv2fb8y.png", sourceUrl: "https://anilist.co/anime/97996" },
-                    { id: 13, contentType: "movie", title: "KONOSUBA Movie: Legend of Crimson", releaseYear: 2019, releaseDate: "2019-08-30", relation: "Sequel", rating: 8.3, ratingScale: 10, synopsis: "Kazuma, Aqua, Megumin, and Darkness travel to the Crimson Demon Village.", thumbnailUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx102976-8AOI9Y2g0B1I.jpg", sourceUrl: "https://anilist.co/anime/102976" }
+                    { id: 11, contentType: "ova", title: "KONOSUBA -God's blessing on this wonderful world! God's Blessings on This Wonderful Choker!", releaseYear: 2016, releaseDate: "2016-06-24", relation: "Side story", rating: 7.6, ratingScale: 10, synopsis: "Kazuma puts on a mysterious choker in Wiz's shop that grants wishes.", thumbnailUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21202-TfzXuWQf2oLQ.png", sourceUrl: "https://anilist.co/anime/21698" },
+                    { id: 12, contentType: "ova", title: "KONOSUBA -God's blessing on this wonderful world! 2: God's Blessings on These Wonderful Works of Art!", releaseYear: 2017, releaseDate: "2017-07-24", relation: "Side story", rating: 7.8, ratingScale: 10, synopsis: "Kazuma and the party take on a quest to investigate a rogue golem.", thumbnailUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21699-Fkbnbfv2fb8y.png", sourceUrl: "https://anilist.co/anime/97996" },
+                    { id: 13, contentType: "movie", title: "KONOSUBA -God's blessing on this wonderful world!- Legend of Crimson", releaseYear: 2019, releaseDate: "2019-08-30", relation: "Sequel", rating: 8.3, ratingScale: 10, synopsis: "Kazuma, Aqua, Megumin, and Darkness travel to the Crimson Demon Village.", thumbnailUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx102976-8AOI9Y2g0B1I.jpg", sourceUrl: "https://anilist.co/anime/102976" }
                   ],
                   files: [],
                   reviews: [
@@ -334,6 +337,20 @@ jobs:
               try { localStorage.setItem(DB_KEY, JSON.stringify(db)); } catch (e) {}
             }
 
+            function formatAniDate(sd, fallbackYear) {
+              if (sd && sd.year) {
+                var m = String(sd.month || 1).padStart(2, "0");
+                var d = String(sd.day || 1).padStart(2, "0");
+                return sd.year + "-" + m + "-" + d;
+              }
+              if (fallbackYear) return fallbackYear + "-06-15";
+              return null;
+            }
+
+            function cleanHtml(str) {
+              return (str || "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+            }
+
             function parseFileEntry(fileName, kind, idx, nextFileId) {
               var base = fileName.replace(/\.[^/.]+$/, "");
               var m = base.match(/S(\d{1,2})[\s._-]*E(\d{1,3})/i) || base.match(/(\d{1,2})x(\d{1,3})/i);
@@ -360,12 +377,13 @@ jobs:
               };
             }
 
+            // Full AniList Public GraphQL Franchise & Watch Order Engine
             async function lookupAllMetadata(title, kind, year) {
               var result = {
                 posterUrl: null,
                 rating: null,
                 ratingScale: null,
-                ratingSource: "Local",
+                ratingSource: "AniList",
                 sourceUrl: null,
                 synopsis: null,
                 genres: [],
@@ -376,65 +394,273 @@ jobs:
                 reviews: []
               };
 
+              var VALID_RELATIONS = ["SEQUEL", "PREQUEL", "SIDE_STORY", "PARENT", "SPIN_OFF", "SUMMARY", "ALTERNATIVE"];
+
               try {
-                var query = "query ($search: String) { Media(search: $search, type: ANIME) { id title { english romaji } description(asHtml: false) seasonYear episodes duration genres averageScore siteUrl coverImage { extraLarge large } relations { edges { relationType node { id title { english romaji } format seasonYear averageScore description(asHtml: false) siteUrl coverImage { large } } } } reviews(perPage: 4) { nodes { id summary score user { name } siteUrl } } } }";
+                // Step 1: Search AniList and traverse 3 hops of relations to collect all franchise IDs
+                var searchQuery = \`
+                  query ($search: String) {
+                    Media(search: $search, type: ANIME, sort: [SEARCH_MATCH, POPULARITY_DESC]) {
+                      id
+                      title { english romaji }
+                      description(asHtml: false)
+                      seasonYear
+                      startDate { year month day }
+                      format
+                      episodes
+                      duration
+                      genres
+                      averageScore
+                      siteUrl
+                      coverImage { extraLarge large }
+                      reviews(perPage: 4, sort: [RATING_DESC]) {
+                        nodes { id summary score user { name } siteUrl }
+                      }
+                      relations {
+                        edges {
+                          relationType(version: 2)
+                          node {
+                            id type format
+                            relations {
+                              edges {
+                                relationType(version: 2)
+                                node {
+                                  id type format
+                                  relations {
+                                    edges {
+                                      relationType(version: 2)
+                                      node { id type format }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                \`;
+
                 var r1 = await origFetch("https://graphql.anilist.co", {
                   method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ query: query, variables: { search: title } })
+                  headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                  body: JSON.stringify({ query: searchQuery, variables: { search: title } })
                 });
                 var j1 = await r1.json();
-                var m = j1 && j1.data && j1.data.Media;
-                if (m) {
-                  result.posterUrl = (m.coverImage && (m.coverImage.extraLarge || m.coverImage.large)) || null;
-                  result.rating = m.averageScore || null;
-                  result.ratingScale = m.averageScore ? 100 : null;
+                var rootMedia = j1 && j1.data && j1.data.Media;
+
+                if (rootMedia) {
+                  result.posterUrl = (rootMedia.coverImage && (rootMedia.coverImage.extraLarge || rootMedia.coverImage.large)) || null;
+                  result.rating = rootMedia.averageScore ? Number((rootMedia.averageScore / 10).toFixed(1)) : null;
+                  result.ratingScale = rootMedia.averageScore ? 10 : null;
                   result.ratingSource = "AniList";
-                  result.sourceUrl = m.siteUrl || null;
-                  result.synopsis = m.description ? m.description.replace(/<[^>]+>/g, "") : null;
-                  result.genres = m.genres || [];
-                  result.year = result.year || m.seasonYear || null;
-                  var edges = (m.relations && m.relations.edges) || [];
-                  result.relatedMedia = edges
-                    .filter(function(e) { return e.node && ["MOVIE", "OVA", "SPECIAL"].indexOf(e.node.format) !== -1; })
-                    .map(function(e, idx) {
-                      return {
-                        id: Date.now() + idx + 1,
-                        contentType: e.node.format === "OVA" ? "ova" : (e.node.format === "SPECIAL" ? "special" : "movie"),
-                        title: (e.node.title && (e.node.title.english || e.node.title.romaji)) || "Related Title",
-                        releaseYear: e.node.seasonYear || null,
-                        releaseDate: e.node.seasonYear ? (e.node.seasonYear + "-01-01") : null,
-                        relation: e.relationType ? e.relationType.replace(/_/g, " ") : "Related",
-                        rating: e.node.averageScore ? Number((e.node.averageScore / 10).toFixed(1)) : null,
-                        ratingScale: 10,
-                        synopsis: (e.node.description || "").replace(/<[^>]+>/g, ""),
-                        thumbnailUrl: (e.node.coverImage && e.node.coverImage.large) || result.posterUrl,
-                        sourceUrl: e.node.siteUrl || null
-                      };
-                    });
-                  var revNodes = (m.reviews && m.reviews.nodes) || [];
+                  result.sourceUrl = rootMedia.siteUrl || null;
+                  result.synopsis = cleanHtml(rootMedia.description);
+                  result.genres = rootMedia.genres || [];
+                  result.year = result.year || rootMedia.seasonYear || (rootMedia.startDate && rootMedia.startDate.year) || null;
+
+                  var revNodes = (rootMedia.reviews && rootMedia.reviews.nodes) || [];
                   result.reviews = revNodes.map(function(rv, idx) {
                     return {
                       id: Date.now() + 500 + idx,
                       reviewType: idx % 2 === 0 ? "critic" : "audience",
                       sourceName: "AniList",
-                      excerpt: rv.summary || "Great watch.",
-                      author: (rv.user && rv.user.name) || "Reviewer",
-                      sourceUrl: rv.siteUrl || m.siteUrl || "https://anilist.co",
+                      excerpt: rv.summary || "Highly recommended watch.",
+                      author: (rv.user && rv.user.name) || "AniList Reviewer",
+                      sourceUrl: rv.siteUrl || rootMedia.siteUrl || "https://anilist.co",
                       fetchedAt: new Date().toISOString()
                     };
                   });
+
+                  // Collect all connected ANIME IDs in the franchise
+                  var idSet = new Set([rootMedia.id]);
+                  var relationMap = {};
+                  relationMap[rootMedia.id] = "Main story";
+
+                  function walkEdges(edges) {
+                    if (!edges) return;
+                    edges.forEach(function(edge) {
+                      var rel = edge && edge.relationType;
+                      var node = edge && edge.node;
+                      if (!node || node.type !== "ANIME" || VALID_RELATIONS.indexOf(rel) === -1) return;
+                      if (!idSet.has(node.id)) {
+                        idSet.add(node.id);
+                        relationMap[node.id] = rel.replace(/_/g, " ");
+                      }
+                      if (node.relations && node.relations.edges) {
+                        walkEdges(node.relations.edges);
+                      }
+                    });
+                  }
+                  walkEdges(rootMedia.relations && rootMedia.relations.edges);
+
+                  // Step 2: Fetch full details + streamingEpisodes + 1 more hop for all discovered franchise IDs
+                  var allIds = Array.from(idSet).slice(0, 45);
+                  var batchQuery = \`
+                    query ($ids: [Int]) {
+                      Page(perPage: 50) {
+                        media(id_in: $ids, type: ANIME) {
+                          id
+                          title { english romaji }
+                          description(asHtml: false)
+                          seasonYear
+                          startDate { year month day }
+                          format
+                          status
+                          episodes
+                          duration
+                          averageScore
+                          siteUrl
+                          coverImage { extraLarge large }
+                          streamingEpisodes { title thumbnail url }
+                          relations {
+                            edges {
+                              relationType(version: 2)
+                              node {
+                                id type format
+                                title { english romaji }
+                                description(asHtml: false)
+                                seasonYear
+                                startDate { year month day }
+                                episodes
+                                duration
+                                averageScore
+                                siteUrl
+                                coverImage { extraLarge large }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  \`;
+
+                  var rBatch = await origFetch("https://graphql.anilist.co", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                    body: JSON.stringify({ query: batchQuery, variables: { ids: allIds } })
+                  });
+                  var jBatch = await rBatch.json();
+                  var mediaList = (jBatch && jBatch.data && jBatch.data.Page && jBatch.data.Page.media) || [rootMedia];
+
+                  // Also include any 4th-hop anime nodes discovered in the batch relations
+                  var nodeById = new Map();
+                  mediaList.forEach(function(item) {
+                    if (item && item.id) nodeById.set(item.id, item);
+                  });
+                  mediaList.forEach(function(item) {
+                    var edges = (item && item.relations && item.relations.edges) || [];
+                    edges.forEach(function(edge) {
+                      var rel = edge && edge.relationType;
+                      var node = edge && edge.node;
+                      if (node && node.type === "ANIME" && VALID_RELATIONS.indexOf(rel) !== -1 && !nodeById.has(node.id)) {
+                        nodeById.set(node.id, node);
+                        if (!relationMap[node.id]) relationMap[node.id] = rel.replace(/_/g, " ");
+                      }
+                    });
+                  });
+
+                  var franchiseNodes = Array.from(nodeById.values()).filter(function(n) {
+                    return n && n.format && n.status !== "CANCELLED";
+                  });
+
+                  // Sort all franchise entries strictly by exact release date (YYYY-MM-DD)
+                  franchiseNodes.sort(function(a, b) {
+                    var da = formatAniDate(a.startDate, a.seasonYear) || "9999-12-31";
+                    var db = formatAniDate(b.startDate, b.seasonYear) || "9999-12-31";
+                    return da.localeCompare(db) || (a.id - b.id);
+                  });
+
+                  if (kind === "series") {
+                    var tvNodes = franchiseNodes.filter(function(n) {
+                      return n.format === "TV" || (n.id === rootMedia.id && n.format === "ONA");
+                    });
+                    if (tvNodes.length === 0) tvNodes = [rootMedia];
+
+                    // Use earliest main TV season poster/year for the series root if appropriate
+                    var firstTv = tvNodes[0];
+                    if (firstTv) {
+                      result.year = firstTv.seasonYear || (firstTv.startDate && firstTv.startDate.year) || result.year;
+                    }
+
+                    tvNodes.forEach(function(tv, sIdx) {
+                      var sNum = sIdx + 1;
+                      var sYear = tv.seasonYear || (tv.startDate && tv.startDate.year) || null;
+                      var sDate = formatAniDate(tv.startDate, sYear);
+                      var sThumb = (tv.coverImage && (tv.coverImage.extraLarge || tv.coverImage.large)) || result.posterUrl;
+
+                      result.seasons.push({
+                        seasonNumber: sNum,
+                        releaseYear: sYear,
+                        firstAirDate: sDate,
+                        thumbnailUrl: sThumb
+                      });
+
+                      var streamEps = (tv.streamingEpisodes || []).slice();
+                      var epTotal = tv.episodes || streamEps.length || 12;
+
+                      for (var eIdx = 0; eIdx < epTotal; eIdx++) {
+                        var epNum = eIdx + 1;
+                        var streamEp = streamEps[eIdx] || null;
+                        var cleanEpTitle = "Episode " + epNum;
+                        if (streamEp && streamEp.title) {
+                          cleanEpTitle = streamEp.title.replace(/^Episode\s*\d+\s*[-:]\s*/i, "").trim() || streamEp.title;
+                        }
+                        result.episodes.push({
+                          id: tv.id * 1000 + epNum,
+                          seasonNumber: sNum,
+                          episodeNumber: epNum,
+                          title: cleanEpTitle,
+                          airDate: sDate,
+                          runtimeMinutes: tv.duration || 24,
+                          sourceUrl: (streamEp && streamEp.url) || tv.siteUrl || null,
+                          thumbnailUrl: (streamEp && streamEp.thumbnail) || sThumb,
+                          localFileName: null
+                        });
+                      }
+                    });
+
+                    // All Movies, OVAs, Specials, ONAs in the franchise with exact YYYY-MM-DD releaseDate
+                    var nonTvNodes = franchiseNodes.filter(function(n) {
+                      return ["MOVIE", "OVA", "SPECIAL", "ONA", "TV_SHORT"].indexOf(n.format) !== -1 && tvNodes.indexOf(n) === -1;
+                    });
+
+                    result.relatedMedia = nonTvNodes.map(function(n, idx) {
+                      var rYear = n.seasonYear || (n.startDate && n.startDate.year) || null;
+                      var rDate = formatAniDate(n.startDate, rYear);
+                      var cType = (n.format === "OVA" || n.format === "ONA")
+                        ? "ova"
+                        : (n.format === "SPECIAL" || n.format === "TV_SHORT")
+                          ? "special"
+                          : "movie";
+                      return {
+                        id: n.id || (Date.now() + idx + 1),
+                        contentType: cType,
+                        title: (n.title && (n.title.english || n.title.romaji)) || "Related Title",
+                        releaseYear: rYear,
+                        releaseDate: rDate,
+                        relation: relationMap[n.id] || "Related",
+                        rating: n.averageScore ? Number((n.averageScore / 10).toFixed(1)) : null,
+                        ratingScale: 10,
+                        synopsis: cleanHtml(n.description),
+                        thumbnailUrl: (n.coverImage && (n.coverImage.extraLarge || n.coverImage.large)) || result.posterUrl,
+                        sourceUrl: n.siteUrl || null
+                      };
+                    });
+                  }
                 }
               } catch (e) {}
 
-              if (kind === "series") {
+              // Fallback to TVmaze ONLY if AniList found nothing (e.g., live-action western TV show)
+              if (kind === "series" && result.seasons.length === 0) {
                 try {
                   var r2 = await origFetch("https://api.tvmaze.com/singlesearch/shows?q=" + encodeURIComponent(title) + "&embed[]=episodes&embed[]=seasons");
                   if (r2.ok) {
                     var show = await r2.json();
                     if (show) {
                       result.posterUrl = result.posterUrl || (show.image && (show.image.original || show.image.medium)) || null;
-                      result.synopsis = result.synopsis || (show.summary ? show.summary.replace(/<[^>]+>/g, "") : null);
+                      result.synopsis = result.synopsis || cleanHtml(show.summary);
                       if (show.rating && show.rating.average) {
                         result.rating = show.rating.average;
                         result.ratingScale = 10;
@@ -650,13 +876,29 @@ jobs:
                 var colM = db.collections.find(function(c) { return Number(c.id) === Number(args.id); });
                 if (colM) {
                   var refreshed = await lookupAllMetadata(colM.title, colM.kind, colM.year);
-                  if (refreshed.posterUrl && !colM.posterUrl) colM.posterUrl = refreshed.posterUrl;
+                  if (refreshed.posterUrl && (!colM.posterUrl || colM.posterUrl.indexOf("data:") !== 0)) {
+                    colM.posterUrl = refreshed.posterUrl;
+                  }
                   if (refreshed.synopsis) colM.synopsis = refreshed.synopsis;
+                  if (refreshed.rating != null) {
+                    colM.rating = refreshed.rating;
+                    colM.ratingScale = refreshed.ratingScale;
+                    colM.ratingSource = refreshed.ratingSource;
+                  }
                   if (refreshed.seasons.length > 0) {
                     colM.seasons = refreshed.seasons;
                     colM.seasonCount = refreshed.seasons.length;
                   }
-                  if (refreshed.episodes.length > 0) colM.episodes = refreshed.episodes;
+                  if (refreshed.episodes.length > 0) {
+                    var existingFiles = colM.files || [];
+                    refreshed.episodes.forEach(function(ep) {
+                      var mf = existingFiles.find(function(x) {
+                        return x.seasonNumber === ep.seasonNumber && x.episodeNumber === ep.episodeNumber;
+                      });
+                      if (mf) ep.localFileName = mf.fileName;
+                    });
+                    colM.episodes = refreshed.episodes;
+                  }
                   if (refreshed.relatedMedia.length > 0) colM.relatedMedia = refreshed.relatedMedia;
                   if (refreshed.reviews.length > 0) colM.reviews = refreshed.reviews;
                   saveDB(db);
