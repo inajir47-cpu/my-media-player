@@ -23,7 +23,7 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Package Exact true-konosuba-player.txt with Local Actions
+      - name: Package Exact true-konosuba-player.txt with Native Back Button
         run: |
           mkdir -p exact-app/www
           cp true-konosuba-player.txt exact-app/raw.html
@@ -43,9 +43,51 @@ jobs:
             "$1$2"
           );
 
-          // 3. Inject local ./actions handler so Add, Connect, Watch Order, Artwork & Reviews return valid JSON
+          // 3. Inject local ./actions handler + Android Hardware Back Button handler
           const localRuntime = `<script data-hatch-cvm-bundle="">
           (function() {
+            // Smart Android Back Button Handler
+            window.__handleAndroidBack = function() {
+              // 1. If Playlist Queue drawer inside video player is open, close it first
+              var queueClose = document.querySelector('.player-queue .queue-head button');
+              if (queueClose) { queueClose.click(); return true; }
+
+              // 2. If VLC Video Player is open, click its Close button
+              var playerClose = document.querySelector('.player-modal .player-toolbar > button');
+              if (playerClose) { playerClose.click(); return true; }
+
+              // 3. If Random Clip Modal or Online Availability Modal is open, close it
+              var modalClose = document.querySelector('.random-clip-modal > .modal-close, .online-modal .modal-close, .trailer-modal .modal-close');
+              if (modalClose) { modalClose.click(); return true; }
+
+              // 4. If Add Collection or Modify Artwork sheet is open, close it
+              var sheetClose = document.querySelector('.sheet-backdrop .icon-button');
+              if (sheetClose) { sheetClose.click(); return true; }
+
+              // 5. If on a Series / Movie Detail page, click the "< Library" back button
+              var backBtn = document.querySelector('button.back-button');
+              if (backBtn) { backBtn.click(); return true; }
+
+              // 6. If Search input has text, clear it
+              var searchInput = document.querySelector('.search-field input');
+              if (searchInput && searchInput.value) {
+                var nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                nativeInputValueSetter.call(searchInput, '');
+                searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+                return true;
+              }
+
+              // 7. If on Shows / Movies / Music tab, return to Home tab
+              var navButtons = document.querySelectorAll('.topbar nav button');
+              if (navButtons.length > 0 && !navButtons[0].classList.contains('active')) {
+                navButtons[0].click();
+                return true;
+              }
+
+              // Nothing left to go back to -> allow Android to minimize/close app
+              return false;
+            };
+
             var DB_KEY = "media_player_exact_db_v2";
             var SEED_DB = {
               nextId: 3,
@@ -176,7 +218,6 @@ jobs:
                 reviews: []
               };
 
-              // 1. Try AniList for anime/movies/OVAs/reviews
               try {
                 var query = "query ($search: String) { Media(search: $search, type: ANIME) { id title { english romaji } description(asHtml: false) seasonYear episodes duration genres averageScore siteUrl coverImage { extraLarge large } relations { edges { relationType node { id title { english romaji } format seasonYear averageScore description(asHtml: false) siteUrl coverImage { large } } } } reviews(perPage: 4) { nodes { id summary score user { name } siteUrl } } } }";
                 var r1 = await origFetch("https://graphql.anilist.co", {
@@ -228,7 +269,6 @@ jobs:
                 }
               } catch (e) {}
 
-              // 2. Try TVmaze for multi-season & episode lists
               if (kind === "series") {
                 try {
                   var r2 = await origFetch("https://api.tvmaze.com/singlesearch/shows?q=" + encodeURIComponent(title) + "&embed[]=episodes&embed[]=seasons");
@@ -544,6 +584,48 @@ jobs:
           npx cap init "Media Player" "com.exact.mediaplayer" --web-dir www
           npx cap add android
           npx cap sync android
+
+          # Override Android MainActivity.java to route hardware/gesture Back button into window.__handleAndroidBack()
+          cat << 'EOF_JAVA' > android/app/src/main/java/com/exact/mediaplayer/MainActivity.java
+          package com.exact.mediaplayer;
+
+          import android.os.Bundle;
+          import android.webkit.WebView;
+          import androidx.activity.OnBackPressedCallback;
+          import com.getcapacitor.BridgeActivity;
+
+          public class MainActivity extends BridgeActivity {
+              @Override
+              public void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+
+                  getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+                      @Override
+                      public void handleOnBackPressed() {
+                          if (getBridge() != null && getBridge().getWebView() != null) {
+                              WebView webView = getBridge().getWebView();
+                              webView.evaluateJavascript(
+                                  "(function() { return window.__handleAndroidBack ? window.__handleAndroidBack() : false; })()",
+                                  value -> {
+                                      if (!"true".equals(value)) {
+                                          runOnUiThread(() -> {
+                                              setEnabled(false);
+                                              MainActivity.super.onBackPressed();
+                                              setEnabled(true);
+                                          });
+                                      }
+                                  }
+                              );
+                          } else {
+                              setEnabled(false);
+                              MainActivity.super.onBackPressed();
+                              setEnabled(true);
+                          }
+                      }
+                  });
+              }
+          }
+          EOF_JAVA
 
           cd android
           chmod +x gradlew
