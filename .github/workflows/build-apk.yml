@@ -103,7 +103,31 @@ jobs:
             '(Me.find(ae => ae.seasonNumber === r)?.isComingSoon ? "⏳ Coming Soon — This season has been announced and has not started airing yet." : "No episode list was found for this season. Your imported files are still kept.")'
           );
 
-          // 8. Inject Custom CSS for Borderless Episode Cards + Folder Picker & Title Suggestion Banner
+          // 8. Auto-select the Season where the user left off when opening a Series detail page
+          html = html.replace(
+            'if (r == null && D[0] != null) o(D[0]);',
+            'if (r == null && D[0] != null) { var lastWatchedSeason = window.__getLastWatchedSeason ? window.__getLastWatchedSeason(S) : null; o(lastWatchedSeason != null && D.includes(lastWatchedSeason) ? lastWatchedSeason : D[0]); }'
+          );
+
+          // 9. Add "Continue Watching (S01 E02)" button inside Series / Movie Detail Hero Actions
+          html = html.replace(
+            /_\s*\[0\]\s*&&\s*v\("button",\s*\{\s*className:\s*"primary-action"[\s\S]*?"Play local file"\]\s*\}\)/,
+            '(window.__renderDetailContinueButton ? window.__renderDetailContinueButton(S, i, o, c, u, v, k) : null)'
+          );
+
+          // 10. Add "History" tab button to Top Navigation Bar
+          html = html.replace(
+            /u\("button",\s*\{\s*className:\s*a\s*===\s*"music"\s*\?\s*"active"\s*:\s*"",\s*onClick:\s*\(\)\s*=>\s*i\("music"\),\s*children:\s*"Music"\s*\}\)/,
+            'u("button", { className: a === "music" ? "active" : "", onClick: () => i("music"), children: "Music" }), u("button", { className: a === "history" ? "active" : "", onClick: () => i("history"), children: "History" })'
+          );
+
+          // 11. Inject "Continue Watching" rail BEFORE "Series collections" on Home AND full "History" tab view
+          html = html.replace(
+            'u("div", {\n          className: "rail-stack",',
+            '(window.__renderContinueAndHistory ? window.__renderContinueAndHistory({ activeTab: a, setTab: i, searchQuery: e, cwItems: A.data?.items ?? [], collections: R, onPlay: ra, onOpenCollection: o, u: u, v: v, k: k }) : null), a !== "history" && u("div", {\n          className: "rail-stack",'
+          );
+
+          // 12. Inject Custom CSS for Borderless Episode Cards, Continue Watching Rail, and History Tab
           const customUiCss = `<style id="custom-ui-overrides">
             .folder-picker-row {
               display: flex;
@@ -153,6 +177,99 @@ jobs:
             .suggestion-active-note {
               color: var(--accent);
               font-weight: 700;
+            }
+            /* Continue Watching & History Cards (Borderless Dark Style) */
+            .continue-section {
+              padding: 32px clamp(18px, 4vw, 56px) 0 !important;
+            }
+            .continue-heading {
+              display: flex !important;
+              justify-content: space-between !important;
+              align-items: center !important;
+              gap: 14px !important;
+              margin-bottom: 16px !important;
+            }
+            .continue-heading-actions {
+              display: flex;
+              align-items: center;
+              gap: 10px;
+            }
+            .history-link-btn {
+              background: var(--surface-2);
+              color: var(--text);
+              border: 0;
+              border-radius: 8px;
+              padding: 7px 12px;
+              font-size: 12px;
+              font-weight: 800;
+              cursor: pointer;
+            }
+            .history-link-btn:hover {
+              background: var(--accent);
+              color: #111;
+            }
+            .continue-card {
+              position: relative !important;
+              border-radius: 12px !important;
+              overflow: hidden !important;
+              background: var(--surface-2) !important;
+              box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35) !important;
+              border: 0 !important;
+            }
+            .continue-art {
+              aspect-ratio: 16 / 9 !important;
+            }
+            .continue-badge {
+              position: absolute;
+              top: 10px;
+              left: 10px;
+              z-index: 3;
+              background: rgba(0, 0, 0, 0.68);
+              backdrop-filter: blur(6px);
+              color: #fff;
+              padding: 4px 8px;
+              border-radius: 6px;
+              font-size: 11px;
+              font-weight: 900;
+              letter-spacing: 0.02em;
+            }
+            .continue-time-pill {
+              position: absolute;
+              bottom: 10px;
+              right: 10px;
+              z-index: 3;
+              background: rgba(0, 0, 0, 0.75);
+              color: #ffd36a;
+              padding: 3px 7px;
+              border-radius: 5px;
+              font-size: 10.5px;
+              font-weight: 800;
+            }
+            .continue-copy {
+              padding: 12px 14px !important;
+              background: var(--surface) !important;
+            }
+            .continue-copy-row {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 8px;
+            }
+            .history-open-series {
+              background: transparent;
+              border: 0;
+              color: var(--accent);
+              font-size: 11px;
+              font-weight: 800;
+              cursor: pointer;
+              padding: 2px 0;
+              text-align: left;
+            }
+            .history-grid-full {
+              display: grid !important;
+              grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)) !important;
+              gap: 16px !important;
+              padding-bottom: 36px !important;
             }
             .episode-grid {
               grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)) !important;
@@ -308,6 +425,305 @@ jobs:
 
           const localRuntime = `<script data-hatch-cvm-bundle="">
           (function() {
+            function fmtClock(sec) {
+              if (!Number.isFinite(sec) || sec < 0) return "0:00";
+              var s = Math.floor(sec);
+              var h = Math.floor(s / 3600);
+              var m = Math.floor((s % 3600) / 60);
+              var r = s % 60;
+              return h > 0
+                ? (h + ":" + String(m).padStart(2, "0") + ":" + String(r).padStart(2, "0"))
+                : (m + ":" + String(r).padStart(2, "0"));
+            }
+
+            // Helper: Find the best file to Resume / Continue Watching inside a Series or Movie
+            window.__getSeriesResumeTarget = function(col) {
+              if (!col || !col.files || col.files.length === 0) return null;
+              var files = col.files.slice().sort(function(a, b) {
+                return ((a.seasonNumber || 1) - (b.seasonNumber || 1)) ||
+                       ((a.episodeNumber || 0) - (b.episodeNumber || 0)) ||
+                       ((a.sortOrder || 0) - (b.sortOrder || 0));
+              });
+
+              // 1. Check most recently watched file
+              var watched = files.filter(function(f) {
+                return (f.lastWatchedAt && f.lastWatchedAt > 0) || (f.positionSeconds && f.positionSeconds > 0) || f.completed;
+              }).sort(function(a, b) {
+                return (b.lastWatchedAt || 0) - (a.lastWatchedAt || 0);
+              });
+
+              if (watched.length > 0) {
+                var latest = watched[0];
+                if (!latest.completed && latest.positionSeconds > 0) {
+                  return { file: latest, isResume: true };
+                }
+                // If latest watched episode was completed, find the next episode in order
+                var idx = files.findIndex(function(x) { return x.id === latest.id; });
+                if (idx >= 0 && idx + 1 < files.length) {
+                  return { file: files[idx + 1], isResume: false, isNext: true };
+                }
+                return { file: latest, isResume: false };
+              }
+
+              // 2. Otherwise default to the first episode / file
+              return { file: files[0], isResume: false };
+            };
+
+            window.__getLastWatchedSeason = function(col) {
+              var target = window.__getSeriesResumeTarget(col);
+              if (target && target.file && target.file.seasonNumber != null) {
+                return target.file.seasonNumber;
+              }
+              return null;
+            };
+
+            // Renders the "Continue Watching (S01 E02 · 04:15)" button inside Series / Movie Detail Hero
+            window.__renderDetailContinueButton = function(S, onPlay, setSeason, setRelated, u, v, k) {
+              var target = window.__getSeriesResumeTarget(S);
+              if (!target || !target.file) return null;
+              var f = target.file;
+              var epTag = (S.kind === "series" && f.seasonNumber != null && f.episodeNumber != null)
+                ? ("S" + String(f.seasonNumber).padStart(2, "0") + " E" + String(f.episodeNumber).padStart(2, "0"))
+                : null;
+              var label = "";
+              if (target.isResume) {
+                label = "Continue" + (epTag ? (" " + epTag) : "") + " · " + fmtClock(f.positionSeconds);
+              } else if (target.isNext) {
+                label = "Continue Next" + (epTag ? (" " + epTag) : "");
+              } else {
+                label = "Play" + (epTag ? (" " + epTag) : " local file");
+              }
+
+              // Find matching episode title if available
+              var epObj = (S.episodes || []).find(function(e) {
+                return e.seasonNumber === f.seasonNumber && e.episodeNumber === f.episodeNumber;
+              });
+              var playTitle = (epObj && epObj.title) ? epObj.title : f.displayTitle;
+
+              return v("button", {
+                className: "primary-action",
+                onClick: function() {
+                  if (S.kind === "series" && f.seasonNumber != null) {
+                    setRelated(null);
+                    setSeason(f.seasonNumber);
+                  }
+                  onPlay(f.fileName, playTitle, f.id, f.completed ? 0 : (f.positionSeconds || 0), S.files);
+                },
+                children: [u(k, { name: "play" }), " ", label]
+              });
+            };
+
+            // Renders the "Continue Watching" section before Series collections AND the "History" tab view
+            window.__renderContinueAndHistory = function(props) {
+              var activeTab = props.activeTab;
+              var setTab = props.setTab;
+              var searchQuery = (props.searchQuery || "").trim().toLowerCase();
+              var cwItems = props.cwItems || [];
+              var collections = props.collections || [];
+              var onPlay = props.onPlay;
+              var onOpenCollection = props.onOpenCollection;
+              var u = props.u;
+              var v = props.v;
+              var k = props.k;
+
+              var filtered = cwItems.filter(function(item) {
+                if (!searchQuery) return true;
+                return (item.collectionTitle && item.collectionTitle.toLowerCase().indexOf(searchQuery) !== -1) ||
+                       (item.displayTitle && item.displayTitle.toLowerCase().indexOf(searchQuery) !== -1);
+              });
+
+              var inProgress = filtered.filter(function(item) {
+                return !item.completed && item.positionSeconds > 0;
+              });
+
+              // On Home tab ("all"): show Continue Watching rail before Series collections
+              if (activeTab === "all") {
+                var railItems = inProgress.length > 0 ? inProgress : filtered.slice(0, 8);
+                if (railItems.length === 0) return null;
+
+                return v("section", {
+                  className: "continue-section",
+                  "aria-label": "Continue watching",
+                  children: [
+                    v("div", {
+                      className: "continue-heading",
+                      children: [
+                        v("div", {
+                          children: [
+                            u("p", { className: "eyebrow", children: "Pick up where you left off" }),
+                            u("h2", { children: "Continue watching" })
+                          ]
+                        }),
+                        v("div", {
+                          className: "continue-heading-actions",
+                          children: [
+                            u("span", { children: railItems.length + (railItems.length === 1 ? " item" : " items") }),
+                            u("button", {
+                              type: "button",
+                              className: "history-link-btn",
+                              onClick: function() { setTab("history"); },
+                              children: "View History ›"
+                            })
+                          ]
+                        })
+                      ]
+                    }),
+                    u("div", {
+                      className: "continue-grid",
+                      children: railItems.map(function(entry) {
+                        var col = collections.find(function(c) { return Number(c.id) === Number(entry.collectionId); });
+                        var epBadge = (entry.seasonNumber != null && entry.episodeNumber != null)
+                          ? ("S" + String(entry.seasonNumber).padStart(2, "0") + " E" + String(entry.episodeNumber).padStart(2, "0"))
+                          : (entry.contentType === "ova" ? "OVA" : (entry.contentType === "movie" ? "Movie" : "Media"));
+                        var timeLabel = entry.completed
+                          ? "Completed"
+                          : (fmtClock(entry.positionSeconds) + (entry.durationSeconds > 0 ? (" / " + fmtClock(entry.durationSeconds)) : ""));
+                        return v("div", {
+                          className: "continue-card",
+                          role: "button",
+                          tabIndex: 0,
+                          onClick: function() {
+                            onPlay(
+                              entry.fileName,
+                              entry.displayTitle,
+                              entry.mediaFileId,
+                              entry.completed ? 0 : entry.positionSeconds,
+                              col ? col.files : undefined,
+                              entry.collectionId
+                            );
+                          },
+                          children: [
+                            v("div", {
+                              className: "continue-art",
+                              children: [
+                                entry.posterUrl ? u("img", { src: entry.posterUrl, alt: entry.collectionTitle, loading: "lazy" }) : u(k, { name: "film", size: 32 }),
+                                u("span", { className: "continue-badge", children: epBadge }),
+                                u("span", { className: "continue-time-pill", children: timeLabel }),
+                                u("span", { className: "continue-play", children: u(k, { name: "play", size: 24 }) }),
+                                u("span", {
+                                  className: "continue-progress",
+                                  children: u("i", { style: { width: Math.max(4, Math.min(100, entry.progressPercent || 0)) + "%" } })
+                                })
+                              ]
+                            }),
+                            v("div", {
+                              className: "continue-copy",
+                              children: [
+                                u("strong", { children: entry.collectionTitle + (epBadge ? (" · " + epBadge) : "") }),
+                                u("small", { children: entry.displayTitle }),
+                                u("button", {
+                                  type: "button",
+                                  className: "history-open-series",
+                                  onClick: function(ev) {
+                                    ev.stopPropagation();
+                                    onOpenCollection(entry.collectionId);
+                                  },
+                                  children: "Open series details ›"
+                                })
+                              ]
+                            })
+                          ]
+                        }, "cw-" + entry.collectionId + "-" + entry.mediaFileId);
+                      })
+                    })
+                  ]
+                });
+              }
+
+              // On History tab ("history"): show full Watch History & Continue Watching grid
+              if (activeTab === "history") {
+                return v("section", {
+                  className: "continue-section",
+                  "aria-label": "Watch History",
+                  children: [
+                    v("div", {
+                      className: "continue-heading",
+                      children: [
+                        v("div", {
+                          children: [
+                            u("p", { className: "eyebrow", children: "Recent activity & playback progress" }),
+                            u("h2", { children: "Watch History & Continue Watching" })
+                          ]
+                        }),
+                        u("span", { children: filtered.length + (filtered.length === 1 ? " watched item" : " watched items") })
+                      ]
+                    }),
+                    filtered.length === 0 ? v("div", {
+                      className: "empty-inline",
+                      children: [
+                        u("p", { children: "Your watch history is empty. Start playing any episode or movie and your progress will appear here automatically." }),
+                        u("button", {
+                          type: "button",
+                          className: "secondary-action",
+                          onClick: function() { setTab("all"); },
+                          children: "Browse Library"
+                        })
+                      ]
+                    }) : u("div", {
+                      className: "history-grid-full",
+                      children: filtered.map(function(entry) {
+                        var col = collections.find(function(c) { return Number(c.id) === Number(entry.collectionId); });
+                        var epBadge = (entry.seasonNumber != null && entry.episodeNumber != null)
+                          ? ("S" + String(entry.seasonNumber).padStart(2, "0") + " E" + String(entry.episodeNumber).padStart(2, "0"))
+                          : (entry.contentType === "ova" ? "OVA" : (entry.contentType === "movie" ? "Movie" : "Media"));
+                        var timeLabel = entry.completed
+                          ? ("✓ Finished · " + fmtClock(entry.durationSeconds))
+                          : ("Stopped at " + fmtClock(entry.positionSeconds) + (entry.durationSeconds > 0 ? (" / " + fmtClock(entry.durationSeconds)) : ""));
+                        return v("div", {
+                          className: "continue-card",
+                          role: "button",
+                          tabIndex: 0,
+                          onClick: function() {
+                            onPlay(
+                              entry.fileName,
+                              entry.displayTitle,
+                              entry.mediaFileId,
+                              entry.completed ? 0 : entry.positionSeconds,
+                              col ? col.files : undefined,
+                              entry.collectionId
+                            );
+                          },
+                          children: [
+                            v("div", {
+                              className: "continue-art",
+                              children: [
+                                entry.posterUrl ? u("img", { src: entry.posterUrl, alt: entry.collectionTitle, loading: "lazy" }) : u(k, { name: "film", size: 32 }),
+                                u("span", { className: "continue-badge", children: epBadge }),
+                                u("span", { className: "continue-time-pill", children: timeLabel }),
+                                u("span", { className: "continue-play", children: u(k, { name: "play", size: 24 }) }),
+                                u("span", {
+                                  className: "continue-progress",
+                                  children: u("i", { style: { width: Math.max(4, Math.min(100, entry.progressPercent || 0)) + "%" } })
+                                })
+                              ]
+                            }),
+                            v("div", {
+                              className: "continue-copy",
+                              children: [
+                                u("strong", { children: entry.collectionTitle + (epBadge ? (" · " + epBadge) : "") }),
+                                u("small", { children: entry.displayTitle }),
+                                u("button", {
+                                  type: "button",
+                                  className: "history-open-series",
+                                  onClick: function(ev) {
+                                    ev.stopPropagation();
+                                    onOpenCollection(entry.collectionId);
+                                  },
+                                  children: "Open series / season ›"
+                                })
+                              ]
+                            })
+                          ]
+                        }, "hist-" + entry.collectionId + "-" + entry.mediaFileId);
+                      })
+                    })
+                  ]
+                });
+              }
+
+              return null;
+            };
+
             window.__getMediaFileKey = function(fileOrObj) {
               if (!fileOrObj) return "";
               var rel = String(fileOrObj.webkitRelativePath || fileOrObj.relativePath || "").replace(/\\\\/g, "/").replace(/^\\/+/, "").trim();
@@ -592,7 +1008,8 @@ jobs:
                 sortOrder: idx + 1,
                 positionSeconds: 0,
                 durationSeconds: 0,
-                completed: false
+                completed: false,
+                lastWatchedAt: 0
               };
             }
 
@@ -1042,7 +1459,7 @@ jobs:
 
               if (action === "listCollections") {
                 var list = db.collections.slice();
-                if (args.kind && args.kind !== "all") {
+                if (args.kind && args.kind !== "all" && args.kind !== "history") {
                   list = list.filter(function(c) { return c.kind === args.kind; });
                 }
                 if (args.query) {
@@ -1056,25 +1473,38 @@ jobs:
                 var cw = [];
                 db.collections.forEach(function(col) {
                   (col.files || []).forEach(function(f) {
-                    if (f.positionSeconds > 3 && !f.completed && f.durationSeconds > 0) {
+                    if ((f.positionSeconds > 0.5) || (f.lastWatchedAt && f.lastWatchedAt > 0) || f.completed) {
+                      var epMatch = (col.episodes || []).find(function(e) {
+                        return e.seasonNumber === f.seasonNumber && e.episodeNumber === f.episodeNumber;
+                      });
+                      var thumb = (epMatch && epMatch.thumbnailUrl) || col.posterUrl;
+                      var titleText = (epMatch && epMatch.title) ? epMatch.title : f.displayTitle;
+                      var dur = f.durationSeconds > 0 ? f.durationSeconds : 1440;
+                      var pct = f.completed ? 100 : Math.min(99, Math.max(5, (f.positionSeconds / dur) * 100));
+
                       cw.push({
                         collectionId: col.id,
                         collectionTitle: col.title,
                         mediaFileId: f.id,
                         fileName: f.fileName,
-                        displayTitle: f.displayTitle,
-                        posterUrl: col.posterUrl,
+                        displayTitle: titleText,
+                        posterUrl: thumb,
                         seasonNumber: f.seasonNumber,
                         episodeNumber: f.episodeNumber,
                         contentType: f.contentType,
-                        positionSeconds: f.positionSeconds,
-                        durationSeconds: f.durationSeconds,
-                        progressPercent: (f.positionSeconds / f.durationSeconds) * 100
+                        positionSeconds: f.positionSeconds || 0,
+                        durationSeconds: f.durationSeconds || 0,
+                        completed: Boolean(f.completed),
+                        lastWatchedAt: f.lastWatchedAt || 1,
+                        progressPercent: pct
                       });
                     }
                   });
                 });
-                return { items: cw.slice(0, args.limit || 12) };
+                cw.sort(function(a, b) {
+                  return (b.lastWatchedAt || 0) - (a.lastWatchedAt || 0);
+                });
+                return { items: cw.slice(0, args.limit || 50) };
               }
 
               if (action === "getCollection") {
@@ -1213,6 +1643,7 @@ jobs:
                     fl.positionSeconds = args.positionSeconds || 0;
                     fl.durationSeconds = args.durationSeconds || 0;
                     fl.completed = Boolean(args.completed);
+                    fl.lastWatchedAt = Date.now();
                     saveDB(db);
                   }
                 }
