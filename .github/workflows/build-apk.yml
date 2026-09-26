@@ -127,8 +127,90 @@ jobs:
             '(window.__renderContinueAndHistory ? window.__renderContinueAndHistory({ activeTab: a, setTab: i, searchQuery: e, cwItems: A.data?.items ?? [], collections: R, onPlay: ra, onOpenCollection: o, u: u, v: v, k: k }) : null), a !== "history" && u("div", {\n          className: "rail-stack",'
           );
 
-          // 12. Inject Custom CSS for Borderless Episode Cards, Continue Watching Rail, and History Tab
+          // 12. Expand Hero Carousel items & add Touch-Swipe gestures (onTouchStart/Move/End) + One-Tap Tablet Poster Card opening
+          html = html.replace(
+            'Me = [...R].sort((N, q) => Date.parse(q.createdAt) - Date.parse(N.createdAt)).slice(0, 3),\n    lt = (A.data?.items ?? []).slice(0, 2),',
+            'Me = [...R].sort((N, q) => Date.parse(q.createdAt) - Date.parse(N.createdAt)).slice(0, 6),\n    lt = (A.data?.items ?? []).slice(0, 4),'
+          );
+
+          html = html.replace(
+            'onMouseEnter: () => y(!0),\n            onMouseLeave: () => y(!1),',
+            'onMouseEnter: () => y(!0),\n            onMouseLeave: () => y(!1),\n            onTouchStart: X => { y(!0); if (window.__carouselTouchStart) window.__carouselTouchStart(X); },\n            onTouchMove: X => { if (window.__carouselTouchMove) window.__carouselTouchMove(X); },\n            onTouchEnd: X => { y(!1); if (window.__carouselTouchEnd) window.__carouselTouchEnd(X, me.length, b); },\n            onTouchCancel: X => { y(!1); if (window.__carouselTouchCancel) window.__carouselTouchCancel(X); },'
+          );
+
+          // Make Poster Cards open in 1 tap on tablets instead of requiring 2 taps
+          html = html.replace(
+            'onClick: () => {\n        if (r && !t) i();else l();\n      },',
+            'onClick: () => { l(); },'
+          );
+
+          // 13. Inject Custom CSS for Borderless Episode Cards, Tablet Touch Carousel, Continue Watching Rail, and History Tab
           const customUiCss = `<style id="custom-ui-overrides">
+            /* Tablet Touch & Carousel Enhancements */
+            .home-carousel {
+              touch-action: pan-y !important;
+              user-select: none !important;
+              -webkit-user-select: none !important;
+            }
+            .home-carousel .featured-copy,
+            .home-carousel .featured-poster {
+              transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.24s ease !important;
+              will-change: transform;
+            }
+            .carousel-controls {
+              bottom: 18px !important;
+              gap: 14px !important;
+              z-index: 6 !important;
+            }
+            .carousel-controls > button {
+              width: 44px !important;
+              height: 44px !important;
+              border-radius: 999px !important;
+              background: rgba(15, 17, 21, 0.78) !important;
+              backdrop-filter: blur(10px) !important;
+              border: 1px solid rgba(255, 255, 255, 0.28) !important;
+              font-size: 26px !important;
+              transition: transform 0.15s ease, background 0.15s ease !important;
+            }
+            .carousel-controls > button:active {
+              transform: scale(0.92) !important;
+              background: var(--accent) !important;
+              color: #111 !important;
+            }
+            .carousel-dots {
+              display: flex !important;
+              align-items: center !important;
+              gap: 8px !important;
+              padding: 8px 12px !important;
+              background: rgba(10, 12, 16, 0.55) !important;
+              backdrop-filter: blur(8px) !important;
+              border-radius: 999px !important;
+            }
+            .carousel-dots button {
+              width: 10px !important;
+              height: 8px !important;
+              border-radius: 999px !important;
+              background: rgba(255, 255, 255, 0.42) !important;
+              transition: width 0.22s ease, background 0.22s ease !important;
+            }
+            .carousel-dots button.active {
+              width: 30px !important;
+              background: var(--accent) !important;
+            }
+            .continue-grid,
+            .recent-carousel,
+            .topbar nav {
+              -webkit-overflow-scrolling: touch !important;
+              scroll-behavior: smooth !important;
+              touch-action: pan-x pan-y !important;
+            }
+            /* Keep Search Bar visible on Tablet Portrait (600px - 760px) */
+            @media (min-width: 600px) and (max-width: 760px) {
+              .search-field {
+                display: flex !important;
+                width: 180px !important;
+              }
+            }
             .folder-picker-row {
               display: flex;
               flex-wrap: wrap;
@@ -425,6 +507,92 @@ jobs:
 
           const localRuntime = `<script data-hatch-cvm-bundle="">
           (function() {
+            // Tablet Touch-Swipe Gesture Engine for Home Hero Carousel
+            var __cTouch = null;
+
+            function resetCarouselDrag(el) {
+              if (!el) return;
+              var copy = el.querySelector(".featured-copy");
+              var poster = el.querySelector(".featured-poster");
+              if (copy) { copy.style.transform = ""; copy.style.opacity = ""; }
+              if (poster) { poster.style.transform = ""; }
+            }
+
+            window.__carouselTouchStart = function(ev) {
+              if (!ev.touches || ev.touches.length !== 1) return;
+              var t = ev.touches[0];
+              __cTouch = {
+                startX: t.clientX,
+                startY: t.clientY,
+                lastX: t.clientX,
+                lastY: t.clientY,
+                lockedHorizontal: false,
+                el: ev.currentTarget
+              };
+            };
+
+            window.__carouselTouchMove = function(ev) {
+              if (!__cTouch || !ev.touches || ev.touches.length !== 1) return;
+              var t = ev.touches[0];
+              var dx = t.clientX - __cTouch.startX;
+              var dy = t.clientY - __cTouch.startY;
+              __cTouch.lastX = t.clientX;
+              __cTouch.lastY = t.clientY;
+
+              if (!__cTouch.lockedHorizontal) {
+                if (Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * 1.25) {
+                  __cTouch.lockedHorizontal = true;
+                } else if (Math.abs(dy) > 18) {
+                  resetCarouselDrag(__cTouch.el);
+                  __cTouch = null;
+                  return;
+                }
+              }
+
+              if (__cTouch && __cTouch.lockedHorizontal && __cTouch.el) {
+                var shift = Math.max(-65, Math.min(65, dx * 0.28));
+                var copy = __cTouch.el.querySelector(".featured-copy");
+                var poster = __cTouch.el.querySelector(".featured-poster");
+                if (copy) {
+                  copy.style.transition = "none";
+                  copy.style.transform = "translateX(" + shift + "px)";
+                  copy.style.opacity = String(Math.max(0.55, 1 - Math.abs(dx) / 480));
+                }
+                if (poster) {
+                  poster.style.transition = "none";
+                  poster.style.transform = "translateX(" + (shift * 0.6) + "px)";
+                }
+              }
+            };
+
+            window.__carouselTouchEnd = function(ev, totalSlides, setSlideIndex) {
+              if (!__cTouch) return;
+              var state = __cTouch;
+              __cTouch = null;
+              if (state.el) {
+                var copy = state.el.querySelector(".featured-copy");
+                var poster = state.el.querySelector(".featured-poster");
+                if (copy) copy.style.transition = "";
+                if (poster) poster.style.transition = "";
+                resetCarouselDrag(state.el);
+              }
+              if (!totalSlides || totalSlides < 2) return;
+              var dx = state.lastX - state.startX;
+              var dy = state.lastY - state.startY;
+              if (Math.abs(dx) >= 42 && Math.abs(dx) > Math.abs(dy) * 1.15) {
+                if (dx < 0) {
+                  setSlideIndex(function(curr) { return (curr + 1) % totalSlides; });
+                } else {
+                  setSlideIndex(function(curr) { return (curr - 1 + totalSlides) % totalSlides; });
+                }
+              }
+            };
+
+            window.__carouselTouchCancel = function(ev) {
+              if (__cTouch && __cTouch.el) resetCarouselDrag(__cTouch.el);
+              __cTouch = null;
+            };
+
             function fmtClock(sec) {
               if (!Number.isFinite(sec) || sec < 0) return "0:00";
               var s = Math.floor(sec);
@@ -445,7 +613,6 @@ jobs:
                        ((a.sortOrder || 0) - (b.sortOrder || 0));
               });
 
-              // 1. Check most recently watched file
               var watched = files.filter(function(f) {
                 return (f.lastWatchedAt && f.lastWatchedAt > 0) || (f.positionSeconds && f.positionSeconds > 0) || f.completed;
               }).sort(function(a, b) {
@@ -457,7 +624,6 @@ jobs:
                 if (!latest.completed && latest.positionSeconds > 0) {
                   return { file: latest, isResume: true };
                 }
-                // If latest watched episode was completed, find the next episode in order
                 var idx = files.findIndex(function(x) { return x.id === latest.id; });
                 if (idx >= 0 && idx + 1 < files.length) {
                   return { file: files[idx + 1], isResume: false, isNext: true };
@@ -465,7 +631,6 @@ jobs:
                 return { file: latest, isResume: false };
               }
 
-              // 2. Otherwise default to the first episode / file
               return { file: files[0], isResume: false };
             };
 
@@ -477,7 +642,6 @@ jobs:
               return null;
             };
 
-            // Renders the "Continue Watching (S01 E02 · 04:15)" button inside Series / Movie Detail Hero
             window.__renderDetailContinueButton = function(S, onPlay, setSeason, setRelated, u, v, k) {
               var target = window.__getSeriesResumeTarget(S);
               if (!target || !target.file) return null;
@@ -494,7 +658,6 @@ jobs:
                 label = "Play" + (epTag ? (" " + epTag) : " local file");
               }
 
-              // Find matching episode title if available
               var epObj = (S.episodes || []).find(function(e) {
                 return e.seasonNumber === f.seasonNumber && e.episodeNumber === f.episodeNumber;
               });
@@ -513,7 +676,6 @@ jobs:
               });
             };
 
-            // Renders the "Continue Watching" section before Series collections AND the "History" tab view
             window.__renderContinueAndHistory = function(props) {
               var activeTab = props.activeTab;
               var setTab = props.setTab;
@@ -536,7 +698,6 @@ jobs:
                 return !item.completed && item.positionSeconds > 0;
               });
 
-              // On Home tab ("all"): show Continue Watching rail before Series collections
               if (activeTab === "all") {
                 var railItems = inProgress.length > 0 ? inProgress : filtered.slice(0, 8);
                 if (railItems.length === 0) return null;
@@ -630,7 +791,6 @@ jobs:
                 });
               }
 
-              // On History tab ("history"): show full Watch History & Continue Watching grid
               if (activeTab === "history") {
                 return v("section", {
                   className: "continue-section",
