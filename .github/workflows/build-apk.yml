@@ -38,33 +38,160 @@ jobs:
           const fs = require("fs");
           let html = fs.readFileSync("raw.html", "utf8");
 
+          // 1. Remove Muse iframe bridge scripts
           html = html.replace(/<script data-hatch-cvm-opaque-url-compat[\s\S]*?<\/script>/, "");
           html = html.replace(/<script data-hatch-cvm-bridge[\s\S]*?<\/script>/, "");
 
+          // 2. Clear static HTML snapshot so React mounts cleanly
           html = html.replace(
             /(<div class="hatch-space-root" data-hatch-space-root="true">)[\s\S]*?(<\/div><\/div>\s*<script data-hatch-cvm-bundle)/,
             "$1$2"
           );
 
-          // 1. Show "how many episodes listed" in the Season Header
+          // 3. Patch IndexedDB & localMedia in bundle to key by (webkitRelativePath || name)
+          //    so two different files with the same name in different folders never collide
+          html = html.replace(
+            'for (let r of e) n.put({\n      name: r.name,\n      type: r.type,\n      blob: r,\n      savedAt: Date.now()\n    });',
+            'for (let r of e) { let k = window.__getMediaFileKey ? window.__getMediaFileKey(r) : (r.webkitRelativePath || r.name); n.put({ name: k, rawName: r.name, relativePath: r.webkitRelativePath || null, type: r.type, blob: r, savedAt: Date.now() }); if (k !== r.name) n.put({ name: r.name, rawName: r.name, relativePath: r.webkitRelativePath || null, type: r.type, blob: r, savedAt: Date.now() }); }'
+          );
+
+          html = html.replace(
+            'for (let f of N) {\n        let C = ve.get(f.name);\n        if (C) URL.revokeObjectURL(C.url);\n        ve.set(f.name, {\n          url: URL.createObjectURL(f),\n          mimeType: f.type || (f.name.match(/\\.(mp3|m4a|wav|flac)$/i) ? "audio/mpeg" : "video/mp4"),\n          fileName: f.name\n        });\n      }',
+            'for (let f of N) {\n        let k = window.__getMediaFileKey ? window.__getMediaFileKey(f) : (f.webkitRelativePath || f.name);\n        let objUrl = URL.createObjectURL(f);\n        let entry = {\n          url: objUrl,\n          mimeType: f.type || (f.name.match(/\\.(mp3|m4a|wav|flac)$/i) ? "audio/mpeg" : "video/mp4"),\n          fileName: k\n        };\n        ve.set(k, entry);\n        if (!ve.has(f.name)) ve.set(f.name, entry);\n      }'
+          );
+
+          // 4. Patch Add Sheet (yb) to support:
+          //    - Picking a whole folder in one tap + individual files
+          //    - Deduplicating selected files by (folder + fileName)
+          //    - Suggesting the series/movie/music title from folder name or file name into the editable input
+          const oldAddFilesInput = `u("input", {
+              "aria-label": "Choose local media files",
+              type: "file",
+              multiple: !0,
+              accept: "video/*,audio/*,.mkv",
+              onChange: m => g(Array.from(m.target.files ?? []))
+            })`;
+
+          const newAddFilesInput = `u("input", {
+              "aria-label": "Choose local media files",
+              type: "file",
+              multiple: !0,
+              accept: "video/*,audio/*,.mkv,.mp3,.flac,.m4a,.wav",
+              onChange: m => {
+                var incoming = Array.from(m.target.files ?? []).filter(f => /\\.(mp4|mkv|webm|mov|m4v|avi|mp3|flac|m4a|wav|ogg)$/i.test(f.name) || (f.type && (f.type.startsWith("video/") || f.type.startsWith("audio/"))));
+                if (incoming.length === 0) return;
+                g(prev => window.__mergeUniquePickerFiles ? window.__mergeUniquePickerFiles(prev, incoming) : incoming);
+                var suggested = window.__suggestTitleFromFiles ? window.__suggestTitleFromFiles(incoming) : "";
+                if (suggested) {
+                  window.__lastSuggestedTitle = suggested;
+                  r(curr => curr.trim() ? curr : suggested);
+                }
+                m.target.value = "";
+              }
+            })`;
+
+          html = html.replace(oldAddFilesInput, newAddFilesInput);
+
+          // Add "Choose folder" one-tap button & editable title suggestion pill to the Add Sheet
+          const oldTitleField = `u("input", {
+            "aria-label": "Collection title",
+            value: n,
+            onChange: m => r(m.target.value),
+            placeholder: i === "series" ? "e.g. KonoSuba" : i === "movie" ? "e.g. Dune: Part Two" : "e.g. Night drive",
+            required: !0
+          })`;
+
+          const newTitleField = `u("input", {
+            "aria-label": "Collection title",
+            value: n,
+            onChange: m => r(m.target.value),
+            placeholder: i === "series" ? "e.g. KonoSuba" : i === "movie" ? "e.g. Dune: Part Two" : "e.g. Night drive",
+            required: !0
+          }), c.length > 0 && window.__suggestTitleFromFiles && (() => {
+            var sug = window.__suggestTitleFromFiles(c);
+            return sug ? v("div", {
+              className: "title-suggestion-bar",
+              children: [
+                v("span", { children: ["Suggested from folder/files: ", u("strong", { children: sug })] }),
+                n.trim() !== sug ? u("button", {
+                  type: "button",
+                  className: "suggestion-apply-btn",
+                  onClick: () => r(sug),
+                  children: "Use this title"
+                }) : u("small", { className: "suggestion-active-note", children: "✓ Editable above" })
+              ]
+            }) : null;
+          })()`;
+
+          html = html.replace(oldTitleField, newTitleField);
+
+          const oldUploadSummary = `c.length > 0 && v("p", {
+          className: "file-summary",
+          children: [u("strong", {
+            children: c.length
+          }), " local ", c.length === 1 ? "file" : "files", " ready. Episode numbers such as S02E05 are matched automatically."]
+        })`;
+
+          const newUploadSummary = `v("div", {
+          className: "folder-picker-row",
+          children: [
+            v("label", {
+              className: "secondary-action folder-pick-btn",
+              children: [
+                u(k, { name: "folder", size: 17 }),
+                " Pick entire folder in one tap",
+                u("input", {
+                  type: "file",
+                  webkitdirectory: "",
+                  directory: "",
+                  multiple: !0,
+                  className: "sr-only",
+                  onChange: m => {
+                    var incoming = Array.from(m.target.files ?? []).filter(f => /\\.(mp4|mkv|webm|mov|m4v|avi|mp3|flac|m4a|wav|ogg)$/i.test(f.name) || (f.type && (f.type.startsWith("video/") || f.type.startsWith("audio/"))));
+                    if (incoming.length === 0) return;
+                    g(prev => window.__mergeUniquePickerFiles ? window.__mergeUniquePickerFiles(prev, incoming) : incoming);
+                    var suggested = window.__suggestTitleFromFiles ? window.__suggestTitleFromFiles(incoming) : "";
+                    if (suggested) {
+                      window.__lastSuggestedTitle = suggested;
+                      r(curr => curr.trim() ? curr : suggested);
+                    }
+                    m.target.value = "";
+                  }
+                })
+              ]
+            }),
+            c.length > 0 && u("button", {
+              type: "button",
+              className: "secondary-action clear-files-btn",
+              onClick: () => g([]),
+              children: "Clear selection"
+            })
+          ]
+        }), c.length > 0 && v("p", {
+          className: "file-summary",
+          children: [u("strong", {
+            children: c.length
+          }), " unique local ", c.length === 1 ? "file" : "files", " ready (checked by folder + filename). Same title merges into one entry automatically."]
+        })`;
+
+          html = html.replace(oldUploadSummary, newUploadSummary);
+
+          // 5. Keep our Episode & Watch Order UI enhancements
           html = html.replace(
             /children:\s*\[u\("h3",\s*\{\s*children:\s*r\s*==\s*null\s*\?\s*"Episodes"\s*:\s*ve\(r\)\s*\}\)/,
             'children: [u("h3", { children: (r == null ? "Episodes" : ve(r)) + (U.length > 0 ? ` · ${U.length} listed` : " · 0 listed") })'
           );
 
-          // 2. Show "how many episodes listed" in the Watch Order Subtitle
           html = html.replace(
             /oa = f\.kind === "season" \? `\$\{S\.episodes\.filter\(I => I\.seasonNumber === f\.season\.seasonNumber\)\.length\} episodes` : f\.kind === "related" \? f\.related\.title : f\.file\.displayTitle;/,
             'oa = f.kind === "season" ? (f.season.statusText ? `${f.season.statusText} · ${S.episodes.filter(I => I.seasonNumber === f.season.seasonNumber).length} listed` : `${S.episodes.filter(I => I.seasonNumber === f.season.seasonNumber).length} episodes listed`) : f.kind === "related" ? (f.related.statusText ? `${f.related.statusText} · ${f.related.title}` : f.related.title) : f.file.displayTitle;'
           );
 
-          // 3. Inject arrival date (e.g. "Sep 10") + runtime + status into every Episode Card
           html = html.replace(
             /children:\s*\[f\.runtimeMinutes\s*\?\s*`\$\{f\.runtimeMinutes\}\s*min`[\s\S]*?" · No local file"\]/,
             'children: [f.arriveDate ? (f.isUpcoming ? `Arrives ${f.arriveDate} · ` : `${f.arriveDate} · `) : "", f.airStatus ? f.airStatus : (f.runtimeMinutes ? `${f.runtimeMinutes} min` : "24 min"), X ? (Oe ? (C && C.positionSeconds > 3 && !C.completed ? " · Resume" : " · Ready to play") : " · Reconnect file") : (f.isUpcoming ? " · Coming soon" : " · No local file")]'
           );
 
-          // 4. Season badge text & coming soon notice
           html = html.replace(
             /return `Season \$\{lt\.get\(f\) \?\? f\}\$\{C\?\.releaseYear \? ` \(\$\{C\.releaseYear\}\)` : ""\}`;/,
             'return `Season ${lt.get(f) ?? f}${C?.releaseYear ? ` (${C.releaseYear})` : ""}${C?.badgeText ? ` · ${C.badgeText}` : ""}`;'
@@ -75,8 +202,57 @@ jobs:
             '(Me.find(ae => ae.seasonNumber === r)?.isComingSoon ? "⏳ Coming Soon — This season has been announced and has not started airing yet." : "No episode list was found for this season. Your imported files are still kept.")'
           );
 
-          // 5. Borderless Card Styling with clean arrive date text
+          // 6. Inject Custom CSS for Borderless Episode Cards + Folder Picker & Title Suggestion Banner
           const customUiCss = `<style id="custom-ui-overrides">
+            .folder-picker-row {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 10px;
+              margin-top: 12px;
+            }
+            .folder-pick-btn {
+              flex: 1;
+              min-height: 44px;
+              border: 1px dashed var(--accent) !important;
+              color: var(--accent) !important;
+              background: color-mix(in srgb, var(--accent) 10%, var(--surface)) !important;
+              cursor: pointer;
+              font-size: 13px;
+            }
+            .folder-pick-btn:hover {
+              background: color-mix(in srgb, var(--accent) 18%, var(--surface)) !important;
+            }
+            .clear-files-btn {
+              min-height: 44px;
+              padding: 0 14px !important;
+              font-size: 12px;
+              color: var(--dim) !important;
+            }
+            .title-suggestion-bar {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 10px;
+              margin-top: 6px;
+              padding: 8px 12px;
+              background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+              border-left: 3px solid var(--accent);
+              font-size: 12px;
+              color: var(--text);
+            }
+            .suggestion-apply-btn {
+              background: var(--accent);
+              color: #111;
+              border: 0;
+              padding: 4px 10px;
+              font-weight: 800;
+              font-size: 11px;
+              cursor: pointer;
+            }
+            .suggestion-active-note {
+              color: var(--accent);
+              font-weight: 700;
+            }
             .episode-grid {
               grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)) !important;
               gap: 16px !important;
@@ -231,6 +407,62 @@ jobs:
 
           const localRuntime = `<script data-hatch-cvm-bundle="">
           (function() {
+            // Helper: Composite key using BOTH folder and file name
+            window.__getMediaFileKey = function(fileOrObj) {
+              if (!fileOrObj) return "";
+              var rel = String(fileOrObj.webkitRelativePath || fileOrObj.relativePath || "").replace(/\\\\/g, "/").replace(/^\\/+/, "").trim();
+              var name = String(fileOrObj.name || fileOrObj.fileName || "").replace(/\\\\/g, "/").trim();
+              if (rel && rel.indexOf("/") !== -1) return rel;
+              return name;
+            };
+
+            // Helper: Deduplicate File picker selections by (folder + fileName)
+            window.__mergeUniquePickerFiles = function(existingFiles, incomingFiles) {
+              var map = new Map();
+              (existingFiles || []).forEach(function(f) {
+                map.set(window.__getMediaFileKey(f).toLowerCase(), f);
+              });
+              (incomingFiles || []).forEach(function(f) {
+                var k = window.__getMediaFileKey(f).toLowerCase();
+                if (!map.has(k)) map.set(k, f);
+              });
+              return Array.from(map.values());
+            };
+
+            // Helper: Cleanly suggest Series / Movie / Music title from folder name or file names
+            window.__suggestTitleFromFiles = function(files) {
+              if (!files || files.length === 0) return "";
+              var first = files[0];
+              var rel = String(first.webkitRelativePath || first.relativePath || "").replace(/\\\\/g, "/");
+              var candidate = "";
+
+              if (rel && rel.indexOf("/") !== -1) {
+                var parts = rel.split("/").filter(Boolean);
+                var folder = parts[0];
+                // If the immediate folder is just "Season 1" or "S01", use the parent folder if available
+                if (parts.length >= 2 && /^(?:season|s|series|vol|volume|disc|cd)[\\s._-]*\\d+$/i.test(parts[parts.length - 2])) {
+                  folder = parts[0];
+                }
+                candidate = folder;
+              } else {
+                candidate = String(first.name || first.fileName || "").replace(/\\.[^/.]+$/, "");
+              }
+
+              return candidate
+                .replace(/^\\[[^\\]]+\\]\\s*/, "")
+                .replace(/\\([^)]*\\)/g, " ")
+                .replace(/\\[[^\\]]*\\]/g, " ")
+                .replace(/\\bS\\d{1,2}[\\s._-]*E\\d{1,3}\\b.*$/i, " ")
+                .replace(/\\b\\d{1,2}x\\d{1,3}\\b.*$/i, " ")
+                .replace(/\\b(?:Season|Series|Part|Cour)[\\s._-]*\\d+\\b.*$/i, " ")
+                .replace(/\\b(?:Episode|Ep|E)[\\s._-]*\\d{1,3}\\b.*$/i, " ")
+                .replace(/\\s+-\\s+\\d{1,3}\\b.*$/, " ")
+                .replace(/\\b(?:480p|720p|1080p|2160p|4K|BluRay|WEB-DL|WEBRip|HDTV|x264|x265|HEVC|10bit|AAC|FLAC|Dual[\\s._-]*Audio|Multi[\\s._-]*Sub)\\b.*$/i, " ")
+                .replace(/[._]+/g, " ")
+                .replace(/\\s+/g, " ")
+                .trim();
+            };
+
             window.__handleAndroidBack = function() {
               var queueClose = document.querySelector('.player-queue .queue-head button');
               if (queueClose) { queueClose.click(); return true; }
@@ -289,8 +521,8 @@ jobs:
                   posterUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21202-TfzXuWQf2oLQ.png",
                   rating: 8.0,
                   ratingScale: 10,
-                  ratingSource: "AniList",
-                  sourceUrl: "https://anilist.co/anime/21202",
+                  ratingSource: "TVmaze",
+                  sourceUrl: "https://www.tvmaze.com/shows/13202/konosuba-gods-blessing-on-this-wonderful-world",
                   synopsis: "The life of Satou Kazuma, a hikikomori who likes games, all too soon came to an end because of a traffic accident... It was supposed to, but when he woke up, a beautiful girl who called herself a goddess was in front of his eyes.",
                   genres: ["Adventure", "Comedy", "Fantasy"],
                   seasonCount: 3,
@@ -367,6 +599,10 @@ jobs:
               try { localStorage.setItem(DB_KEY, JSON.stringify(db)); } catch (e) {}
             }
 
+            function normalizeTitleKey(t) {
+              return String(t || "").trim().replace(/\\s+/g, " ").toLowerCase();
+            }
+
             function formatAniDate(sd, fallbackYear, isUnreleased) {
               if (sd && sd.year) {
                 var m = String(sd.month || (isUnreleased ? 12 : 1)).padStart(2, "0");
@@ -377,7 +613,6 @@ jobs:
               return null;
             }
 
-            // Converts YYYY-MM-DD or unix timestamps into "Sep 10", "Jan 14", etc.
             function formatArriveDate(dateStr, airingAtTs, seasonStartDateStr, epIndex) {
               if (airingAtTs && airingAtTs > 0) {
                 try {
@@ -418,23 +653,41 @@ jobs:
             }
 
             function cleanHtml(str) {
-              return (str || "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+              return (str || "").replace(/<[^>]+>/g, "").replace(/\\s+/g, " ").trim();
             }
 
-            function parseFileEntry(fileName, kind, idx, nextFileId) {
-              var base = fileName.replace(/\.[^/.]+$/, "");
-              var m = base.match(/S(\d{1,2})[\s._-]*E(\d{1,3})/i) || base.match(/(\d{1,2})x(\d{1,3})/i);
-              var epOnly = !m && base.match(/(?:^|[\s._-])(?:E|EP|Episode)?[\s._-]*(\d{1,3})(?:$|[\s._-])/i);
-              var yearMatch = base.match(/\b(19\d{2}|20\d{2})\b/);
-              var isOva = /\b(ova|oad)\b/i.test(base);
-              var isSpecial = /\b(special|sp)\b/i.test(base);
-              var isMovie = /\b(movie|film)\b/i.test(base);
-              var seasonNumber = m ? Number(m[1]) : (kind === "series" && !isOva && !isSpecial && !isMovie ? 1 : null);
-              var episodeNumber = m ? Number(m[2]) : (epOnly && kind === "series" ? Number(epOnly[1]) : (kind === "series" && !isOva && !isSpecial && !isMovie ? idx + 1 : null));
+            // Preserves exact S01E02 filename parsing while storing composite folder + filename key
+            function parseFileEntry(fileInput, kind, idx, nextFileId) {
+              var rawFileName = typeof fileInput === "string" ? fileInput : (fileInput.fileName || "");
+              var relPath = (typeof fileInput === "object" && fileInput && fileInput.relativePath)
+                ? String(fileInput.relativePath).replace(/\\\\/g, "/").replace(/^\\/+/, "").trim()
+                : "";
+              var compositeKey = (relPath && relPath.indexOf("/") !== -1) ? relPath : rawFileName;
+
+              var justName = rawFileName.split("/").pop().replace(/\\.[^/.]+$/, "");
+              var m = justName.match(/S(\\d{1,2})[\\s._-]*E(\\d{1,3})/i) || justName.match(/(\\d{1,2})x(\\d{1,3})/i);
+              var folderSeasonMatch = !m && relPath.match(/(?:Season|Series|S)[\\s._-]*(\\d{1,2})/i);
+              var epOnly = !m && justName.match(/(?:^|[\\s._-])(?:E|EP|Episode)?[\\s._-]*(\\d{1,3})(?:$|[\\s._-])/i);
+              var yearMatch = justName.match(/\\b(19\\d{2}|20\\d{2})\\b/);
+              var isOva = /\\b(ova|oad)\\b/i.test(justName);
+              var isSpecial = /\\b(special|sp)\\b/i.test(justName);
+              var isMovie = /\\b(movie|film)\\b/i.test(justName);
+
+              var seasonNumber = m
+                ? Number(m[1])
+                : folderSeasonMatch
+                  ? Number(folderSeasonMatch[1])
+                  : (kind === "series" && !isOva && !isSpecial && !isMovie ? 1 : null);
+              var episodeNumber = m
+                ? Number(m[2])
+                : (epOnly && kind === "series" ? Number(epOnly[1]) : (kind === "series" && !isOva && !isSpecial && !isMovie ? idx + 1 : null));
+
               return {
                 id: nextFileId,
-                fileName: fileName,
-                displayTitle: base.replace(/[._]+/g, " ").trim(),
+                fileName: compositeKey,
+                rawFileName: rawFileName,
+                relativePath: relPath || null,
+                displayTitle: justName.replace(/[._]+/g, " ").trim(),
                 mediaKind: kind === "music" ? "music" : (kind === "series" && !isOva && !isSpecial && !isMovie ? "episode" : "movie"),
                 contentType: isOva ? "ova" : isSpecial ? "special" : (kind === "music" ? "music" : (kind === "series" && !isMovie ? "episode" : "movie")),
                 seasonNumber: seasonNumber,
@@ -447,12 +700,61 @@ jobs:
               };
             }
 
+            // Deezer Music Cover & Metadata Lookup via JSONP (works without CORS proxy)
+            function lookupDeezerMusic(title) {
+              return new Promise(function(resolve) {
+                var cbName = "__deezer_cb_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
+                var script = document.createElement("script");
+                var timer = setTimeout(function() {
+                  cleanup();
+                  resolve(null);
+                }, 4500);
+
+                function cleanup() {
+                  clearTimeout(timer);
+                  try { delete window[cbName]; } catch (e) { window[cbName] = undefined; }
+                  if (script.parentNode) script.parentNode.removeChild(script);
+                }
+
+                window[cbName] = function(data) {
+                  cleanup();
+                  var item = data && data.data && data.data[0];
+                  if (!item) {
+                    resolve(null);
+                    return;
+                  }
+                  var cover = (item.album && (item.album.cover_xl || item.album.cover_big || item.album.cover_medium)) ||
+                              (item.artist && (item.artist.picture_xl || item.artist.picture_big)) || null;
+                  var artistName = (item.artist && item.artist.name) || null;
+                  var albumTitle = (item.album && item.album.title) || title;
+                  resolve({
+                    posterUrl: cover,
+                    synopsis: artistName ? (albumTitle + " · " + artistName) : albumTitle,
+                    sourceUrl: item.link || "https://www.deezer.com",
+                    ratingSource: "Deezer",
+                    genres: ["Music"]
+                  });
+                };
+
+                script.onerror = function() {
+                  cleanup();
+                  resolve(null);
+                };
+                script.src = "https://api.deezer.com/search?q=" + encodeURIComponent(title) + "&limit=1&output=jsonp&callback=" + cbName;
+                document.head.appendChild(script);
+              });
+            }
+
+            // Unified One-Time Metadata Lookup:
+            // - Deezer for music covers
+            // - TVmaze for series (seasons, episodes, ratings)
+            // - AniList for anime movies and watch order
             async function lookupAllMetadata(title, kind, year) {
               var result = {
                 posterUrl: null,
                 rating: null,
                 ratingScale: null,
-                ratingSource: "AniList",
+                ratingSource: kind === "music" ? "Deezer" : (kind === "series" ? "TVmaze" : "AniList"),
                 sourceUrl: null,
                 synopsis: null,
                 genres: [],
@@ -463,8 +765,80 @@ jobs:
                 reviews: []
               };
 
-              var VALID_RELATIONS = ["SEQUEL", "PREQUEL", "SIDE_STORY", "PARENT", "SPIN_OFF", "SUMMARY", "ALTERNATIVE"];
+              // 1. MUSIC: Deezer cover lookup
+              if (kind === "music") {
+                var dz = await lookupDeezerMusic(title);
+                if (dz) {
+                  result.posterUrl = dz.posterUrl;
+                  result.synopsis = dz.synopsis;
+                  result.sourceUrl = dz.sourceUrl;
+                  result.ratingSource = dz.ratingSource;
+                  result.genres = dz.genres;
+                }
+                return result;
+              }
 
+              // 2. SERIES: Fetch TVmaze for seasons, episodes & ratings
+              var tvmazeEpisodesBySeason = new Map();
+              var tvmazeRatings = null;
+              if (kind === "series") {
+                try {
+                  var rTv = await origFetch("https://api.tvmaze.com/singlesearch/shows?q=" + encodeURIComponent(title) + "&embed[]=episodes&embed[]=seasons");
+                  if (rTv.ok) {
+                    var show = await rTv.json();
+                    if (show) {
+                      result.posterUrl = (show.image && (show.image.original || show.image.medium)) || null;
+                      result.synopsis = cleanHtml(show.summary) || null;
+                      if (show.rating && show.rating.average) {
+                        result.rating = show.rating.average;
+                        result.ratingScale = 10;
+                        result.ratingSource = "TVmaze";
+                        tvmazeRatings = show.rating.average;
+                      }
+                      result.sourceUrl = show.url || null;
+                      result.genres = (show.genres && show.genres.length > 0) ? show.genres : [];
+                      result.year = result.year || (show.premiered ? Number(show.premiered.slice(0, 4)) : null);
+
+                      var rawSeasons = (show._embedded && show._embedded.seasons) || [];
+                      result.seasons = rawSeasons.map(function(s) {
+                        return {
+                          seasonNumber: s.number || 1,
+                          releaseYear: s.premiereDate ? Number(s.premiereDate.slice(0, 4)) : result.year,
+                          firstAirDate: s.premiereDate || null,
+                          thumbnailUrl: (s.image && (s.image.original || s.image.medium)) || result.posterUrl,
+                          statusText: s.episodeOrder ? (s.episodeOrder + " episodes") : null,
+                          badgeText: null,
+                          isComingSoon: false
+                        };
+                      });
+
+                      var rawEps = (show._embedded && show._embedded.episodes) || [];
+                      result.episodes = rawEps.map(function(ep, idx) {
+                        var sNum = ep.season || 1;
+                        var eNum = ep.number || (idx + 1);
+                        if (!tvmazeEpisodesBySeason.has(sNum)) tvmazeEpisodesBySeason.set(sNum, []);
+                        var epObj = {
+                          id: ep.id || (Date.now() + 1000 + idx),
+                          seasonNumber: sNum,
+                          episodeNumber: eNum,
+                          title: ep.name || ("Episode " + eNum),
+                          arriveDate: formatArriveDate(ep.airdate, null, null, idx),
+                          airDate: ep.airdate || null,
+                          runtimeMinutes: ep.runtime || show.averageRuntime || 24,
+                          sourceUrl: ep.url || null,
+                          thumbnailUrl: (ep.image && (ep.image.original || ep.image.medium)) || null,
+                          localFileName: null
+                        };
+                        tvmazeEpisodesBySeason.get(sNum).push(epObj);
+                        return epObj;
+                      });
+                    }
+                  }
+                } catch (e) {}
+              }
+
+              // 3. ANILIST: Fetch anime movies, OVAs, reviews, and full chronological Watch Order
+              var VALID_RELATIONS = ["SEQUEL", "PREQUEL", "SIDE_STORY", "PARENT", "SPIN_OFF", "SUMMARY", "ALTERNATIVE"];
               try {
                 var searchQuery = \`
                   query ($search: String) {
@@ -522,13 +896,15 @@ jobs:
                 var rootMedia = j1 && j1.data && j1.data.Media;
 
                 if (rootMedia) {
-                  result.posterUrl = (rootMedia.coverImage && (rootMedia.coverImage.extraLarge || rootMedia.coverImage.large)) || null;
-                  result.rating = rootMedia.averageScore ? Number((rootMedia.averageScore / 10).toFixed(1)) : null;
-                  result.ratingScale = rootMedia.averageScore ? 10 : null;
-                  result.ratingSource = "AniList";
-                  result.sourceUrl = rootMedia.siteUrl || null;
-                  result.synopsis = cleanHtml(rootMedia.description);
-                  result.genres = rootMedia.genres || [];
+                  result.posterUrl = (rootMedia.coverImage && (rootMedia.coverImage.extraLarge || rootMedia.coverImage.large)) || result.posterUrl;
+                  if (tvmazeRatings == null && rootMedia.averageScore) {
+                    result.rating = kind === "movie" ? rootMedia.averageScore : Number((rootMedia.averageScore / 10).toFixed(1));
+                    result.ratingScale = kind === "movie" ? 100 : 10;
+                    result.ratingSource = "AniList";
+                  }
+                  result.sourceUrl = result.sourceUrl || rootMedia.siteUrl || null;
+                  result.synopsis = result.synopsis || cleanHtml(rootMedia.description);
+                  result.genres = (result.genres && result.genres.length > 0) ? result.genres : (rootMedia.genres || []);
                   result.year = result.year || rootMedia.seasonYear || (rootMedia.startDate && rootMedia.startDate.year) || null;
 
                   var revNodes = (rootMedia.reviews && rootMedia.reviews.nodes) || [];
@@ -650,10 +1026,8 @@ jobs:
                     });
                     if (tvNodes.length === 0) tvNodes = [rootMedia];
 
-                    var firstTv = tvNodes[0];
-                    if (firstTv) {
-                      result.year = firstTv.seasonYear || (firstTv.startDate && firstTv.startDate.year) || result.year;
-                    }
+                    var aniSeasons = [];
+                    var aniEpisodes = [];
 
                     tvNodes.forEach(function(tv, sIdx) {
                       var sNum = sIdx + 1;
@@ -663,13 +1037,14 @@ jobs:
                       var sDate = formatAniDate(tv.startDate, sYear, isComingSoon);
                       var sThumb = (tv.coverImage && (tv.coverImage.extraLarge || tv.coverImage.large)) || result.posterUrl;
                       var streamEps = (tv.streamingEpisodes || []).slice();
+                      var tvmEps = tvmazeEpisodesBySeason.get(sNum) || [];
 
                       var nextEp = tv.nextAiringEpisode ? tv.nextAiringEpisode.episode : null;
                       var airedCount = isComingSoon
                         ? 0
                         : isReleasing
-                          ? (nextEp ? Math.max(0, nextEp - 1) : streamEps.length)
-                          : (tv.episodes || streamEps.length || 12);
+                          ? (nextEp ? Math.max(0, nextEp - 1) : (streamEps.length || tvmEps.length))
+                          : (tv.episodes || streamEps.length || tvmEps.length || 12);
 
                       var totalPlanned = tv.episodes || (isReleasing ? Math.max(airedCount + 1, streamEps.length) : airedCount);
 
@@ -690,7 +1065,7 @@ jobs:
                         statusText = totalPlanned + " episodes";
                       }
 
-                      result.seasons.push({
+                      aniSeasons.push({
                         seasonNumber: sNum,
                         releaseYear: sYear,
                         firstAirDate: sDate,
@@ -702,7 +1077,6 @@ jobs:
                         airedCount: airedCount
                       });
 
-                      // Map out episode air dates from AniList airingSchedule
                       var airScheduleMap = new Map();
                       var scheduleNodes = (tv.airingSchedule && tv.airingSchedule.nodes) || [];
                       scheduleNodes.forEach(function(sc) {
@@ -710,20 +1084,20 @@ jobs:
                       });
 
                       if (!isComingSoon) {
-                        var epLoopCount = Math.max(totalPlanned, streamEps.length, isReleasing && nextEp ? nextEp : 0);
+                        var epLoopCount = Math.max(totalPlanned, streamEps.length, tvmEps.length, isReleasing && nextEp ? nextEp : 0);
                         for (var eIdx = 0; eIdx < epLoopCount; eIdx++) {
                           var epNum = eIdx + 1;
                           var streamEp = streamEps[eIdx] || null;
+                          var tvmEp = tvmEps.find(function(x) { return x.episodeNumber === epNum; }) || null;
                           var scItem = airScheduleMap.get(epNum);
                           var epAirTs = scItem ? scItem.airingAt : (epNum === nextEp && tv.nextAiringEpisode ? tv.nextAiringEpisode.airingAt : null);
 
-                          var cleanEpTitle = "Episode " + epNum;
+                          var cleanEpTitle = (tvmEp && tvmEp.title) || ("Episode " + epNum);
                           if (streamEp && streamEp.title) {
-                            cleanEpTitle = streamEp.title.replace(/^Episode\s*\d+\s*[-:]\s*/i, "").trim() || streamEp.title;
+                            cleanEpTitle = streamEp.title.replace(/^Episode\\s*\\d+\\s*[-:]\\s*/i, "").trim() || streamEp.title;
                           }
 
-                          // Clean, human arrival date like "Sep 10", "Jan 14", "Apr 10"
-                          var cleanArriveDate = formatArriveDate(null, epAirTs, sDate, eIdx);
+                          var cleanArriveDate = (tvmEp && tvmEp.arriveDate) || formatArriveDate(tvmEp && tvmEp.airDate, epAirTs, sDate, eIdx);
 
                           var isUpcomingEp = isReleasing && nextEp != null && epNum >= nextEp;
                           var epAirStatus = null;
@@ -737,23 +1111,26 @@ jobs:
                             epAirStatus = "🟢 Latest aired";
                           }
 
-                          result.episodes.push({
+                          aniEpisodes.push({
                             id: tv.id * 1000 + epNum,
                             seasonNumber: sNum,
                             episodeNumber: epNum,
                             title: cleanEpTitle,
                             arriveDate: cleanArriveDate,
-                            airDate: sDate,
-                            runtimeMinutes: tv.duration || 24,
+                            airDate: (tvmEp && tvmEp.airDate) || sDate,
+                            runtimeMinutes: (tvmEp && tvmEp.runtimeMinutes) || tv.duration || 24,
                             airStatus: epAirStatus,
                             isUpcoming: isUpcomingEp,
-                            sourceUrl: (streamEp && streamEp.url) || tv.siteUrl || null,
-                            thumbnailUrl: (streamEp && streamEp.thumbnail) || sThumb,
+                            sourceUrl: (streamEp && streamEp.url) || (tvmEp && tvmEp.sourceUrl) || tv.siteUrl || null,
+                            thumbnailUrl: (streamEp && streamEp.thumbnail) || (tvmEp && tvmEp.thumbnailUrl) || sThumb,
                             localFileName: null
                           });
                         }
                       }
                     });
+
+                    if (aniSeasons.length > 0) result.seasons = aniSeasons;
+                    if (aniEpisodes.length > 0) result.episodes = aniEpisodes;
 
                     var nonTvNodes = franchiseNodes.filter(function(n) {
                       return ["MOVIE", "OVA", "SPECIAL", "ONA", "TV_SHORT"].indexOf(n.format) !== -1 && tvNodes.indexOf(n) === -1;
@@ -794,50 +1171,67 @@ jobs:
                 }
               } catch (e) {}
 
-              if (kind === "series" && result.seasons.length === 0) {
-                try {
-                  var r2 = await origFetch("https://api.tvmaze.com/singlesearch/shows?q=" + encodeURIComponent(title) + "&embed[]=episodes&embed[]=seasons");
-                  if (r2.ok) {
-                    var show = await r2.json();
-                    if (show) {
-                      result.posterUrl = result.posterUrl || (show.image && (show.image.original || show.image.medium)) || null;
-                      result.synopsis = result.synopsis || cleanHtml(show.summary);
-                      if (show.rating && show.rating.average) {
-                        result.rating = show.rating.average;
-                        result.ratingScale = 10;
-                        result.ratingSource = "TVmaze";
-                      }
-                      result.sourceUrl = show.url || result.sourceUrl;
-                      result.genres = (show.genres && show.genres.length > 0) ? show.genres : result.genres;
-                      var rawSeasons = (show._embedded && show._embedded.seasons) || [];
-                      result.seasons = rawSeasons.map(function(s) {
-                        return {
-                          seasonNumber: s.number || 1,
-                          releaseYear: s.premiereDate ? Number(s.premiereDate.slice(0, 4)) : result.year,
-                          firstAirDate: s.premiereDate || null,
-                          thumbnailUrl: (s.image && (s.image.original || s.image.medium)) || result.posterUrl
-                        };
-                      });
-                      var rawEps = (show._embedded && show._embedded.episodes) || [];
-                      result.episodes = rawEps.map(function(ep, idx) {
-                        return {
-                          id: ep.id || (Date.now() + 1000 + idx),
-                          seasonNumber: ep.season || 1,
-                          episodeNumber: ep.number || (idx + 1),
-                          title: ep.name || ("Episode " + (ep.number || idx + 1)),
-                          arriveDate: formatArriveDate(ep.airdate, null, null, idx),
-                          airDate: ep.airdate || null,
-                          runtimeMinutes: ep.runtime || show.averageRuntime || 24,
-                          sourceUrl: ep.url || null,
-                          thumbnailUrl: (ep.image && (ep.image.original || ep.image.medium)) || null,
-                          localFileName: null
-                        };
-                      });
-                    }
-                  }
-                } catch (e) {}
-              }
               return result;
+            }
+
+            // Links local files (S01E02) into a collection's episode list & creates missing season stubs if needed
+            function attachFilesToCollection(col, newFiles) {
+              if (!col.files) col.files = [];
+              var existingKeys = new Set(
+                col.files.map(function(f) {
+                  return String(f.relativePath || f.fileName || "").replace(/\\\\/g, "/").toLowerCase();
+                })
+              );
+
+              newFiles.forEach(function(nf) {
+                var key = String(nf.relativePath || nf.fileName || "").replace(/\\\\/g, "/").toLowerCase();
+                if (!existingKeys.has(key)) {
+                  existingKeys.add(key);
+                  nf.sortOrder = col.files.length + 1;
+                  col.files.push(nf);
+                }
+              });
+
+              if (col.kind === "series") {
+                if (!col.seasons) col.seasons = [];
+                if (!col.episodes) col.episodes = [];
+
+                col.files.forEach(function(f) {
+                  if (f.mediaKind !== "episode" || f.seasonNumber == null) return;
+                  var hasSeason = col.seasons.some(function(s) { return s.seasonNumber === f.seasonNumber; });
+                  if (!hasSeason) {
+                    col.seasons.push({
+                      seasonNumber: f.seasonNumber,
+                      releaseYear: f.releaseYear || col.year || new Date().getFullYear(),
+                      firstAirDate: null,
+                      thumbnailUrl: col.posterUrl,
+                      statusText: null,
+                      badgeText: null,
+                      isComingSoon: false
+                    });
+                  }
+                  var matchEp = col.episodes.find(function(ep) {
+                    return ep.seasonNumber === f.seasonNumber && ep.episodeNumber === f.episodeNumber;
+                  });
+                  if (matchEp) {
+                    matchEp.localFileName = f.fileName;
+                  } else if (f.episodeNumber != null) {
+                    col.episodes.push({
+                      id: col.id * 10000 + f.seasonNumber * 100 + f.episodeNumber,
+                      seasonNumber: f.seasonNumber,
+                      episodeNumber: f.episodeNumber,
+                      title: f.displayTitle || ("Episode " + f.episodeNumber),
+                      arriveDate: null,
+                      airDate: null,
+                      runtimeMinutes: 24,
+                      sourceUrl: null,
+                      thumbnailUrl: col.posterUrl,
+                      localFileName: f.fileName
+                    });
+                  }
+                });
+                col.seasonCount = col.seasons.length;
+              }
             }
 
             async function handleAction(action, args) {
@@ -887,14 +1281,46 @@ jobs:
               }
 
               if (action === "addCollection") {
-                var id = db.nextId++;
                 var kind = args.kind || "series";
+                var cleanTitle = String(args.title || "").trim();
+                var titleKey = normalizeTitleKey(cleanTitle);
                 var rawFiles = args.files || [];
-                var files = rawFiles.map(function(f, idx) {
-                  return parseFileEntry(f.fileName, kind, idx, db.nextFileId++);
+
+                // Deduplicate incoming files by (folder + fileName)
+                var seenIncoming = new Set();
+                var uniqueRawFiles = [];
+                rawFiles.forEach(function(f) {
+                  var k = String(f.relativePath || f.fileName || "").replace(/\\\\/g, "/").toLowerCase();
+                  if (k && !seenIncoming.has(k)) {
+                    seenIncoming.add(k);
+                    uniqueRawFiles.push(f);
+                  }
                 });
 
-                var meta = await lookupAllMetadata(args.title, kind, args.year);
+                var parsedFiles = uniqueRawFiles.map(function(f, idx) {
+                  return parseFileEntry(f, kind, idx, db.nextFileId++);
+                });
+
+                // Check if a collection with the same title (case-insensitive) already exists!
+                // If it exists -> merge new files into the existing entry and DO NOT fetch metadata again.
+                var existingCol = db.collections.find(function(c) {
+                  return normalizeTitleKey(c.title) === titleKey && c.kind === kind;
+                }) || db.collections.find(function(c) {
+                  return normalizeTitleKey(c.title) === titleKey;
+                });
+
+                if (existingCol) {
+                  if (args.posterDataBase64) {
+                    existingCol.posterUrl = "data:" + (args.posterMimeType || "image/jpeg") + ";base64," + args.posterDataBase64;
+                  }
+                  attachFilesToCollection(existingCol, parsedFiles);
+                  saveDB(db);
+                  return { collection: existingCol };
+                }
+
+                // New Collection -> Fetch metadata ONE time (TVmaze / AniList / Deezer)
+                var id = db.nextId++;
+                var meta = await lookupAllMetadata(cleanTitle, kind, args.year);
                 var posterUrl = args.posterDataBase64
                   ? ("data:" + (args.posterMimeType || "image/jpeg") + ";base64," + args.posterDataBase64)
                   : meta.posterUrl;
@@ -915,10 +1341,10 @@ jobs:
                     }];
                   }
                   if (episodes.length === 0 && !seasons[0].isComingSoon) {
-                    var count = Math.max(files.length, 12);
+                    var count = Math.max(parsedFiles.length, 12);
                     for (var i = 0; i < count; i++) {
                       var epNum = i + 1;
-                      var mf = files.find(function(x) { return x.episodeNumber === epNum; });
+                      var mf = parsedFiles.find(function(x) { return x.episodeNumber === epNum; });
                       episodes.push({
                         id: id * 1000 + epNum,
                         seasonNumber: 1,
@@ -932,19 +1358,12 @@ jobs:
                         localFileName: mf ? mf.fileName : null
                       });
                     }
-                  } else {
-                    episodes.forEach(function(ep) {
-                      var mf = files.find(function(x) {
-                        return x.seasonNumber === ep.seasonNumber && x.episodeNumber === ep.episodeNumber;
-                      });
-                      if (mf) ep.localFileName = mf.fileName;
-                    });
                   }
                 }
 
                 var newCol = {
                   id: id,
-                  title: args.title,
+                  title: cleanTitle,
                   kind: kind,
                   year: args.year || meta.year || new Date().getFullYear(),
                   posterUrl: posterUrl,
@@ -961,10 +1380,11 @@ jobs:
                   seasons: seasons,
                   episodes: episodes,
                   relatedMedia: meta.relatedMedia,
-                  files: files,
+                  files: [],
                   reviews: meta.reviews
                 };
 
+                attachFilesToCollection(newCol, parsedFiles);
                 db.collections.unshift(newCol);
                 saveDB(db);
                 return { collection: newCol };
@@ -1036,14 +1456,8 @@ jobs:
                     colM.seasonCount = refreshed.seasons.length;
                   }
                   if (refreshed.episodes.length > 0 || (refreshed.seasons[0] && refreshed.seasons[0].isComingSoon)) {
-                    var existingFiles = colM.files || [];
-                    refreshed.episodes.forEach(function(ep) {
-                      var mf = existingFiles.find(function(x) {
-                        return x.seasonNumber === ep.seasonNumber && x.episodeNumber === ep.episodeNumber;
-                      });
-                      if (mf) ep.localFileName = mf.fileName;
-                    });
                     colM.episodes = refreshed.episodes;
+                    attachFilesToCollection(colM, []);
                   }
                   if (refreshed.relatedMedia.length > 0) colM.relatedMedia = refreshed.relatedMedia;
                   if (refreshed.reviews.length > 0) colM.reviews = refreshed.reviews;
