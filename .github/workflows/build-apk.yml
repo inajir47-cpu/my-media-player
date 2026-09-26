@@ -3088,7 +3088,7 @@ jobs:
               }
               function apiGet(path) {
                 var DM = window.DirectMode;
-                function directCapable() { return !!(DM && DM.isApp && DM.isApp() && DM.directGet); }
+                function directCapable() { return !!(DM && DM.directGet); }
                 function backendMode() {
                   try {
                     var v = localStorage.getItem('__anime_backend_mode_v1');
@@ -3779,7 +3779,7 @@ jobs:
               }
               function serverRowHtml() {
                 var DM = window.DirectMode;
-                var direct = !!(DM && DM.isApp && DM.isApp());
+                var direct = true;
                 if (direct) {
                   return '<div class=\"aw-oserver\"><span>Server</span><span>Built-in phone streaming (no PC needed)</span>' +
                     '<button type=\"button\" id=\"awOUsePc\">Use PC server</button></div>';
@@ -3889,6 +3889,28 @@ jobs:
             localRuntime
           );
 
+          // 15. Random local clip: 30s play time + smooth fade-out/fade-in between clips
+          html = html.replace(
+            '[g, b] = H(null);',
+            '[g, b] = H(null),' + '\n' + '    [fading, setFading] = H(false);'
+          );
+          html = html.replace(
+            'randomValue: Math.random()' + '\n' + '    });' + '\n' + '  }' + '\n' + '  if (Ee(() => {',
+            'randomValue: Math.random()' + '\n' + '    });' + '\n' + '  }' + '\n' + '  function switchClip() {' + '\n' + '    if (fading) return;' + '\n' + '    setFading(true);' + '\n' + '    setTimeout(() => {' + '\n' + '      h();' + '\n' + '      setTimeout(() => setFading(false), 80);' + '\n' + '    }, 450);' + '\n' + '  }' + '\n' + '  if (Ee(() => {'
+          );
+          html = html.replace(
+            'if (y.currentTarget.currentTime - s.current >= 12) h();',
+            'if (y.currentTarget.currentTime - s.current >= 30) switchClip();'
+          );
+          html = html.replace('onEnded: h,', 'onEnded: switchClip,');
+          html = html.replace(
+            'className: `local-clip-preview ' + '${l}' + '`,',
+            'className: `local-clip-preview ' + '${l}${fading ? " clip-fading" : ""}' + '`,',
+          );
+          html = html.replace(
+            '</head>',
+            '<style>.local-clip-preview video{transition:opacity .45s ease}.local-clip-preview.clip-fading video{opacity:0}</style></head>'
+          );
           fs.writeFileSync("www/index.html", html, "utf8");
           EOF_PATCH
 
@@ -3964,17 +3986,22 @@ jobs:
           </network-security-config>
           EOF_NSC
 
-          node -e '
-            const fs = require("fs");
-            const mfPath = "android/app/src/main/AndroidManifest.xml";
-            let mf = fs.readFileSync(mfPath, "utf8");
-            mf = mf.replace(
-              "android:configChanges=\"orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode\"",
-              "android:supportsPictureInPicture=\"true\" android:configChanges=\"orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode\""
-            );
-            mf = mf.replace("<application", '<application android:networkSecurityConfig=\"@xml/network_security_config"\");
-            fs.writeFileSync(mfPath, mf, "utf8");
-          '
+          cat << 'EOF_MANIFEST' > patch-manifest.js
+          const fs = require("fs");
+          const mfPath = "android/app/src/main/AndroidManifest.xml";
+          let mf = fs.readFileSync(mfPath, "utf8");
+          mf = mf.replace(
+            'android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"',
+            'android:supportsPictureInPicture="true" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"'
+          );
+          mf = mf.replace(
+            "<application",
+            '<application android:networkSecurityConfig="@xml/network_security_config"'
+          );
+          fs.writeFileSync(mfPath, mf, "utf8");
+          EOF_MANIFEST
+          node patch-manifest.js
+
 
           cat << 'EOF_JAVA' > android/app/src/main/java/com/exact/mediaplayer/MainActivity.java
           package com.exact.mediaplayer;
