@@ -46,9 +46,37 @@ jobs:
             "$1$2"
           );
 
-          // Inject Custom UI Overrides for Borderless Episode Cards with All Details Inside the Box
+          // 1. Show "how many episodes listed" in the Season Header
+          html = html.replace(
+            /children:\s*\[u\("h3",\s*\{\s*children:\s*r\s*==\s*null\s*\?\s*"Episodes"\s*:\s*ve\(r\)\s*\}\)/,
+            'children: [u("h3", { children: (r == null ? "Episodes" : ve(r)) + (U.length > 0 ? ` · ${U.length} listed` : " · 0 listed") })'
+          );
+
+          // 2. Show "how many episodes listed" in the Watch Order Subtitle
+          html = html.replace(
+            /oa = f\.kind === "season" \? `\$\{S\.episodes\.filter\(I => I\.seasonNumber === f\.season\.seasonNumber\)\.length\} episodes` : f\.kind === "related" \? f\.related\.title : f\.file\.displayTitle;/,
+            'oa = f.kind === "season" ? (f.season.statusText ? `${f.season.statusText} · ${S.episodes.filter(I => I.seasonNumber === f.season.seasonNumber).length} listed` : `${S.episodes.filter(I => I.seasonNumber === f.season.seasonNumber).length} episodes listed`) : f.kind === "related" ? (f.related.statusText ? `${f.related.statusText} · ${f.related.title}` : f.related.title) : f.file.displayTitle;'
+          );
+
+          // 3. Inject arrival date (e.g. "Sep 10") + runtime + status into every Episode Card
+          html = html.replace(
+            /children:\s*\[f\.runtimeMinutes\s*\?\s*`\$\{f\.runtimeMinutes\}\s*min`[\s\S]*?" · No local file"\]/,
+            'children: [f.arriveDate ? (f.isUpcoming ? `Arrives ${f.arriveDate} · ` : `${f.arriveDate} · `) : "", f.airStatus ? f.airStatus : (f.runtimeMinutes ? `${f.runtimeMinutes} min` : "24 min"), X ? (Oe ? (C && C.positionSeconds > 3 && !C.completed ? " · Resume" : " · Ready to play") : " · Reconnect file") : (f.isUpcoming ? " · Coming soon" : " · No local file")]'
+          );
+
+          // 4. Season badge text & coming soon notice
+          html = html.replace(
+            /return `Season \$\{lt\.get\(f\) \?\? f\}\$\{C\?\.releaseYear \? ` \(\$\{C\.releaseYear\}\)` : ""\}`;/,
+            'return `Season ${lt.get(f) ?? f}${C?.releaseYear ? ` (${C.releaseYear})` : ""}${C?.badgeText ? ` · ${C.badgeText}` : ""}`;'
+          );
+
+          html = html.replace(
+            '"No episode list was found for this season. Your imported files are still kept."',
+            '(Me.find(ae => ae.seasonNumber === r)?.isComingSoon ? "⏳ Coming Soon — This season has been announced and has not started airing yet." : "No episode list was found for this season. Your imported files are still kept.")'
+          );
+
+          // 5. Borderless Card Styling with clean arrive date text
           const customUiCss = `<style id="custom-ui-overrides">
-            /* Borderless Episode Cards with All Details Inside the Box */
             .episode-grid {
               grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)) !important;
               gap: 16px !important;
@@ -170,14 +198,16 @@ jobs:
               overflow: hidden !important;
             }
             .episode-card p {
-              color: rgba(255, 255, 255, 0.78) !important;
-              font-size: 11px !important;
-              font-weight: 600 !important;
+              color: rgba(255, 255, 255, 0.88) !important;
+              font-size: 11.5px !important;
+              font-weight: 700 !important;
               margin: 4px 0 0 !important;
               text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95) !important;
             }
-
-            /* Borderless Watch Order & Movie File Cards on Detail Page */
+            .episode-panel-heading h3 {
+              font-size: 21px !important;
+              font-weight: 850 !important;
+            }
             .watch-order-card,
             .watch-order-card.active {
               border: 0 !important;
@@ -246,7 +276,7 @@ jobs:
               }
             });
 
-            var DB_KEY = "media_player_exact_db_v3";
+            var DB_KEY = "media_player_exact_db_v5";
             var SEED_DB = {
               nextId: 3,
               nextFileId: 100,
@@ -268,24 +298,24 @@ jobs:
                   metadataNote: null,
                   createdAt: "2026-09-25T10:00:00.000Z",
                   seasons: [
-                    { seasonNumber: 1, releaseYear: 2016, firstAirDate: "2016-01-14", thumbnailUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21202-TfzXuWQf2oLQ.png" },
-                    { seasonNumber: 2, releaseYear: 2017, firstAirDate: "2017-01-12", thumbnailUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21699-Fkbnbfv2fb8y.png" },
-                    { seasonNumber: 3, releaseYear: 2024, firstAirDate: "2024-04-10", thumbnailUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx153845-C47ao07L1c7b.jpg" }
+                    { seasonNumber: 1, releaseYear: 2016, firstAirDate: "2016-01-14", thumbnailUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21202-TfzXuWQf2oLQ.png", statusText: "10 episodes", badgeText: null, isComingSoon: false },
+                    { seasonNumber: 2, releaseYear: 2017, firstAirDate: "2017-01-12", thumbnailUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21699-Fkbnbfv2fb8y.png", statusText: "10 episodes", badgeText: null, isComingSoon: false },
+                    { seasonNumber: 3, releaseYear: 2024, firstAirDate: "2024-04-10", thumbnailUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx153845-C47ao07L1c7b.jpg", statusText: "11 episodes", badgeText: null, isComingSoon: false }
                   ],
                   episodes: [
-                    { id: 101, seasonNumber: 1, episodeNumber: 1, title: "This Self-Proclaimed Goddess and Reincarnation in Another World!", airDate: "2016-01-14", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
-                    { id: 102, seasonNumber: 1, episodeNumber: 2, title: "An Explosion for This Chunibyo!", airDate: "2016-01-21", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
-                    { id: 103, seasonNumber: 1, episodeNumber: 3, title: "A Panty Treasure in This Right Hand!", airDate: "2016-01-28", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
-                    { id: 104, seasonNumber: 1, episodeNumber: 4, title: "Explosion Magic for This Formidable Enemy!", airDate: "2016-02-04", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
-                    { id: 105, seasonNumber: 1, episodeNumber: 5, title: "A Price for This Cursed Sword!", airDate: "2016-02-11", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
-                    { id: 106, seasonNumber: 1, episodeNumber: 6, title: "A Conclusion to This Worthless Fight!", airDate: "2016-02-18", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
-                    { id: 107, seasonNumber: 1, episodeNumber: 7, title: "A Second Death in This Freezing Season!", airDate: "2016-02-25", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
-                    { id: 108, seasonNumber: 1, episodeNumber: 8, title: "A Loving Hand for Our Party When We Can't Make It Through Winter!", airDate: "2016-03-03", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
-                    { id: 109, seasonNumber: 1, episodeNumber: 9, title: "God's Blessing on This Wonderful Shop!", airDate: "2016-03-10", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
-                    { id: 110, seasonNumber: 1, episodeNumber: 10, title: "A Final Flame for This Over-the-Top Fortress!", airDate: "2016-03-17", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
-                    { id: 201, seasonNumber: 2, episodeNumber: 1, title: "Give Me Deliverance from This Judicial Injustice!", airDate: "2017-01-12", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
-                    { id: 202, seasonNumber: 2, episodeNumber: 2, title: "A Friend for This Crimson Demon Girl!", airDate: "2017-01-19", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
-                    { id: 301, seasonNumber: 3, episodeNumber: 1, title: "God's Blessing on This Bright Future!", airDate: "2024-04-10", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null }
+                    { id: 101, seasonNumber: 1, episodeNumber: 1, title: "This Self-Proclaimed Goddess and Reincarnation in Another World!", arriveDate: "Jan 14", airDate: "2016-01-14", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 102, seasonNumber: 1, episodeNumber: 2, title: "An Explosion for This Chunibyo!", arriveDate: "Jan 21", airDate: "2016-01-21", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 103, seasonNumber: 1, episodeNumber: 3, title: "A Panty Treasure in This Right Hand!", arriveDate: "Jan 28", airDate: "2016-01-28", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 104, seasonNumber: 1, episodeNumber: 4, title: "Explosion Magic for This Formidable Enemy!", arriveDate: "Feb 4", airDate: "2016-02-04", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 105, seasonNumber: 1, episodeNumber: 5, title: "A Price for This Cursed Sword!", arriveDate: "Feb 11", airDate: "2016-02-11", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 106, seasonNumber: 1, episodeNumber: 6, title: "A Conclusion to This Worthless Fight!", arriveDate: "Feb 18", airDate: "2016-02-18", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 107, seasonNumber: 1, episodeNumber: 7, title: "A Second Death in This Freezing Season!", arriveDate: "Feb 25", airDate: "2016-02-25", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 108, seasonNumber: 1, episodeNumber: 8, title: "A Loving Hand for Our Party When We Can't Make It Through Winter!", arriveDate: "Mar 3", airDate: "2016-03-03", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 109, seasonNumber: 1, episodeNumber: 9, title: "God's Blessing on This Wonderful Shop!", arriveDate: "Mar 10", airDate: "2016-03-10", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 110, seasonNumber: 1, episodeNumber: 10, title: "A Final Flame for This Over-the-Top Fortress!", arriveDate: "Mar 17", airDate: "2016-03-17", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 201, seasonNumber: 2, episodeNumber: 1, title: "Give Me Deliverance from This Judicial Injustice!", arriveDate: "Jan 12", airDate: "2017-01-12", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 202, seasonNumber: 2, episodeNumber: 2, title: "A Friend for This Crimson Demon Girl!", arriveDate: "Jan 19", airDate: "2017-01-19", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null },
+                    { id: 301, seasonNumber: 3, episodeNumber: 1, title: "God's Blessing on This Bright Future!", arriveDate: "Apr 10", airDate: "2024-04-10", runtimeMinutes: 24, sourceUrl: null, thumbnailUrl: null, localFileName: null }
                   ],
                   relatedMedia: [
                     { id: 11, contentType: "ova", title: "KONOSUBA -God's blessing on this wonderful world! God's Blessings on This Wonderful Choker!", releaseYear: 2016, releaseDate: "2016-06-24", relation: "Side story", rating: 7.6, ratingScale: 10, synopsis: "Kazuma puts on a mysterious choker in Wiz's shop that grants wishes.", thumbnailUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21202-TfzXuWQf2oLQ.png", sourceUrl: "https://anilist.co/anime/21698" },
@@ -326,7 +356,7 @@ jobs:
 
             function loadDB() {
               try {
-                var raw = localStorage.getItem(DB_KEY);
+                var raw = localStorage.getItem(DB_KEY) || localStorage.getItem("media_player_exact_db_v4") || localStorage.getItem("media_player_exact_db_v3");
                 if (raw) return JSON.parse(raw);
               } catch (e) {}
               saveDB(SEED_DB);
@@ -337,14 +367,54 @@ jobs:
               try { localStorage.setItem(DB_KEY, JSON.stringify(db)); } catch (e) {}
             }
 
-            function formatAniDate(sd, fallbackYear) {
+            function formatAniDate(sd, fallbackYear, isUnreleased) {
               if (sd && sd.year) {
-                var m = String(sd.month || 1).padStart(2, "0");
-                var d = String(sd.day || 1).padStart(2, "0");
+                var m = String(sd.month || (isUnreleased ? 12 : 1)).padStart(2, "0");
+                var d = String(sd.day || (isUnreleased ? 28 : 1)).padStart(2, "0");
                 return sd.year + "-" + m + "-" + d;
               }
-              if (fallbackYear) return fallbackYear + "-06-15";
+              if (fallbackYear) return fallbackYear + (isUnreleased ? "-12-28" : "-06-15");
               return null;
+            }
+
+            // Converts YYYY-MM-DD or unix timestamps into "Sep 10", "Jan 14", etc.
+            function formatArriveDate(dateStr, airingAtTs, seasonStartDateStr, epIndex) {
+              if (airingAtTs && airingAtTs > 0) {
+                try {
+                  var d = new Date(airingAtTs * 1000);
+                  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                } catch(e) {}
+              }
+              if (dateStr) {
+                try {
+                  var parts = String(dateStr).split("-");
+                  if (parts.length >= 3) {
+                    var d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+                    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                  }
+                } catch(e) {}
+              }
+              if (seasonStartDateStr) {
+                try {
+                  var parts = String(seasonStartDateStr).split("-");
+                  if (parts.length >= 3) {
+                    var base = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+                    var epDate = new Date(base.getTime() + (epIndex || 0) * 7 * 86400000);
+                    return epDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                  }
+                } catch(e) {}
+              }
+              return null;
+            }
+
+            function formatCountdown(seconds) {
+              if (!seconds || seconds <= 0) return "soon";
+              var days = Math.floor(seconds / 86400);
+              var hours = Math.floor((seconds % 86400) / 3600);
+              if (days > 0) return "in " + days + "d " + hours + "h";
+              if (hours > 0) return "in " + hours + "h";
+              var mins = Math.max(1, Math.floor((seconds % 3600) / 60));
+              return "in " + mins + "m";
             }
 
             function cleanHtml(str) {
@@ -377,7 +447,6 @@ jobs:
               };
             }
 
-            // Full AniList Public GraphQL Franchise & Watch Order Engine
             async function lookupAllMetadata(title, kind, year) {
               var result = {
                 posterUrl: null,
@@ -397,7 +466,6 @@ jobs:
               var VALID_RELATIONS = ["SEQUEL", "PREQUEL", "SIDE_STORY", "PARENT", "SPIN_OFF", "SUMMARY", "ALTERNATIVE"];
 
               try {
-                // Step 1: Search AniList and traverse 3 hops of relations to collect all franchise IDs
                 var searchQuery = \`
                   query ($search: String) {
                     Media(search: $search, type: ANIME, sort: [SEARCH_MATCH, POPULARITY_DESC]) {
@@ -407,11 +475,14 @@ jobs:
                       seasonYear
                       startDate { year month day }
                       format
+                      status
                       episodes
                       duration
                       genres
                       averageScore
                       siteUrl
+                      nextAiringEpisode { episode airingAt timeUntilAiring }
+                      airingSchedule(perPage: 50) { nodes { episode airingAt timeUntilAiring } }
                       coverImage { extraLarge large }
                       reviews(perPage: 4, sort: [RATING_DESC]) {
                         nodes { id summary score user { name } siteUrl }
@@ -473,7 +544,6 @@ jobs:
                     };
                   });
 
-                  // Collect all connected ANIME IDs in the franchise
                   var idSet = new Set([rootMedia.id]);
                   var relationMap = {};
                   relationMap[rootMedia.id] = "Main story";
@@ -495,7 +565,6 @@ jobs:
                   }
                   walkEdges(rootMedia.relations && rootMedia.relations.edges);
 
-                  // Step 2: Fetch full details + streamingEpisodes + 1 more hop for all discovered franchise IDs
                   var allIds = Array.from(idSet).slice(0, 45);
                   var batchQuery = \`
                     query ($ids: [Int]) {
@@ -512,13 +581,15 @@ jobs:
                           duration
                           averageScore
                           siteUrl
+                          nextAiringEpisode { episode airingAt timeUntilAiring }
+                          airingSchedule(perPage: 50) { nodes { episode airingAt timeUntilAiring } }
                           coverImage { extraLarge large }
                           streamingEpisodes { title thumbnail url }
                           relations {
                             edges {
                               relationType(version: 2)
                               node {
-                                id type format
+                                id type format status
                                 title { english romaji }
                                 description(asHtml: false)
                                 seasonYear
@@ -527,6 +598,7 @@ jobs:
                                 duration
                                 averageScore
                                 siteUrl
+                                nextAiringEpisode { episode airingAt timeUntilAiring }
                                 coverImage { extraLarge large }
                               }
                             }
@@ -544,7 +616,6 @@ jobs:
                   var jBatch = await rBatch.json();
                   var mediaList = (jBatch && jBatch.data && jBatch.data.Page && jBatch.data.Page.media) || [rootMedia];
 
-                  // Also include any 4th-hop anime nodes discovered in the batch relations
                   var nodeById = new Map();
                   mediaList.forEach(function(item) {
                     if (item && item.id) nodeById.set(item.id, item);
@@ -565,10 +636,11 @@ jobs:
                     return n && n.format && n.status !== "CANCELLED";
                   });
 
-                  // Sort all franchise entries strictly by exact release date (YYYY-MM-DD)
                   franchiseNodes.sort(function(a, b) {
-                    var da = formatAniDate(a.startDate, a.seasonYear) || "9999-12-31";
-                    var db = formatAniDate(b.startDate, b.seasonYear) || "9999-12-31";
+                    var aUnrel = a.status === "NOT_YET_RELEASED";
+                    var bUnrel = b.status === "NOT_YET_RELEASED";
+                    var da = formatAniDate(a.startDate, a.seasonYear, aUnrel) || (aUnrel ? "9999-12-30" : "9998-12-30");
+                    var db = formatAniDate(b.startDate, b.seasonYear, bUnrel) || (bUnrel ? "9999-12-30" : "9998-12-30");
                     return da.localeCompare(db) || (a.id - b.id);
                   });
 
@@ -578,7 +650,6 @@ jobs:
                     });
                     if (tvNodes.length === 0) tvNodes = [rootMedia];
 
-                    // Use earliest main TV season poster/year for the series root if appropriate
                     var firstTv = tvNodes[0];
                     if (firstTv) {
                       result.year = firstTv.seasonYear || (firstTv.startDate && firstTv.startDate.year) || result.year;
@@ -586,64 +657,135 @@ jobs:
 
                     tvNodes.forEach(function(tv, sIdx) {
                       var sNum = sIdx + 1;
+                      var isComingSoon = tv.status === "NOT_YET_RELEASED";
+                      var isReleasing = tv.status === "RELEASING";
                       var sYear = tv.seasonYear || (tv.startDate && tv.startDate.year) || null;
-                      var sDate = formatAniDate(tv.startDate, sYear);
+                      var sDate = formatAniDate(tv.startDate, sYear, isComingSoon);
                       var sThumb = (tv.coverImage && (tv.coverImage.extraLarge || tv.coverImage.large)) || result.posterUrl;
+                      var streamEps = (tv.streamingEpisodes || []).slice();
+
+                      var nextEp = tv.nextAiringEpisode ? tv.nextAiringEpisode.episode : null;
+                      var airedCount = isComingSoon
+                        ? 0
+                        : isReleasing
+                          ? (nextEp ? Math.max(0, nextEp - 1) : streamEps.length)
+                          : (tv.episodes || streamEps.length || 12);
+
+                      var totalPlanned = tv.episodes || (isReleasing ? Math.max(airedCount + 1, streamEps.length) : airedCount);
+
+                      var statusText = "";
+                      var badgeText = null;
+
+                      if (isComingSoon) {
+                        var airHint = (tv.startDate && tv.startDate.year)
+                          ? ("Airs " + formatAniDate(tv.startDate, sYear, false))
+                          : "Release date TBA";
+                        statusText = "⏳ Coming Soon · " + airHint;
+                        badgeText = "⏳ Coming Soon";
+                      } else if (isReleasing) {
+                        var countdown = tv.nextAiringEpisode ? formatCountdown(tv.nextAiringEpisode.timeUntilAiring) : null;
+                        statusText = "🟢 Running at Ep " + airedCount + (tv.episodes ? (" / " + tv.episodes) : "") + (nextEp && countdown ? (" · Ep " + nextEp + " " + countdown) : "");
+                        badgeText = "🟢 Running at Ep " + airedCount + (tv.episodes ? (" / " + tv.episodes) : "");
+                      } else {
+                        statusText = totalPlanned + " episodes";
+                      }
 
                       result.seasons.push({
                         seasonNumber: sNum,
                         releaseYear: sYear,
                         firstAirDate: sDate,
-                        thumbnailUrl: sThumb
+                        thumbnailUrl: sThumb,
+                        statusText: statusText,
+                        badgeText: badgeText,
+                        isComingSoon: isComingSoon,
+                        isReleasing: isReleasing,
+                        airedCount: airedCount
                       });
 
-                      var streamEps = (tv.streamingEpisodes || []).slice();
-                      var epTotal = tv.episodes || streamEps.length || 12;
+                      // Map out episode air dates from AniList airingSchedule
+                      var airScheduleMap = new Map();
+                      var scheduleNodes = (tv.airingSchedule && tv.airingSchedule.nodes) || [];
+                      scheduleNodes.forEach(function(sc) {
+                        if (sc && sc.episode) airScheduleMap.set(sc.episode, sc);
+                      });
 
-                      for (var eIdx = 0; eIdx < epTotal; eIdx++) {
-                        var epNum = eIdx + 1;
-                        var streamEp = streamEps[eIdx] || null;
-                        var cleanEpTitle = "Episode " + epNum;
-                        if (streamEp && streamEp.title) {
-                          cleanEpTitle = streamEp.title.replace(/^Episode\s*\d+\s*[-:]\s*/i, "").trim() || streamEp.title;
+                      if (!isComingSoon) {
+                        var epLoopCount = Math.max(totalPlanned, streamEps.length, isReleasing && nextEp ? nextEp : 0);
+                        for (var eIdx = 0; eIdx < epLoopCount; eIdx++) {
+                          var epNum = eIdx + 1;
+                          var streamEp = streamEps[eIdx] || null;
+                          var scItem = airScheduleMap.get(epNum);
+                          var epAirTs = scItem ? scItem.airingAt : (epNum === nextEp && tv.nextAiringEpisode ? tv.nextAiringEpisode.airingAt : null);
+
+                          var cleanEpTitle = "Episode " + epNum;
+                          if (streamEp && streamEp.title) {
+                            cleanEpTitle = streamEp.title.replace(/^Episode\s*\d+\s*[-:]\s*/i, "").trim() || streamEp.title;
+                          }
+
+                          // Clean, human arrival date like "Sep 10", "Jan 14", "Apr 10"
+                          var cleanArriveDate = formatArriveDate(null, epAirTs, sDate, eIdx);
+
+                          var isUpcomingEp = isReleasing && nextEp != null && epNum >= nextEp;
+                          var epAirStatus = null;
+                          if (isUpcomingEp) {
+                            if (epNum === nextEp && tv.nextAiringEpisode) {
+                              epAirStatus = "⏳ Next Ep · Airs " + formatCountdown(tv.nextAiringEpisode.timeUntilAiring);
+                            } else {
+                              epAirStatus = "⏳ Upcoming episode";
+                            }
+                          } else if (isReleasing && epNum === airedCount) {
+                            epAirStatus = "🟢 Latest aired";
+                          }
+
+                          result.episodes.push({
+                            id: tv.id * 1000 + epNum,
+                            seasonNumber: sNum,
+                            episodeNumber: epNum,
+                            title: cleanEpTitle,
+                            arriveDate: cleanArriveDate,
+                            airDate: sDate,
+                            runtimeMinutes: tv.duration || 24,
+                            airStatus: epAirStatus,
+                            isUpcoming: isUpcomingEp,
+                            sourceUrl: (streamEp && streamEp.url) || tv.siteUrl || null,
+                            thumbnailUrl: (streamEp && streamEp.thumbnail) || sThumb,
+                            localFileName: null
+                          });
                         }
-                        result.episodes.push({
-                          id: tv.id * 1000 + epNum,
-                          seasonNumber: sNum,
-                          episodeNumber: epNum,
-                          title: cleanEpTitle,
-                          airDate: sDate,
-                          runtimeMinutes: tv.duration || 24,
-                          sourceUrl: (streamEp && streamEp.url) || tv.siteUrl || null,
-                          thumbnailUrl: (streamEp && streamEp.thumbnail) || sThumb,
-                          localFileName: null
-                        });
                       }
                     });
 
-                    // All Movies, OVAs, Specials, ONAs in the franchise with exact YYYY-MM-DD releaseDate
                     var nonTvNodes = franchiseNodes.filter(function(n) {
                       return ["MOVIE", "OVA", "SPECIAL", "ONA", "TV_SHORT"].indexOf(n.format) !== -1 && tvNodes.indexOf(n) === -1;
                     });
 
                     result.relatedMedia = nonTvNodes.map(function(n, idx) {
+                      var isUnrel = n.status === "NOT_YET_RELEASED";
+                      var isRel = n.status === "RELEASING";
                       var rYear = n.seasonYear || (n.startDate && n.startDate.year) || null;
-                      var rDate = formatAniDate(n.startDate, rYear);
+                      var rDate = formatAniDate(n.startDate, rYear, isUnrel);
                       var cType = (n.format === "OVA" || n.format === "ONA")
                         ? "ova"
                         : (n.format === "SPECIAL" || n.format === "TV_SHORT")
                           ? "special"
                           : "movie";
+                      var relLabel = relationMap[n.id] || "Related";
+                      var statusPrefix = isUnrel
+                        ? "⏳ Coming Soon"
+                        : isRel
+                          ? ("🟢 Running" + (n.nextAiringEpisode ? (" at Ep " + Math.max(1, n.nextAiringEpisode.episode - 1)) : ""))
+                          : null;
                       return {
                         id: n.id || (Date.now() + idx + 1),
                         contentType: cType,
                         title: (n.title && (n.title.english || n.title.romaji)) || "Related Title",
                         releaseYear: rYear,
                         releaseDate: rDate,
-                        relation: relationMap[n.id] || "Related",
+                        relation: statusPrefix ? (relLabel + " · " + statusPrefix) : relLabel,
+                        statusText: statusPrefix,
                         rating: n.averageScore ? Number((n.averageScore / 10).toFixed(1)) : null,
                         ratingScale: 10,
-                        synopsis: cleanHtml(n.description),
+                        synopsis: cleanHtml(n.description) || (isUnrel ? "Upcoming release — announced on AniList." : ""),
                         thumbnailUrl: (n.coverImage && (n.coverImage.extraLarge || n.coverImage.large)) || result.posterUrl,
                         sourceUrl: n.siteUrl || null
                       };
@@ -652,7 +794,6 @@ jobs:
                 }
               } catch (e) {}
 
-              // Fallback to TVmaze ONLY if AniList found nothing (e.g., live-action western TV show)
               if (kind === "series" && result.seasons.length === 0) {
                 try {
                   var r2 = await origFetch("https://api.tvmaze.com/singlesearch/shows?q=" + encodeURIComponent(title) + "&embed[]=episodes&embed[]=seasons");
@@ -684,6 +825,7 @@ jobs:
                           seasonNumber: ep.season || 1,
                           episodeNumber: ep.number || (idx + 1),
                           title: ep.name || ("Episode " + (ep.number || idx + 1)),
+                          arriveDate: formatArriveDate(ep.airdate, null, null, idx),
                           airDate: ep.airdate || null,
                           runtimeMinutes: ep.runtime || show.averageRuntime || 24,
                           sourceUrl: ep.url || null,
@@ -766,10 +908,13 @@ jobs:
                       seasonNumber: 1,
                       releaseYear: args.year || meta.year || new Date().getFullYear(),
                       firstAirDate: null,
-                      thumbnailUrl: posterUrl
+                      thumbnailUrl: posterUrl,
+                      statusText: "12 episodes",
+                      badgeText: null,
+                      isComingSoon: false
                     }];
                   }
-                  if (episodes.length === 0) {
+                  if (episodes.length === 0 && !seasons[0].isComingSoon) {
                     var count = Math.max(files.length, 12);
                     for (var i = 0; i < count; i++) {
                       var epNum = i + 1;
@@ -779,6 +924,7 @@ jobs:
                         seasonNumber: 1,
                         episodeNumber: epNum,
                         title: mf ? mf.displayTitle : ("Episode " + epNum),
+                        arriveDate: null,
                         airDate: null,
                         runtimeMinutes: 24,
                         sourceUrl: null,
@@ -889,7 +1035,7 @@ jobs:
                     colM.seasons = refreshed.seasons;
                     colM.seasonCount = refreshed.seasons.length;
                   }
-                  if (refreshed.episodes.length > 0) {
+                  if (refreshed.episodes.length > 0 || (refreshed.seasons[0] && refreshed.seasons[0].isComingSoon)) {
                     var existingFiles = colM.files || [];
                     refreshed.episodes.forEach(function(ep) {
                       var mf = existingFiles.find(function(x) {
