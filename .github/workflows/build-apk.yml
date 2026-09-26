@@ -1,4 +1,4 @@
-name: Build Original My Media APK
+name: Build True KonoSuba Media Player APK
 
 on:
   push:
@@ -17,28 +17,57 @@ jobs:
         with:
           node-version: 20
 
-      - name: Setup Java 21 for Android
+      - name: Setup Java 21
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Unpack & Compile My Media
+      - name: Build Real Media Player APK (Dark Theme)
         run: |
-          mkdir -p my-media-app
-          unzip -o my-media-source.zip -d my-media-app
-          cd my-media-app
+          mkdir -p original-app
+          unzip -o real-media-player.zip -d original-app
+          cd original-app
+
+          # Lock in the exact dark theme variables from true-konosuba-player.txt
+          cat << 'EOF' >> src/styles.css
+          :root {
+            color-scheme: dark !important;
+            --bg: #090a0c !important;
+            --surface: #15171a !important;
+            --surface-2: #24262a !important;
+            --text: #f6f2ea !important;
+            --dim: #a6a097 !important;
+            --border: #383b40 !important;
+            --accent: #ff6b1a !important;
+            --accent-strong: #ff8747 !important;
+            --cyan: #24c8c3 !important;
+            --shadow: 0 20px 60px #00000080 !important;
+          }
+          EOF
+
           npm install
           npx vite build
-          rm -rf android/app/src/main/assets/public
-          mkdir -p android/app/src/main/assets/public
-          cp -r dist/* android/app/src/main/assets/public/
+
+          mkdir -p /tmp/backup-native
+          cp -r android/app/src/main/res/mipmap* /tmp/backup-native/ || true
+          cp -r android/app/src/main/res/drawable* /tmp/backup-native/ || true
+
+          rm -rf android capacitor.config.ts capacitor.config.json
+          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
+          npx cap init "Media Player" "app.mymedia.konosuba" --web-dir dist
+          npx cap add android
+          npx cap sync android
+
+          cp -rf /tmp/backup-native/mipmap* android/app/src/main/res/ || true
+          cp -rf /tmp/backup-native/drawable* android/app/src/main/res/ || true
+
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 
-      - name: Upload Compiled APK
+      - name: Upload True Media Player APK
         uses: actions/upload-artifact@v4
         with:
-          name: My-Media-Original-APK
-          path: "**/android/app/build/outputs/apk/**/*.apk"
+          name: True-KonoSuba-Media-Player-APK
+          path: "**/android/app/build/outputs/apk/debug/*.apk"
