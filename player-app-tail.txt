@@ -1,0 +1,3820 @@
+   }
+      i--;
+    } else if (a === "$" || a === "$?" || a === "$~" || a === "$!" || a === "&") i++;else if (a === "html") Il(e.ownerDocument.documentElement);else if (a === "head") {
+      a = e.ownerDocument.head, Il(a);
+      for (var n = a.firstChild; n;) {
+        var r = n.nextSibling,
+          o = n.nodeName;
+        n[vn] || o === "SCRIPT" || o === "STYLE" || o === "LINK" && n.rel.toLowerCase() === "stylesheet" || a.removeChild(n), n = r;
+      }
+    } else a === "body" && Il(e.ownerDocument.body);
+    a = l;
+  } while (a);
+  nl(t);
+}
+function cp(e, t) {
+  var a = e;
+  e = 0;
+  do {
+    var i = a.nextSibling;
+    if (a.nodeType === 1 ? t ? (a._stashedDisplay = a.style.display, __tunnel.setStyle(a, "display", "none")) : (__tunnel.setStyle(a, "display", a._stashedDisplay || ""), a.getAttribute("style") === "" && a.removeAttribute("style")) : a.nodeType === 3 && (t ? (a._stashedText = a.nodeValue, a.nodeValue = "") : a.nodeValue = a._stashedText || ""), i && i.nodeType === 8) if (a = i.data, a === "/$") {
+      if (e === 0) break;else e--;
+    } else a !== "$" && a !== "$?" && a !== "$~" && a !== "$!" || e++;
+    a = i;
+  } while (a);
+}
+function Ns(e) {
+  var t = e.firstChild;
+  t && t.nodeType === 10 && (t = t.nextSibling);
+  for (; t;) {
+    var a = t;
+    switch (t = t.nextSibling, a.nodeName) {
+      case "HTML":
+      case "HEAD":
+      case "BODY":
+        Ns(a), qs(a);
+        continue;
+      case "SCRIPT":
+      case "STYLE":
+        continue;
+      case "LINK":
+        if (a.rel.toLowerCase() === "stylesheet") continue;
+    }
+    e.removeChild(a);
+  }
+}
+function Qv(e, t, a, i) {
+  for (; e.nodeType === 1;) {
+    var l = a;
+    if (e.nodeName.toLowerCase() !== t.toLowerCase()) {
+      if (!i && (e.nodeName !== "INPUT" || e.type !== "hidden")) break;
+    } else if (!i) {
+      if (t === "input" && e.type === "hidden") {
+        var n = l.name == null ? null : "" + l.name;
+        if (l.type === "hidden" && e.getAttribute("name") === n) return e;
+      } else return e;
+    } else if (!e[vn]) switch (t) {
+      case "meta":
+        if (!e.hasAttribute("itemprop")) break;
+        return e;
+      case "link":
+        if (n = e.getAttribute("rel"), n === "stylesheet" && e.hasAttribute("data-precedence")) break;else if (n !== l.rel || e.getAttribute("href") !== (l.href == null || l.href === "" ? null : l.href) || e.getAttribute("crossorigin") !== (l.crossOrigin == null ? null : l.crossOrigin) || e.getAttribute("title") !== (l.title == null ? null : l.title)) break;
+        return e;
+      case "style":
+        if (e.hasAttribute("data-precedence")) break;
+        return e;
+      case "script":
+        if (n = e.getAttribute("src"), (n !== (l.src == null ? null : l.src) || e.getAttribute("type") !== (l.type == null ? null : l.type) || e.getAttribute("crossorigin") !== (l.crossOrigin == null ? null : l.crossOrigin)) && n && e.hasAttribute("async") && !e.hasAttribute("itemprop")) break;
+        return e;
+      default:
+        return e;
+    }
+    if (e = yt(e.nextSibling), e === null) break;
+  }
+  return null;
+}
+function Bv(e, t, a) {
+  if (t === "") return null;
+  for (; e.nodeType !== 3;) {
+    if ((e.nodeType !== 1 || e.nodeName !== "INPUT" || e.type !== "hidden") && !a) return null;
+    if (e = yt(e.nextSibling), e === null) return null;
+  }
+  return e;
+}
+function Fm(e, t) {
+  for (; e.nodeType !== 8;) {
+    if ((e.nodeType !== 1 || e.nodeName !== "INPUT" || e.type !== "hidden") && !t) return null;
+    if (e = yt(e.nextSibling), e === null) return null;
+  }
+  return e;
+}
+function zs(e) {
+  return e.data === "$?" || e.data === "$~";
+}
+function As(e) {
+  return e.data === "$!" || e.data === "$?" && e.ownerDocument.readyState !== "loading";
+}
+function jv(e, t) {
+  var a = e.ownerDocument;
+  if (e.data === "$~") e._reactRetry = t;else if (e.data !== "$?" || a.readyState !== "loading") t();else {
+    var i = function () {
+      t(), a.removeEventListener("DOMContentLoaded", i);
+    };
+    a.addEventListener("DOMContentLoaded", i), e._reactRetry = i;
+  }
+}
+function yt(e) {
+  for (; e != null; e = e.nextSibling) {
+    var t = e.nodeType;
+    if (t === 1 || t === 3) break;
+    if (t === 8) {
+      if (t = e.data, t === "$" || t === "$!" || t === "$?" || t === "$~" || t === "&" || t === "F!" || t === "F") break;
+      if (t === "/$" || t === "/&") return null;
+    }
+  }
+  return e;
+}
+var Os = null;
+function dp(e) {
+  e = e.nextSibling;
+  for (var t = 0; e;) {
+    if (e.nodeType === 8) {
+      var a = e.data;
+      if (a === "/$" || a === "/&") {
+        if (t === 0) return yt(e.nextSibling);
+        t--;
+      } else a !== "$" && a !== "$!" && a !== "$?" && a !== "$~" && a !== "&" || t++;
+    }
+    e = e.nextSibling;
+  }
+  return null;
+}
+function fp(e) {
+  e = e.previousSibling;
+  for (var t = 0; e;) {
+    if (e.nodeType === 8) {
+      var a = e.data;
+      if (a === "$" || a === "$!" || a === "$?" || a === "$~" || a === "&") {
+        if (t === 0) return e;
+        t--;
+      } else a !== "/$" && a !== "/&" || t++;
+    }
+    e = e.previousSibling;
+  }
+  return null;
+}
+function $m(e, t, a) {
+  switch (t = eo(a), e) {
+    case "html":
+      if (e = t.documentElement, !e) throw Error(M(452));
+      return e;
+    case "head":
+      if (e = t.head, !e) throw Error(M(453));
+      return e;
+    case "body":
+      if (e = t.body, !e) throw Error(M(454));
+      return e;
+    default:
+      throw Error(M(451));
+  }
+}
+function Il(e) {
+  for (var t = e.attributes; t.length;) e.removeAttributeNode(t[0]);
+  qs(e);
+}
+var vt = new Map(),
+  pp = new Set();
+function to(e) {
+  return typeof e.getRootNode === "function" ? e.getRootNode() : e.nodeType === 9 ? e : e.ownerDocument;
+}
+var na = V.d;
+V.d = {
+  f: Lv,
+  r: Yv,
+  D: Gv,
+  C: Xv,
+  L: Kv,
+  m: Vv,
+  X: Jv,
+  S: Zv,
+  M: Fv
+};
+function Lv() {
+  var e = na.f(),
+    t = xo();
+  return e || t;
+}
+function Yv(e) {
+  var t = rl(e);
+  t !== null && t.tag === 5 && t.type === "form" ? Kh(t) : na.r(e);
+}
+var cl = typeof document > "u" ? null : document;
+function Wm(e, t, a) {
+  var i = cl;
+  if (i && typeof t === "string" && t) {
+    var l = ft(t);
+    l = 'link[rel="' + e + '"][href="' + l + '"]', typeof a === "string" && (l += '[crossorigin="' + a + '"]'), pp.has(l) || (pp.add(l), e = {
+      rel: e,
+      crossOrigin: a,
+      href: t
+    }, i.querySelector(l) === null && (t = i.createElement("link"), _e(t, "link", e), ze(t), i.head.appendChild(t)));
+  }
+}
+function Gv(e) {
+  na.D(e), Wm("dns-prefetch", e, null);
+}
+function Xv(e, t) {
+  na.C(e, t), Wm("preconnect", e, t);
+}
+function Kv(e, t, a) {
+  na.L(e, t, a);
+  var i = cl;
+  if (i && e && t) {
+    var l = 'link[rel="preload"][as="' + ft(t) + '"]';
+    t === "image" ? a && a.imageSrcSet ? (l += '[imagesrcset="' + ft(a.imageSrcSet) + '"]', typeof a.imageSizes === "string" && (l += '[imagesizes="' + ft(a.imageSizes) + '"]')) : l += '[href="' + ft(e) + '"]' : l += '[href="' + ft(e) + '"]';
+    var n = l;
+    switch (t) {
+      case "style":
+        n = ll(e);
+        break;
+      case "script":
+        n = dl(e);
+    }
+    vt.has(n) || (e = oe({
+      rel: "preload",
+      href: t === "image" && a && a.imageSrcSet ? void 0 : e,
+      as: t
+    }, a), vt.set(n, e), i.querySelector(l) !== null || t === "style" && i.querySelector(Mn(n)) || t === "script" && i.querySelector(En(n)) || (t = i.createElement("link"), _e(t, "link", e), ze(t), i.head.appendChild(t)));
+  }
+}
+function Vv(e, t) {
+  na.m(e, t);
+  var a = cl;
+  if (a && e) {
+    var i = t && typeof t.as === "string" ? t.as : "script",
+      l = 'link[rel="modulepreload"][as="' + ft(i) + '"][href="' + ft(e) + '"]',
+      n = l;
+    switch (i) {
+      case "audioworklet":
+      case "paintworklet":
+      case "serviceworker":
+      case "sharedworker":
+      case "worker":
+      case "script":
+        n = dl(e);
+    }
+    if (!vt.has(n) && (e = oe({
+      rel: "modulepreload",
+      href: e
+    }, t), vt.set(n, e), a.querySelector(l) === null)) {
+      switch (i) {
+        case "audioworklet":
+        case "paintworklet":
+        case "serviceworker":
+        case "sharedworker":
+        case "worker":
+        case "script":
+          if (a.querySelector(En(n))) return;
+      }
+      i = a.createElement("link"), _e(i, "link", e), ze(i), a.head.appendChild(i);
+    }
+  }
+}
+function Zv(e, t, a) {
+  na.S(e, t, a);
+  var i = cl;
+  if (i && e) {
+    var l = Yi(i).hoistableStyles,
+      n = ll(e);
+    t = t || "default";
+    var r = l.get(n);
+    if (!r) {
+      var o = {
+        loading: 0,
+        preload: null
+      };
+      if (r = i.querySelector(Mn(n))) o.loading = 5;else {
+        e = oe({
+          rel: "stylesheet",
+          href: e,
+          "data-precedence": t
+        }, a), (a = vt.get(n)) && xc(e, a);
+        var s = r = i.createElement("link");
+        ze(s), _e(s, "link", e), s._p = new Promise(function (c, g) {
+          s.onload = c, s.onerror = g;
+        }), s.addEventListener("load", function () {
+          o.loading |= 1;
+        }), s.addEventListener("error", function () {
+          o.loading |= 2;
+        }), o.loading |= 4, zr(r, t, i);
+      }
+      r = {
+        type: "stylesheet",
+        instance: r,
+        count: 1,
+        state: o
+      }, l.set(n, r);
+    }
+  }
+}
+function Jv(e, t) {
+  na.X(e, t);
+  var a = cl;
+  if (a && e) {
+    var i = Yi(a).hoistableScripts,
+      l = dl(e),
+      n = i.get(l);
+    n || (n = a.querySelector(En(l)), n || (e = oe({
+      src: e,
+      async: !0
+    }, t), (t = vt.get(l)) && Sc(e, t), n = a.createElement("script"), ze(n), _e(n, "link", e), a.head.appendChild(n)), n = {
+      type: "script",
+      instance: n,
+      count: 1,
+      state: null
+    }, i.set(l, n));
+  }
+}
+function Fv(e, t) {
+  na.M(e, t);
+  var a = cl;
+  if (a && e) {
+    var i = Yi(a).hoistableScripts,
+      l = dl(e),
+      n = i.get(l);
+    n || (n = a.querySelector(En(l)), n || (e = oe({
+      src: e,
+      async: !0,
+      type: "module"
+    }, t), (t = vt.get(l)) && Sc(e, t), n = a.createElement("script"), ze(n), _e(n, "link", e), a.head.appendChild(n)), n = {
+      type: "script",
+      instance: n,
+      count: 1,
+      state: null
+    }, i.set(l, n));
+  }
+}
+function hp(e, t, a, i) {
+  var l = (l = Ea.current) ? to(l) : null;
+  if (!l) throw Error(M(446));
+  switch (e) {
+    case "meta":
+    case "title":
+      return null;
+    case "style":
+      return typeof a.precedence === "string" && typeof a.href === "string" ? (t = ll(a.href), a = Yi(l).hoistableStyles, i = a.get(t), i || (i = {
+        type: "style",
+        instance: null,
+        count: 0,
+        state: null
+      }, a.set(t, i)), i) : {
+        type: "void",
+        instance: null,
+        count: 0,
+        state: null
+      };
+    case "link":
+      if (a.rel === "stylesheet" && typeof a.href === "string" && typeof a.precedence === "string") {
+        e = ll(a.href);
+        var n = Yi(l).hoistableStyles,
+          r = n.get(e);
+        if (r || (l = l.ownerDocument || l, r = {
+          type: "stylesheet",
+          instance: null,
+          count: 0,
+          state: {
+            loading: 0,
+            preload: null
+          }
+        }, n.set(e, r), (n = l.querySelector(Mn(e))) && !n._p && (r.instance = n, r.state.loading = 5), vt.has(e) || (a = {
+          rel: "preload",
+          as: "style",
+          href: a.href,
+          crossOrigin: a.crossOrigin,
+          integrity: a.integrity,
+          media: a.media,
+          hrefLang: a.hrefLang,
+          referrerPolicy: a.referrerPolicy
+        }, vt.set(e, a), n || $v(l, e, a, r.state))), t && i === null) throw Error(M(528, ""));
+        return r;
+      }
+      if (t && i !== null) throw Error(M(529, ""));
+      return null;
+    case "script":
+      return t = a.async, a = a.src, typeof a === "string" && t && typeof t !== "function" && typeof t !== "symbol" ? (t = dl(a), a = Yi(l).hoistableScripts, i = a.get(t), i || (i = {
+        type: "script",
+        instance: null,
+        count: 0,
+        state: null
+      }, a.set(t, i)), i) : {
+        type: "void",
+        instance: null,
+        count: 0,
+        state: null
+      };
+    default:
+      throw Error(M(444, e));
+  }
+}
+function ll(e) {
+  return 'href="' + ft(e) + '"';
+}
+function Mn(e) {
+  return 'link[rel="stylesheet"][' + e + "]";
+}
+function Im(e) {
+  return oe({}, e, {
+    "data-precedence": e.precedence,
+    precedence: null
+  });
+}
+function $v(e, t, a, i) {
+  e.querySelector('link[rel="preload"][as="style"][' + t + "]") ? i.loading = 1 : (t = e.createElement("link"), i.preload = t, t.addEventListener("load", function () {
+    return i.loading |= 1;
+  }), t.addEventListener("error", function () {
+    return i.loading |= 2;
+  }), _e(t, "link", a), ze(t), e.head.appendChild(t));
+}
+function dl(e) {
+  return '[src="' + ft(e) + '"]';
+}
+function En(e) {
+  return "script[async]" + e;
+}
+function mp(e, t, a) {
+  if (t.count++, t.instance === null) switch (t.type) {
+    case "style":
+      var i = e.querySelector('style[data-href~="' + ft(a.href) + '"]');
+      if (i) return t.instance = i, ze(i), i;
+      var l = oe({}, a, {
+        "data-href": a.href,
+        "data-precedence": a.precedence,
+        href: null,
+        precedence: null
+      });
+      return i = (e.ownerDocument || e).createElement("style"), ze(i), _e(i, "style", l), zr(i, a.precedence, e), t.instance = i;
+    case "stylesheet":
+      l = ll(a.href);
+      var n = e.querySelector(Mn(l));
+      if (n) return t.state.loading |= 4, t.instance = n, ze(n), n;
+      i = Im(a), (l = vt.get(l)) && xc(i, l), n = (e.ownerDocument || e).createElement("link"), ze(n);
+      var r = n;
+      return r._p = new Promise(function (o, s) {
+        r.onload = o, r.onerror = s;
+      }), _e(n, "link", i), t.state.loading |= 4, zr(n, a.precedence, e), t.instance = n;
+    case "script":
+      if (n = dl(a.src), l = e.querySelector(En(n))) return t.instance = l, ze(l), l;
+      if (i = a, l = vt.get(n)) i = oe({}, a), Sc(i, l);
+      return e = e.ownerDocument || e, l = e.createElement("script"), ze(l), _e(l, "link", i), e.head.appendChild(l), t.instance = l;
+    case "void":
+      return null;
+    default:
+      throw Error(M(443, t.type));
+  } else t.type === "stylesheet" && (t.state.loading & 4) === 0 && (i = t.instance, t.state.loading |= 4, zr(i, a.precedence, e));
+  return t.instance;
+}
+function zr(e, t, a) {
+  for (var i = a.querySelectorAll('link[rel="stylesheet"][data-precedence],style[data-precedence]'), l = i.length ? i[i.length - 1] : null, n = l, r = 0; r < i.length; r++) {
+    var o = i[r];
+    if (o.dataset.precedence === t) n = o;else if (n !== l) break;
+  }
+  n ? n.parentNode.insertBefore(e, n.nextSibling) : (t = a.nodeType === 9 ? a.head : a, t.insertBefore(e, t.firstChild));
+}
+function xc(e, t) {
+  e.crossOrigin == null && (e.crossOrigin = t.crossOrigin), e.referrerPolicy == null && (e.referrerPolicy = t.referrerPolicy), e.title == null && (e.title = t.title);
+}
+function Sc(e, t) {
+  e.crossOrigin == null && (e.crossOrigin = t.crossOrigin), e.referrerPolicy == null && (e.referrerPolicy = t.referrerPolicy), e.integrity == null && (e.integrity = t.integrity);
+}
+var Ar = null;
+function gp(e, t, a) {
+  if (Ar === null) {
+    var i = new Map(),
+      l = Ar = new Map();
+    l.set(a, i);
+  } else l = Ar, i = l.get(a), i || (i = new Map(), l.set(a, i));
+  if (i.has(e)) return i;
+  i.set(e, null), a = a.getElementsByTagName(e);
+  for (l = 0; l < a.length; l++) {
+    var n = a[l];
+    if (!(n[vn] || n[Re] || e === "link" && n.getAttribute("rel") === "stylesheet") && n.namespaceURI !== "http://www.w3.org/2000/svg") {
+      var r = n.getAttribute(t) || "";
+      r = e + r;
+      var o = i.get(r);
+      o ? o.push(n) : i.set(r, [n]);
+    }
+  }
+  return i;
+}
+function yp(e, t, a) {
+  e = e.ownerDocument || e, e.head.insertBefore(a, t === "title" ? e.querySelector("head > title") : null);
+}
+function Wv(e, t, a) {
+  if (a === 1 || t.itemProp != null) return !1;
+  switch (e) {
+    case "meta":
+    case "title":
+      return !0;
+    case "style":
+      if (typeof t.precedence !== "string" || typeof t.href !== "string" || t.href === "") break;
+      return !0;
+    case "link":
+      if (typeof t.rel !== "string" || typeof t.href !== "string" || t.href === "" || t.onLoad || t.onError) break;
+      switch (t.rel) {
+        case "stylesheet":
+          return e = t.disabled, typeof t.precedence === "string" && e == null;
+        default:
+          return !0;
+      }
+    case "script":
+      if (t.async && typeof t.async !== "function" && typeof t.async !== "symbol" && !t.onLoad && !t.onError && t.src && typeof t.src === "string") return !0;
+  }
+  return !1;
+}
+function Pm(e) {
+  return e.type === "stylesheet" && (e.state.loading & 3) === 0 ? !1 : !0;
+}
+function Iv(e, t, a, i) {
+  if (a.type === "stylesheet" && (typeof i.media !== "string" || matchMedia(i.media).matches !== !1) && (a.state.loading & 4) === 0) {
+    if (a.instance === null) {
+      var l = ll(i.href),
+        n = t.querySelector(Mn(l));
+      if (n) {
+        t = n._p, t !== null && typeof t === "object" && typeof t.then === "function" && (e.count++, e = ao.bind(e), t.then(e, e)), a.state.loading |= 4, a.instance = n, ze(n);
+        return;
+      }
+      n = t.ownerDocument || t, i = Im(i), (l = vt.get(l)) && xc(i, l), n = n.createElement("link"), ze(n);
+      var r = n;
+      r._p = new Promise(function (o, s) {
+        r.onload = o, r.onerror = s;
+      }), _e(n, "link", i), a.instance = n;
+    }
+    e.stylesheets === null && (e.stylesheets = new Map()), e.stylesheets.set(a, t), (t = a.state.preload) && (a.state.loading & 3) === 0 && (e.count++, a = ao.bind(e), t.addEventListener("load", a), t.addEventListener("error", a));
+  }
+}
+var _u = 0;
+function Pv(e, t) {
+  return e.stylesheets && e.count === 0 && Or(e, e.stylesheets), 0 < e.count || 0 < e.imgCount ? function (a) {
+    var i = setTimeout(function () {
+      if (e.stylesheets && Or(e, e.stylesheets), e.unsuspend) {
+        var n = e.unsuspend;
+        e.unsuspend = null, n();
+      }
+    }, 60000 + t);
+    0 < e.imgBytes && _u === 0 && (_u = 62500 * Dv());
+    var l = setTimeout(function () {
+      if (e.waitingForImages = !1, e.count === 0 && (e.stylesheets && Or(e, e.stylesheets), e.unsuspend)) {
+        var n = e.unsuspend;
+        e.unsuspend = null, n();
+      }
+    }, (e.imgBytes > _u ? 50 : 800) + t);
+    return e.unsuspend = a, function () {
+      e.unsuspend = null, clearTimeout(i), clearTimeout(l);
+    };
+  } : null;
+}
+function ao() {
+  if (this.count--, this.count === 0 && (this.imgCount === 0 || !this.waitingForImages)) {
+    if (this.stylesheets) Or(this, this.stylesheets);else if (this.unsuspend) {
+      var e = this.unsuspend;
+      this.unsuspend = null, e();
+    }
+  }
+}
+var io = null;
+function Or(e, t) {
+  e.stylesheets = null, e.unsuspend !== null && (e.count++, io = new Map(), t.forEach(eb, e), io = null, ao.call(e));
+}
+function eb(e, t) {
+  if (!(t.state.loading & 4)) {
+    var a = io.get(e);
+    if (a) var i = a.get(null);else {
+      a = new Map(), io.set(e, a);
+      for (var l = e.querySelectorAll("link[data-precedence],style[data-precedence]"), n = 0; n < l.length; n++) {
+        var r = l[n];
+        if (r.nodeName === "LINK" || r.getAttribute("media") !== "not all") a.set(r.dataset.precedence, r), i = r;
+      }
+      i && a.set(null, i);
+    }
+    l = t.instance, r = l.getAttribute("data-precedence"), n = a.get(r) || i, n === i && a.set(null, l), a.set(r, l), this.count++, i = ao.bind(this), l.addEventListener("load", i), l.addEventListener("error", i), n ? n.parentNode.insertBefore(l, n.nextSibling) : (e = e.nodeType === 9 ? e.head : e, e.insertBefore(l, e.firstChild)), t.state.loading |= 4;
+  }
+}
+var dn = {
+  $$typeof: Zt,
+  Provider: null,
+  Consumer: null,
+  _currentValue: Ia,
+  _currentValue2: Ia,
+  _threadCount: 0
+};
+function tb(e, t, a, i, l, n, r, o, s) {
+  this.tag = 1, this.containerInfo = e, this.pingCache = this.current = this.pendingChildren = null, this.timeoutHandle = -1, this.callbackNode = this.next = this.pendingContext = this.context = this.cancelPendingCommit = null, this.callbackPriority = 0, this.expirationTimes = ou(-1), this.entangledLanes = this.shellSuspendCounter = this.errorRecoveryDisabledLanes = this.expiredLanes = this.warmLanes = this.pingedLanes = this.suspendedLanes = this.pendingLanes = 0, this.entanglements = ou(0), this.hiddenUpdates = ou(null), this.identifierPrefix = i, this.onUncaughtError = l, this.onCaughtError = n, this.onRecoverableError = r, this.pooledCache = null, this.pooledCacheLanes = 0, this.formState = s, this.incompleteTransitions = new Map();
+}
+function ab(e, t, a, i, l, n, r, o, s, c, g, b) {
+  return e = new tb(e, t, a, r, s, c, g, b, o), t = 1, n === !0 && (t |= 24), n = $e(3, null, null, t), e.current = n, n.stateNode = e, t = Js(), t.refCount++, e.pooledCache = t, t.refCount++, n.memoizedState = {
+    element: i,
+    isDehydrated: a,
+    cache: t
+  }, Ws(n), e;
+}
+function ib(e) {
+  if (!e) return Qi;
+  return e = Qi, e;
+}
+function eg(e, t, a, i, l, n) {
+  l = ib(l), i.context === null ? i.context = l : i.pendingContext = l, i = ai(t), i.payload = {
+    element: a
+  }, n = n === void 0 ? null : n, n !== null && (i.callback = n), a = ii(e, i, t), a !== null && (Ke(a, e, t), Xl(a, e, t));
+}
+function vp(e, t) {
+  if (e = e.memoizedState, e !== null && e.dehydrated !== null) {
+    var a = e.retryLane;
+    e.retryLane = a !== 0 && a < t ? a : t;
+  }
+}
+function wc(e, t) {
+  vp(e, t), (e = e.alternate) && vp(e, t);
+}
+function tg(e) {
+  if (e.tag === 13 || e.tag === 31) {
+    var t = pi(e, 67108864);
+    t !== null && Ke(t, e, 67108864), wc(e, 67108864);
+  }
+}
+function bp(e) {
+  if (e.tag === 13 || e.tag === 31) {
+    var t = gt();
+    t = qp(t);
+    var a = pi(e, t);
+    a !== null && Ke(a, e, t), wc(e, t);
+  }
+}
+var lo = !0;
+function lb(e, t, a, i) {
+  var l = Q.T;
+  Q.T = null;
+  var n = V.p;
+  try {
+    V.p = 2, Tc(e, t, a, i);
+  } finally {
+    V.p = n, Q.T = l;
+  }
+}
+function nb(e, t, a, i) {
+  var l = Q.T;
+  Q.T = null;
+  var n = V.p;
+  try {
+    V.p = 8, Tc(e, t, a, i);
+  } finally {
+    V.p = n, Q.T = l;
+  }
+}
+function Tc(e, t, a, i) {
+  if (lo) {
+    var l = Cs(i);
+    if (l === null) ku(e, t, i, no, a), xp(e, i);else if (ob(l, e, t, a, i)) i.stopPropagation();else if (xp(e, i), t & 4 && -1 < rb.indexOf(e)) {
+      for (; l !== null;) {
+        var n = rl(l);
+        if (n !== null) switch (n.tag) {
+          case 3:
+            if (n = n.stateNode, n.current.memoizedState.isDehydrated) {
+              var r = Ja(n.pendingLanes);
+              if (r !== 0) {
+                var o = n;
+                o.pendingLanes |= 2;
+                for (o.entangledLanes |= 2; r;) {
+                  var s = 1 << 31 - et(r);
+                  o.entanglements[1] |= s, r &= ~s;
+                }
+                la(n), (K & 6) === 0 && (Jr = Ie() + 500, Tn(0, !1));
+              }
+            }
+            break;
+          case 31:
+          case 13:
+            o = pi(n, 2), o !== null && Ke(o, n, 2), xo(), wc(n, 2);
+        }
+        if (n = Cs(i), n === null && ku(e, t, i, no, a), n === l) break;
+        l = n;
+      }
+      l !== null && i.stopPropagation();
+    } else ku(e, t, i, null, a);
+  }
+}
+function Cs(e) {
+  return e = Qs(e), Mc(e);
+}
+var no = null;
+function Mc(e) {
+  if (no = null, e = ki(e), e !== null) {
+    var t = hn(e);
+    if (t === null) e = null;else {
+      var a = t.tag;
+      if (a === 13) {
+        if (e = Mp(t), e !== null) return e;
+        e = null;
+      } else if (a === 31) {
+        if (e = Ep(t), e !== null) return e;
+        e = null;
+      } else if (a === 3) {
+        if (t.stateNode.current.memoizedState.isDehydrated) return t.tag === 3 ? t.stateNode.containerInfo : null;
+        e = null;
+      } else t !== e && (e = null);
+    }
+  }
+  return no = e, null;
+}
+function ag(e) {
+  switch (e) {
+    case "beforetoggle":
+    case "cancel":
+    case "click":
+    case "close":
+    case "contextmenu":
+    case "copy":
+    case "cut":
+    case "auxclick":
+    case "dblclick":
+    case "dragend":
+    case "dragstart":
+    case "drop":
+    case "focusin":
+    case "focusout":
+    case "input":
+    case "invalid":
+    case "keydown":
+    case "keypress":
+    case "keyup":
+    case "mousedown":
+    case "mouseup":
+    case "paste":
+    case "pause":
+    case "play":
+    case "pointercancel":
+    case "pointerdown":
+    case "pointerup":
+    case "ratechange":
+    case "reset":
+    case "resize":
+    case "seeked":
+    case "submit":
+    case "toggle":
+    case "touchcancel":
+    case "touchend":
+    case "touchstart":
+    case "volumechange":
+    case "change":
+    case "selectionchange":
+    case "textInput":
+    case "compositionstart":
+    case "compositionend":
+    case "compositionupdate":
+    case "beforeblur":
+    case "afterblur":
+    case "beforeinput":
+    case "blur":
+    case "fullscreenchange":
+    case "focus":
+    case "hashchange":
+    case "popstate":
+    case "select":
+    case "selectstart":
+      return 2;
+    case "drag":
+    case "dragenter":
+    case "dragexit":
+    case "dragleave":
+    case "dragover":
+    case "mousemove":
+    case "mouseout":
+    case "mouseover":
+    case "pointermove":
+    case "pointerout":
+    case "pointerover":
+    case "scroll":
+    case "touchmove":
+    case "wheel":
+    case "mouseenter":
+    case "mouseleave":
+    case "pointerenter":
+    case "pointerleave":
+      return 8;
+    case "message":
+      switch (Y0()) {
+        case Op:
+          return 2;
+        case Cp:
+          return 8;
+        case _r:
+        case G0:
+          return 32;
+        case Rp:
+          return 268435456;
+        default:
+          return 32;
+      }
+    default:
+      return 32;
+  }
+}
+var Rs = !1,
+  Oa = null,
+  Ca = null,
+  Ra = null,
+  fn = new Map(),
+  pn = new Map(),
+  ba = [],
+  rb = "mousedown mouseup touchcancel touchend touchstart auxclick dblclick pointercancel pointerdown pointerup dragend dragstart drop compositionend compositionstart keydown keypress keyup input textInput copy cut paste click change contextmenu reset".split(" ");
+function xp(e, t) {
+  switch (e) {
+    case "focusin":
+    case "focusout":
+      Oa = null;
+      break;
+    case "dragenter":
+    case "dragleave":
+      Ca = null;
+      break;
+    case "mouseover":
+    case "mouseout":
+      Ra = null;
+      break;
+    case "pointerover":
+    case "pointerout":
+      fn.delete(t.pointerId);
+      break;
+    case "gotpointercapture":
+    case "lostpointercapture":
+      pn.delete(t.pointerId);
+  }
+}
+function Cl(e, t, a, i, l, n) {
+  if (e === null || e.nativeEvent !== n) return e = {
+    blockedOn: t,
+    domEventName: a,
+    eventSystemFlags: i,
+    nativeEvent: n,
+    targetContainers: [l]
+  }, t !== null && (t = rl(t), t !== null && tg(t)), e;
+  return e.eventSystemFlags |= i, t = e.targetContainers, l !== null && t.indexOf(l) === -1 && t.push(l), e;
+}
+function ob(e, t, a, i, l) {
+  switch (t) {
+    case "focusin":
+      return Oa = Cl(Oa, e, t, a, i, l), !0;
+    case "dragenter":
+      return Ca = Cl(Ca, e, t, a, i, l), !0;
+    case "mouseover":
+      return Ra = Cl(Ra, e, t, a, i, l), !0;
+    case "pointerover":
+      var n = l.pointerId;
+      return fn.set(n, Cl(fn.get(n) || null, e, t, a, i, l)), !0;
+    case "gotpointercapture":
+      return n = l.pointerId, pn.set(n, Cl(pn.get(n) || null, e, t, a, i, l)), !0;
+  }
+  return !1;
+}
+function ig(e) {
+  var t = ki(e.target);
+  if (t !== null) {
+    var a = hn(t);
+    if (a !== null) {
+      if (t = a.tag, t === 13) {
+        if (t = Mp(a), t !== null) {
+          e.blockedOn = t, nf(e.priority, function () {
+            bp(a);
+          });
+          return;
+        }
+      } else if (t === 31) {
+        if (t = Ep(a), t !== null) {
+          e.blockedOn = t, nf(e.priority, function () {
+            bp(a);
+          });
+          return;
+        }
+      } else if (t === 3 && a.stateNode.current.memoizedState.isDehydrated) {
+        e.blockedOn = a.tag === 3 ? a.stateNode.containerInfo : null;
+        return;
+      }
+    }
+  }
+  e.blockedOn = null;
+}
+function Cr(e) {
+  if (e.blockedOn !== null) return !1;
+  for (var t = e.targetContainers; 0 < t.length;) {
+    var a = Cs(e.nativeEvent);
+    if (a === null) {
+      a = e.nativeEvent;
+      var i = new a.constructor(a.type, a);
+      Zu = i, a.target.dispatchEvent(i), Zu = null;
+    } else return t = rl(a), t !== null && tg(t), e.blockedOn = a, !1;
+    t.shift();
+  }
+  return !0;
+}
+function Sp(e, t, a) {
+  Cr(e) && a.delete(t);
+}
+function ub() {
+  Rs = !1, Oa !== null && Cr(Oa) && (Oa = null), Ca !== null && Cr(Ca) && (Ca = null), Ra !== null && Cr(Ra) && (Ra = null), fn.forEach(Sp), pn.forEach(Sp);
+}
+function pr(e, t) {
+  e.blockedOn === t && (e.blockedOn = null, Rs || (Rs = !0, Ka(Xa, ub)));
+}
+var hr = null;
+function wp(e) {
+  hr !== e && (hr = e, Ka(Xa, function () {
+    hr === e && (hr = null);
+    for (var t = 0; t < e.length; t += 3) {
+      var a = e[t],
+        i = e[t + 1],
+        l = e[t + 2];
+      if (typeof i !== "function") if (Mc(i || a) === null) continue;else break;
+      var n = rl(a);
+      n !== null && (e.splice(t, 3), t -= 3, ss(n, {
+        pending: !0,
+        data: l,
+        method: a.method,
+        action: i
+      }, i, l));
+    }
+  }));
+}
+function nl(e) {
+  function t(s) {
+    return pr(s, e);
+  }
+  Oa !== null && pr(Oa, e), Ca !== null && pr(Ca, e), Ra !== null && pr(Ra, e), fn.forEach(t), pn.forEach(t);
+  for (var a = 0; a < ba.length; a++) {
+    var i = ba[a];
+    i.blockedOn === e && (i.blockedOn = null);
+  }
+  for (; 0 < ba.length && (a = ba[0], a.blockedOn === null);) ig(a), a.blockedOn === null && ba.shift();
+  if (a = (e.ownerDocument || e).$$reactFormReplay, a != null) for (i = 0; i < a.length; i += 3) {
+    var l = a[i],
+      n = a[i + 1],
+      r = l[Ve] || null;
+    if (typeof n === "function") r || wp(a);else if (r) {
+      var o = null;
+      if (n && n.hasAttribute("formAction")) {
+        if (l = n, r = n[Ve] || null) o = r.formAction;else if (Mc(l) !== null) continue;
+      } else o = r.action;
+      typeof o === "function" ? a[i + 1] = o : (a.splice(i, 3), i -= 3), wp(a);
+    }
+  }
+}
+function sb() {
+  function e(n) {
+    n.canIntercept && n.info === "react-transition" && n.intercept({
+      handler: function () {
+        return new Promise(function (r) {
+          return l = r;
+        });
+      },
+      focusReset: "manual",
+      scroll: "manual"
+    });
+  }
+  function t() {
+    l !== null && (l(), l = null), i || setTimeout(a, 20);
+  }
+  function a() {
+    if (!i && !navigation.transition) {
+      var n = navigation.currentEntry;
+      n && n.url != null && navigation.navigate(n.url, {
+        state: n.getState(),
+        info: "react-transition",
+        history: "replace"
+      });
+    }
+  }
+  if (typeof navigation === "object") {
+    var i = !1,
+      l = null;
+    return navigation.addEventListener("navigate", e), navigation.addEventListener("navigatesuccess", t), navigation.addEventListener("navigateerror", t), setTimeout(a, 100), function () {
+      i = !0, navigation.removeEventListener("navigate", e), navigation.removeEventListener("navigatesuccess", t), navigation.removeEventListener("navigateerror", t), l !== null && (l(), l = null);
+    };
+  }
+}
+function Ec(e) {
+  this._internalRoot = e;
+}
+Nc.prototype.render = Ec.prototype.render = function (e) {
+  var t = this._internalRoot;
+  if (t === null) throw Error(M(409));
+  var a = t.current,
+    i = gt();
+  eg(a, i, e, t, null, null);
+};
+Nc.prototype.unmount = Ec.prototype.unmount = function () {
+  var e = this._internalRoot;
+  if (e !== null) {
+    this._internalRoot = null;
+    var t = e.containerInfo;
+    eg(e.current, 2, null, e, null, null), xo(), t[yn] = null;
+  }
+};
+function Nc(e) {
+  this._internalRoot = e;
+}
+Nc.prototype.unstable_scheduleHydration = function (e) {
+  if (e) {
+    var t = Hp();
+    e = {
+      blockedOn: null,
+      target: e,
+      priority: t
+    };
+    for (var a = 0; a < ba.length && t !== 0 && t < ba[a].priority; a++);
+    ba.splice(a, 0, e), a === 0 && ig(e);
+  }
+};
+var Tp = jo;
+if (Tp !== "19.2.5") throw Error(M(527, Tp, "19.2.5"));
+V.findDOMNode = function (e) {
+  var t = e._reactInternals;
+  if (t === void 0) {
+    if (typeof e.render === "function") throw Error(M(188));
+    throw e = Object.keys(e).join(","), Error(M(268, e));
+  }
+  return e = U0(t), e = e !== null ? Np(e) : null, e = e === null ? null : e.stateNode, e;
+};
+var cb = {
+  bundleType: 0,
+  version: "19.2.5",
+  rendererPackageName: "react-dom",
+  currentDispatcherRef: Q,
+  reconcilerVersion: "19.2.5"
+};
+if (typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ < "u") {
+  if (Oi = __REACT_DEVTOOLS_GLOBAL_HOOK__, !Oi.isDisabled && Oi.supportsFiber) try {
+    mn = Oi.inject(cb), Pe = Oi;
+  } catch (e) {}
+}
+var Oi;
+var zc = function (e, t) {
+  if (!_0(e)) throw Error(M(299));
+  var a = !1,
+    i = "",
+    l = nv,
+    n = rv,
+    r = ov;
+  return t !== null && t !== void 0 && (t.unstable_strictMode === !0 && (a = !0), t.identifierPrefix !== void 0 && (i = t.identifierPrefix), t.onUncaughtError !== void 0 && (l = t.onUncaughtError), t.onCaughtError !== void 0 && (n = t.onCaughtError), t.onRecoverableError !== void 0 && (r = t.onRecoverableError)), t = ab(e, 1, !1, null, null, a, i, null, l, n, r, sb), e[yn] = t.current, Xm(e), new Ec(t);
+};
+lg();
+var it = jd();
+function k({
+  name: e,
+  size: t = 20
+}) {
+  return u("svg", {
+    "aria-hidden": "true",
+    width: t,
+    height: t,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "1.8",
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    children: {
+      plus: u("path", {
+        d: "M12 5v14M5 12h14"
+      }),
+      search: v(Z, {
+        children: [u("circle", {
+          cx: "11",
+          cy: "11",
+          r: "7"
+        }), u("path", {
+          d: "m20 20-4-4"
+        })]
+      }),
+      play: u("path", {
+        d: "m9 7 9 5-9 5Z",
+        fill: "currentColor",
+        stroke: "none"
+      }),
+      pause: v(Z, {
+        children: [u("path", {
+          d: "M9 6v12"
+        }), u("path", {
+          d: "M15 6v12"
+        })]
+      }),
+      back: u("path", {
+        d: "m15 18-6-6 6-6"
+      }),
+      previous: v(Z, {
+        children: [u("path", {
+          d: "M6 5v14"
+        }), u("path", {
+          d: "m18 6-9 6 9 6Z",
+          fill: "currentColor",
+          stroke: "none"
+        })]
+      }),
+      next: v(Z, {
+        children: [u("path", {
+          d: "M18 5v14"
+        }), u("path", {
+          d: "m6 6 9 6-9 6Z",
+          fill: "currentColor",
+          stroke: "none"
+        })]
+      }),
+      rewind: v(Z, {
+        children: [u("path", {
+          d: "M11 8 5 12l6 4Z",
+          fill: "currentColor",
+          stroke: "none"
+        }), u("path", {
+          d: "m19 8-6 4 6 4Z",
+          fill: "currentColor",
+          stroke: "none"
+        })]
+      }),
+      forward: v(Z, {
+        children: [u("path", {
+          d: "m5 8 6 4-6 4Z",
+          fill: "currentColor",
+          stroke: "none"
+        }), u("path", {
+          d: "m13 8 6 4-6 4Z",
+          fill: "currentColor",
+          stroke: "none"
+        })]
+      }),
+      volume: v(Z, {
+        children: [u("path", {
+          d: "M11 5 6 9H3v6h3l5 4Z"
+        }), u("path", {
+          d: "M15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"
+        })]
+      }),
+      mute: v(Z, {
+        children: [u("path", {
+          d: "M11 5 6 9H3v6h3l5 4Z"
+        }), u("path", {
+          d: "m16 10 5 5M21 10l-5 5"
+        })]
+      }),
+      brightness: v(Z, {
+        children: [u("circle", {
+          cx: "12",
+          cy: "12",
+          r: "4"
+        }), u("path", {
+          d: "M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"
+        })]
+      }),
+      captions: v(Z, {
+        children: [u("rect", {
+          x: "3",
+          y: "5",
+          width: "18",
+          height: "14",
+          rx: "2"
+        }), u("path", {
+          d: "M10 10H8.5a2 2 0 0 0 0 4H10M17 10h-1.5a2 2 0 0 0 0 4H17"
+        })]
+      }),
+      audio: v(Z, {
+        children: [u("path", {
+          d: "M9 18V5l10-2v13"
+        }), u("circle", {
+          cx: "6",
+          cy: "18",
+          r: "3"
+        }), u("circle", {
+          cx: "16",
+          cy: "16",
+          r: "3"
+        })]
+      }),
+      list: v(Z, {
+        children: [u("path", {
+          d: "M9 6h11M9 12h11M9 18h11"
+        }), u("circle", {
+          cx: "4",
+          cy: "6",
+          r: "1",
+          fill: "currentColor",
+          stroke: "none"
+        }), u("circle", {
+          cx: "4",
+          cy: "12",
+          r: "1",
+          fill: "currentColor",
+          stroke: "none"
+        }), u("circle", {
+          cx: "4",
+          cy: "18",
+          r: "1",
+          fill: "currentColor",
+          stroke: "none"
+        })]
+      }),
+      film: v(Z, {
+        children: [u("rect", {
+          x: "3",
+          y: "5",
+          width: "18",
+          height: "14",
+          rx: "2"
+        }), u("path", {
+          d: "M7 5v14M17 5v14M3 9h4M17 9h4M3 15h4M17 15h4"
+        })]
+      }),
+      music: v(Z, {
+        children: [u("path", {
+          d: "M9 18V5l10-2v13"
+        }), u("circle", {
+          cx: "6",
+          cy: "18",
+          r: "3"
+        }), u("circle", {
+          cx: "16",
+          cy: "16",
+          r: "3"
+        })]
+      }),
+      screen: v(Z, {
+        children: [u("rect", {
+          x: "3",
+          y: "4",
+          width: "18",
+          height: "14",
+          rx: "2"
+        }), u("path", {
+          d: "M8 22h8M12 18v4"
+        })]
+      }),
+      refresh: v(Z, {
+        children: [u("path", {
+          d: "M20 7v5h-5"
+        }), u("path", {
+          d: "M4 17a8 8 0 0 0 14-2M4 17v-5h5M20 7A8 8 0 0 0 6 9"
+        })]
+      }),
+      trash: u(Z, {
+        children: u("path", {
+          d: "M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13"
+        })
+      }),
+      expand: u(Z, {
+        children: u("path", {
+          d: "M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"
+        })
+      }),
+      close: u("path", {
+        d: "m6 6 12 12M18 6 6 18"
+      }),
+      folder: u("path", {
+        d: "M3 6h7l2 2h9v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"
+      }),
+      internet: v(Z, {
+        children: [u("circle", {
+          cx: "12",
+          cy: "12",
+          r: "9"
+        }), u("path", {
+          d: "M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"
+        })]
+      }),
+      spark: v(Z, {
+        children: [u("path", {
+          d: "m12 3 1.4 4.1L17.5 8.5l-4.1 1.4L12 14l-1.4-4.1-4.1-1.4 4.1-1.4Z"
+        }), u("path", {
+          d: "m19 15 .8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8Z"
+        })]
+      }),
+      edit: v(Z, {
+        children: [u("path", {
+          d: "M12 20h9"
+        }), u("path", {
+          d: "M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"
+        })]
+      })
+    }[e]
+  });
+}
+function og(e) {
+  return new Promise((t, a) => {
+    let i = new FileReader();
+    i.onerror = () => a(Error("Could not read artwork.")), i.onload = () => {
+      let l = String(i.result ?? "");
+      t(l.includes(",") ? l.slice(l.indexOf(",") + 1) : l);
+    }, i.readAsDataURL(e);
+  });
+}
+function ug() {
+  return new Promise((e, t) => {
+    let a = indexedDB.open("media-player-local-files", 1);
+    a.onupgradeneeded = () => {
+      let i = a.result;
+      if (!i.objectStoreNames.contains("files")) i.createObjectStore("files", {
+        keyPath: "name"
+      });
+    }, a.onsuccess = () => e(a.result), a.onerror = () => t(a.error ?? Error("Could not open local media storage."));
+  });
+}
+async function pb(e) {
+  if (!("indexedDB" in window) || e.length === 0) return;
+  let t = await ug();
+  await new Promise((a, i) => {
+    let l = t.transaction("files", "readwrite"),
+      n = l.objectStore("files");
+    for (let r of e) n.put({
+      name: r.name,
+      type: r.type,
+      blob: r,
+      savedAt: Date.now()
+    });
+    l.oncomplete = () => a(), l.onerror = () => i(l.error ?? Error("Could not remember local files."));
+  }), t.close();
+}
+async function hb() {
+  if (!("indexedDB" in window)) return [];
+  let e = await ug(),
+    t = await new Promise((a, i) => {
+      let l = e.transaction("files", "readonly").objectStore("files").getAll();
+      l.onsuccess = () => a(l.result), l.onerror = () => i(l.error ?? Error("Could not restore local files."));
+    });
+  return e.close(), t;
+}
+function sg(e) {
+  if (e.rating == null || e.ratingScale == null) return "Not rated";
+  return `${e.rating.toFixed(1)} / ${e.ratingScale}`;
+}
+function Nn(e) {
+  if (e === "series") return "Series";
+  if (e === "movie") return "Movie";
+  return "Music";
+}
+function ng(e) {
+  return e.toLowerCase().replace(/\.[a-z0-9]{2,5}$/i, "").replace(/\b(?:19|20)\d{2}\b/g, " ").replace(/\b(?:movie|ova|oad|special)\b/g, " ").replace(/[^a-z0-9]+/g, " ").trim();
+}
+function Ac(e) {
+  if (!Number.isFinite(e) || e < 0) return "0:00";
+  let t = Math.floor(e),
+    a = Math.floor(t / 3600),
+    i = Math.floor(t % 3600 / 60),
+    l = t % 60;
+  return a > 0 ? `${a}:${String(i).padStart(2, "0")}:${String(l).padStart(2, "0")}` : `${i}:${String(l).padStart(2, "0")}`;
+}
+function Cc({
+  item: e,
+  className: t = "",
+  eager: a = !1
+}) {
+  if (e.posterUrl) return u("img", {
+    className: t,
+    src: e.posterUrl,
+    alt: `${e.title} poster`,
+    loading: a ? "eager" : "lazy"
+  });
+  return v("div", {
+    className: `poster-fallback ${t}`,
+    "aria-label": `${e.title} has no poster`,
+    children: [u("span", {
+      children: e.title.slice(0, 2).toUpperCase()
+    }), u("small", {
+      children: Nn(e.kind)
+    })]
+  });
+}
+function Oc(e, t = Math.random()) {
+  if (!Number.isFinite(e) || e <= 18) return 0;
+  let a = e >= 480 ? 90 : Math.min(30, e * 0.14),
+    i = e >= 480 ? Math.max(90, e * 0.1) : Math.min(45, e * 0.16),
+    l = Math.max(a, e * 0.2),
+    n = Math.min(e - i - 12, e * 0.78);
+  if (n <= l) return Math.max(0, Math.min(e - 12, e * 0.45));
+  return l + Math.max(0, Math.min(1, t)) * (n - l);
+}
+function mb(e, t, a) {
+  let i = `media-player-preview-${e}-${t}`;
+  try {
+    let l = Number(window.localStorage.getItem(i));
+    if (Number.isFinite(l) && l >= 0 && l <= Math.max(0, a - 12)) return l;
+    let n = Oc(a);
+    return window.localStorage.setItem(i, String(n)), n;
+  } catch {
+    return Oc(a);
+  }
+}
+function cg(e) {
+  return e.mimeType.startsWith("video/") || /\.(mp4|m4v|mov|webm|mkv|avi)$/i.test(e.fileName);
+}
+function To({
+  collectionId: e,
+  title: t,
+  localMedia: a,
+  active: i,
+  variant: l = "card",
+  onOpen: n,
+  onConnect: r
+}) {
+  let o = Ue(null),
+    s = Ue(0),
+    c = ca({
+      queryKey: ["collection", e],
+      queryFn: () => it.getCollection({
+        id: e
+      }),
+      enabled: i,
+      staleTime: 1 / 0
+    }),
+    [g, b] = H(null);
+  function h() {
+    let y = c.data?.collection,
+      E = (y?.kind === "series" ? y.files.filter(p => p.mediaKind === "episode") : y?.files ?? []).map(p => ({
+        file: p,
+        media: a.get(p.fileName) ?? null
+      })).filter(p => Boolean(p.media && cg(p.media)));
+    if (E.length === 0) {
+      b(null);
+      return;
+    }
+    let z = E[Math.floor(Math.random() * E.length)] ?? E[0];
+    if (!z) {
+      b(null);
+      return;
+    }
+    b({
+      key: `${z.file.id}-${Date.now()}-${Math.random()}`,
+      title: z.file.displayTitle,
+      media: z.media,
+      randomValue: Math.random()
+    });
+  }
+  if (Ee(() => {
+    if (!i || !c.data) {
+      b(null);
+      return;
+    }
+    h();
+  }, [i, c.data, a]), !i) return null;
+  if (!g) return u("div", {
+    className: `local-clip-preview ${l} empty`,
+    children: v("div", {
+      className: "clip-empty",
+      children: [u(k, {
+        name: "folder",
+        size: l === "modal" ? 38 : 24
+      }), u("strong", {
+        children: "No local video is connected"
+      }), u("span", {
+        children: "Connect an episode or movie to create random previews."
+      }), r && v("button", {
+        onClick: y => {
+          y.stopPropagation(), r();
+        },
+        children: [u(k, {
+          name: "folder",
+          size: 16
+        }), " Connect files"]
+      })]
+    })
+  });
+  return v("div", {
+    className: `local-clip-preview ${l}`,
+    children: [u("video", {
+      ref: o,
+      src: g.media.url,
+      muted: !0,
+      autoPlay: !0,
+      playsInline: !0,
+      preload: "metadata",
+      onLoadedMetadata: y => {
+        let T = y.currentTarget,
+          E = Oc(T.duration, g.randomValue);
+        s.current = E, T.currentTime = E, T.play().catch(() => {
+          return;
+        });
+      },
+      onTimeUpdate: y => {
+        if (y.currentTarget.currentTime - s.current >= 12) h();
+      },
+      onEnded: h,
+      "aria-label": `Random local preview from ${g.title}`
+    }, g.key), u("span", {
+      className: "clip-shade"
+    }), v("span", {
+      className: "clip-badge",
+      children: [u("i", {
+        "aria-hidden": "true"
+      }), " Random local clip"]
+    }), u("span", {
+      className: "clip-title",
+      children: g.title
+    }), n && u("button", {
+      className: "clip-open",
+      onClick: y => {
+        y.stopPropagation(), n();
+      },
+      "aria-label": `Open ${t}`,
+      children: u(k, {
+        name: "expand",
+        size: 17
+      })
+    })]
+  });
+}
+function gb({
+  collectionId: e,
+  mediaFileId: t,
+  title: a,
+  media: i,
+  active: l
+}) {
+  let n = Ue(0);
+  if (!l) return null;
+  return v("div", {
+    className: "episode-local-preview",
+    "aria-label": `Previewing ${a}`,
+    children: [u("video", {
+      src: i.url,
+      muted: !0,
+      autoPlay: !0,
+      playsInline: !0,
+      preload: "metadata",
+      onLoadedMetadata: r => {
+        let o = r.currentTarget,
+          s = mb(e, t, o.duration);
+        n.current = s, o.currentTime = s, o.play().catch(() => {
+          return;
+        });
+      },
+      onTimeUpdate: r => {
+        let o = r.currentTarget;
+        if (o.currentTime - n.current >= 12) o.currentTime = n.current, o.play().catch(() => {
+          return;
+        });
+      }
+    }), u("span", {
+      className: "clip-shade"
+    }), v("span", {
+      className: "clip-badge",
+      children: [u("i", {
+        "aria-hidden": "true"
+      }), " Episode preview"]
+    })]
+  });
+}
+function yb({
+  onClose: e,
+  onFilesReady: t
+}) {
+  let a = St(),
+    [i, l] = H("series"),
+    [n, r] = H(""),
+    [o, s] = H(""),
+    [c, g] = H([]),
+    [b, h] = H(null),
+    [y, T] = H(null),
+    [E, z] = H(null),
+    p = da({
+      mutationFn: it.addCollection,
+      onSuccess: async () => {
+        t(c), await a.invalidateQueries({
+          queryKey: ["collections"]
+        }), e();
+      }
+    });
+  Ee(() => {
+    if (!b) {
+      T(null);
+      return;
+    }
+    let m = URL.createObjectURL(b);
+    return T(m), () => URL.revokeObjectURL(m);
+  }, [b]);
+  async function d(m) {
+    m.preventDefault(), z(null);
+    try {
+      let x = b ? await og(b) : null;
+      await p.mutateAsync({
+        title: n.trim(),
+        kind: i,
+        year: o ? Number(o) : null,
+        files: c.map(S => ({
+          fileName: S.name,
+          relativePath: S.webkitRelativePath || null,
+          mimeType: S.type || null
+        })),
+        posterDataBase64: x,
+        posterMimeType: b && ["image/jpeg", "image/png", "image/webp"].includes(b.type) ? b.type : null
+      });
+    } catch (x) {
+      z(x instanceof Error ? x.message : "Could not add this collection.");
+    }
+  }
+  return u("div", {
+    className: "sheet-backdrop",
+    role: "presentation",
+    onMouseDown: m => {
+      if (m.target === m.currentTarget) e();
+    },
+    children: v("section", {
+      className: "add-sheet",
+      role: "dialog",
+      "aria-modal": "true",
+      "aria-labelledby": "add-heading",
+      children: [v("div", {
+        className: "sheet-head",
+        children: [v("div", {
+          children: [v("p", {
+            className: "eyebrow",
+            children: [u(k, {
+              name: "spark",
+              size: 15
+            }), " Automatic setup"]
+          }), u("h2", {
+            id: "add-heading",
+            children: "Add to your library"
+          })]
+        }), u("button", {
+          className: "icon-button",
+          "aria-label": "Close add form",
+          onClick: e,
+          children: u(k, {
+            name: "close"
+          })
+        })]
+      }), v("form", {
+        onSubmit: d,
+        children: [v("fieldset", {
+          className: "kind-switch",
+          children: [u("legend", {
+            children: "Media type"
+          }), ["series", "movie", "music"].map(m => v("button", {
+            type: "button",
+            className: i === m ? "active" : "",
+            onClick: () => l(m),
+            children: [m === "music" ? u(k, {
+              name: "music",
+              size: 17
+            }) : u(k, {
+              name: "film",
+              size: 17
+            }), Nn(m)]
+          }, m))]
+        }), v("label", {
+          className: "field",
+          children: [u("span", {
+            children: i === "series" ? "Show or collection title" : i === "movie" ? "Movie title" : "Album or playlist title"
+          }), u("input", {
+            "aria-label": "Collection title",
+            value: n,
+            onChange: m => r(m.target.value),
+            placeholder: i === "series" ? "e.g. KonoSuba" : i === "movie" ? "e.g. Dune: Part Two" : "e.g. Night drive",
+            required: !0
+          })]
+        }), v("label", {
+          className: "field compact",
+          children: [v("span", {
+            children: ["Release year ", u("em", {
+              children: "optional"
+            })]
+          }), u("input", {
+            "aria-label": "Release year",
+            inputMode: "numeric",
+            value: o,
+            onChange: m => s(m.target.value.replace(/\D/g, "").slice(0, 4)),
+            placeholder: "2024"
+          })]
+        }), v("div", {
+          className: "upload-grid",
+          children: [v("label", {
+            className: "upload-box",
+            children: [u("span", {
+              className: "upload-icon",
+              children: u(k, {
+                name: "folder"
+              })
+            }), u("strong", {
+              children: "Choose local media"
+            }), u("small", {
+              children: i === "series" ? "Choose any local episodes you already have" : "Select one or more files"
+            }), u("input", {
+              "aria-label": "Choose local media files",
+              type: "file",
+              multiple: !0,
+              accept: "video/*,audio/*,.mkv",
+              onChange: m => g(Array.from(m.target.files ?? []))
+            })]
+          }), v("label", {
+            className: "upload-box artwork",
+            style: y ? {
+              backgroundImage: `url(${y})`
+            } : void 0,
+            children: [u("span", {
+              className: "upload-icon",
+              children: u(k, {
+                name: "plus"
+              })
+            }), u("strong", {
+              children: b ? b.name : "Add artwork"
+            }), u("small", {
+              children: "JPG, PNG or WebP"
+            }), u("input", {
+              "aria-label": "Choose poster artwork",
+              type: "file",
+              accept: "image/jpeg,image/png,image/webp",
+              onChange: m => h(m.target.files?.[0] ?? null)
+            })]
+          })]
+        }), c.length > 0 && v("p", {
+          className: "file-summary",
+          children: [u("strong", {
+            children: c.length
+          }), " local ", c.length === 1 ? "file" : "files", " ready. Episode numbers such as S02E05 are matched automatically."]
+        }), v("div", {
+          className: "auto-note",
+          children: [u(k, {
+            name: "spark"
+          }), v("div", {
+            children: [u("strong", {
+              children: "No links or episode lists to type"
+            }), u("p", {
+              children: "Series details, seasons, episodes, every related movie and OVA, ratings and artwork are looked up after you add it. Previews come only from your local files."
+            })]
+          })]
+        }), (E || p.error) && u("p", {
+          className: "form-error",
+          children: E ?? String(p.error)
+        }), u("button", {
+          className: "primary-action full",
+          type: "submit",
+          disabled: !n.trim() || p.isPending,
+          children: p.isPending ? v(Z, {
+            children: [u("span", {
+              className: "spinner"
+            }), " Finding details…"]
+          }) : v(Z, {
+            children: [u(k, {
+              name: "plus"
+            }), " Add & find everything"]
+          })
+        })]
+      })]
+    })
+  });
+}
+function vb({
+  target: e,
+  onClose: t
+}) {
+  let a = St(),
+    [i, l] = H(null),
+    [n, r] = H(null),
+    [o, s] = H(null),
+    c = da({
+      mutationFn: it.updateArtwork,
+      onSuccess: async h => {
+        if (!h.ok) {
+          s(h.message);
+          return;
+        }
+        await Promise.all([a.invalidateQueries({
+          queryKey: ["collection", e.collectionId]
+        }), a.invalidateQueries({
+          queryKey: ["collections"]
+        })]), t();
+      }
+    });
+  Ee(() => {
+    if (!i) {
+      r(null);
+      return;
+    }
+    let h = URL.createObjectURL(i);
+    return r(h), () => URL.revokeObjectURL(h);
+  }, [i]);
+  async function g(h) {
+    if (h.preventDefault(), !i) return;
+    s(null);
+    try {
+      if (!["image/jpeg", "image/png", "image/webp"].includes(i.type)) {
+        s("Choose a JPG, PNG or WebP image.");
+        return;
+      }
+      await c.mutateAsync({
+        collectionId: e.collectionId,
+        target: e.target,
+        seasonNumber: e.seasonNumber ?? null,
+        episodeId: e.episodeId ?? null,
+        imageDataBase64: await og(i),
+        imageMimeType: i.type
+      });
+    } catch (y) {
+      s(y instanceof Error ? y.message : "Could not update this image.");
+    }
+  }
+  let b = n ?? e.currentUrl;
+  return u("div", {
+    className: "sheet-backdrop",
+    role: "presentation",
+    onMouseDown: h => {
+      if (h.target === h.currentTarget) t();
+    },
+    children: v("section", {
+      className: "artwork-sheet",
+      role: "dialog",
+      "aria-modal": "true",
+      "aria-labelledby": "artwork-heading",
+      children: [v("div", {
+        className: "sheet-head",
+        children: [v("div", {
+          children: [v("p", {
+            className: "eyebrow",
+            children: [u(k, {
+              name: "edit",
+              size: 15
+            }), " Modify thumbnail"]
+          }), u("h2", {
+            id: "artwork-heading",
+            children: e.label
+          })]
+        }), u("button", {
+          className: "icon-button",
+          "aria-label": "Close thumbnail editor",
+          onClick: t,
+          children: u(k, {
+            name: "close"
+          })
+        })]
+      }), v("form", {
+        onSubmit: g,
+        children: [v("label", {
+          className: `artwork-picker ${b ? "has-image" : ""}`,
+          style: b ? {
+            backgroundImage: `url(${b})`
+          } : void 0,
+          children: [v("span", {
+            children: [u(k, {
+              name: "plus"
+            }), u("strong", {
+              children: i ? "Choose a different image" : "Choose replacement image"
+            }), u("small", {
+              children: "JPG, PNG or WebP · up to 8 MB"
+            })]
+          }), u("input", {
+            "aria-label": `Choose replacement image for ${e.label}`,
+            type: "file",
+            accept: "image/jpeg,image/png,image/webp",
+            onChange: h => l(h.target.files?.[0] ?? null)
+          })]
+        }), u("p", {
+          className: "artwork-help",
+          children: "Your replacement stays in place when automatic details are refreshed."
+        }), (o || c.error) && u("p", {
+          className: "form-error",
+          children: o ?? String(c.error)
+        }), u("button", {
+          className: "primary-action full",
+          type: "submit",
+          disabled: !i || c.isPending,
+          children: c.isPending ? v(Z, {
+            children: [u("span", {
+              className: "spinner"
+            }), " Saving…"]
+          }) : v(Z, {
+            children: [u(k, {
+              name: "edit"
+            }), " Save thumbnail"]
+          })
+        })]
+      })]
+    })
+  });
+}
+function bb({
+  item: e,
+  previewing: t,
+  localMedia: a,
+  onPreview: i,
+  onOpen: l,
+  onConnect: n
+}) {
+  let r = typeof window < "u" && window.matchMedia("(pointer: coarse)").matches;
+  return v("article", {
+    className: "library-card",
+    onMouseEnter: () => {
+      if (!r && !t) i();
+    },
+    onMouseLeave: () => {
+      if (!r && t) i();
+    },
+    children: [v("div", {
+      className: "poster-shell",
+      role: "button",
+      tabIndex: 0,
+      "aria-label": r ? `${t ? "Open" : "Preview"} ${e.title}` : `Open ${e.title}`,
+      onClick: () => {
+        if (r && !t) i();else l();
+      },
+      onKeyDown: o => {
+        if (o.key === "Enter" || o.key === " ") l();
+      },
+      children: [u(Cc, {
+        item: e,
+        className: "poster-image"
+      }), u(To, {
+        collectionId: e.id,
+        title: e.title,
+        localMedia: a,
+        active: t,
+        onOpen: l,
+        onConnect: n
+      }), !t && u("span", {
+        className: "card-play",
+        children: u(k, {
+          name: "play",
+          size: 28
+        })
+      }), e.metadataStatus !== "complete" && u("span", {
+        className: "status-dot",
+        title: e.metadataNote ?? "Some details unavailable"
+      })]
+    }), u("button", {
+      className: "card-title",
+      onClick: l,
+      "aria-label": `Open ${e.title} details`,
+      children: e.title
+    }), v("p", {
+      children: [Nn(e.kind), e.year ? ` · ${e.year}` : "", e.kind === "series" && e.seasonCount ? ` · ${e.seasonCount} season${e.seasonCount === 1 ? "" : "s"}` : ""]
+    })]
+  });
+}
+function rg({
+  media: e,
+  title: t,
+  collectionId: a,
+  mediaFileId: i,
+  startAt: l,
+  queue: n,
+  onNavigate: r,
+  onMissing: o,
+  onClose: s
+}) {
+  let c = Ue(null),
+    g = Ue(null),
+    b = Ue(null),
+    h = Ue(l),
+    y = Ue(!1),
+    T = Ue(null),
+    E = Ue(null),
+    z = Ue(null),
+    p = Ue(null),
+    [d, m] = H(!1),
+    [x, S] = H(l),
+    [D, A] = H(0),
+    [R, U] = H(1),
+    [_, ue] = H(!1),
+    [Me, lt] = H(100),
+    [me, nt] = H(!1),
+    [qt, ra] = H(!1),
+    [He, Qa] = H(null),
+    [N, q] = H("External subtitle"),
+    [ve, f] = H([]),
+    [C, X] = H(-1),
+    [ae, Oe] = H([]),
+    [oa, I] = H(0),
+    [bt, Rc] = H(!0),
+    [Ht, kc] = H(null),
+    [pg, Dc] = H(!0),
+    _c = St(),
+    hg = da({
+      mutationFn: it.updatePlaybackProgress,
+      onSuccess: async () => {
+        await Promise.all([_c.invalidateQueries({
+          queryKey: ["continue-watching"]
+        }), _c.invalidateQueries({
+          queryKey: ["collection", a]
+        })]);
+      }
+    }),
+    fl = n.findIndex(w => w.mediaFileId === i),
+    Uc = fl > 0 ? n[fl - 1] ?? null : null,
+    zn = fl >= 0 && fl < n.length - 1 ? n[fl + 1] ?? null : null;
+  Ee(() => {
+    let w = window.setTimeout(() => Dc(!1), 6000);
+    return () => {
+      if (window.clearTimeout(w), z.current != null) window.clearTimeout(z.current);
+      if (p.current != null) window.clearTimeout(p.current);
+      if (He) URL.revokeObjectURL(He);
+    };
+  }, [He]);
+  function mi(w = !1) {
+    let O = c.current;
+    if (!O || !Number.isFinite(O.currentTime) || !Number.isFinite(O.duration)) return;
+    h.current = O.currentTime, hg.mutate({
+      collectionId: a,
+      mediaFileId: i,
+      positionSeconds: w ? O.duration : O.currentTime,
+      durationSeconds: O.duration,
+      completed: w
+    });
+  }
+  function qc() {
+    let w = c.current;
+    if (!w) return;
+    let O = Array.from({
+      length: w.textTracks.length
+    }, (Qe, de) => w.textTracks[de]).filter(Qe => Boolean(Qe));
+    f(O.map((Qe, de) => ({
+      index: de,
+      label: Qe.label || Qe.language || (de === O.length - 1 && He ? N : `Subtitle ${de + 1}`)
+    })));
+    let le = w.audioTracks;
+    if (le && le.length > 0) {
+      let Qe = Array.from({
+        length: le.length
+      }, (Ba, Qt) => ({
+        index: Qt,
+        label: le[Qt]?.label || le[Qt]?.language || `Audio ${Qt + 1}`
+      }));
+      Oe(Qe);
+      let de = Qe.find(Ba => le[Ba.index]?.enabled)?.index ?? 0;
+      I(de);
+    } else Oe([{
+      index: 0,
+      label: "Original audio"
+    }]), I(0);
+  }
+  function An() {
+    let w = c.current;
+    if (!w) return;
+    if (w.paused) w.play();else w.pause();
+  }
+  function On(w) {
+    let O = c.current;
+    if (!O || !Number.isFinite(O.duration)) return;
+    O.currentTime = Math.max(0, Math.min(O.duration, O.currentTime + w)), S(O.currentTime);
+  }
+  function Hc(w) {
+    let O = c.current;
+    if (!O || !Number.isFinite(O.duration)) return;
+    O.currentTime = Math.max(0, Math.min(O.duration, w)), S(O.currentTime);
+  }
+  function pl(w, O = 900) {
+    if (kc(w), p.current != null) window.clearTimeout(p.current);
+    p.current = window.setTimeout(() => kc(null), O);
+  }
+  function mg(w) {
+    if (!w.isPrimary || w.target.closest("button, input, select")) return;
+    let O = w.currentTarget.getBoundingClientRect();
+    if (T.current = {
+      pointerId: w.pointerId,
+      startX: w.clientX,
+      startY: w.clientY,
+      width: Math.max(1, O.width),
+      height: Math.max(1, O.height),
+      startVolume: _ ? 0 : R,
+      startBrightness: Me,
+      startTime: x,
+      kind: null,
+      moved: !1
+    }, w.pointerType !== "mouse") w.currentTarget.setPointerCapture(w.pointerId), Dc(!1);
+  }
+  function gg(w) {
+    let O = T.current;
+    if (!O || O.pointerId !== w.pointerId || w.pointerType === "mouse") return;
+    let ce = w.clientX - O.startX,
+      le = w.clientY - O.startY;
+    if (!O.kind && Math.max(Math.abs(ce), Math.abs(le)) > 14) O.kind = Math.abs(ce) >= Math.abs(le) ? "seek" : O.startX < w.currentTarget.getBoundingClientRect().left + O.width / 2 ? "brightness" : "volume", O.moved = !0, Rc(!0);
+    if (!O.kind) return;
+    if (w.preventDefault(), O.kind === "seek") {
+      let de = Math.min(300, Math.max(60, D * 0.25)),
+        Ba = ce / O.width * de,
+        Qt = Math.max(0, Math.min(D, O.startTime + Ba));
+      Hc(Qt);
+      let Gc = Math.round(Qt - O.startTime);
+      pl({
+        kind: "seek",
+        label: "Seek",
+        value: `${Gc >= 0 ? "+" : ""}${Gc}s · ${Ac(Qt)}`,
+        progress: D > 0 ? Qt / D * 100 : 0
+      }, 1300);
+      return;
+    }
+    let Qe = -le / O.height * 120;
+    if (O.kind === "brightness") {
+      let de = Math.round(Math.max(50, Math.min(150, O.startBrightness + Qe)));
+      lt(de), pl({
+        kind: "brightness",
+        label: "Brightness",
+        value: `${de}%`,
+        progress: de - 50
+      }, 1300);
+    } else {
+      let de = Math.max(0, Math.min(1, O.startVolume + Qe / 100));
+      Qc(de), pl({
+        kind: "volume",
+        label: "Volume",
+        value: `${Math.round(de * 100)}%`,
+        progress: de * 100
+      }, 1300);
+    }
+  }
+  function yg(w) {
+    let O = T.current;
+    if (!O || O.pointerId !== w.pointerId) return;
+    if (T.current = null, w.pointerType === "mouse") {
+      An();
+      return;
+    }
+    if (O.moved) {
+      if (O.kind === "seek") mi(!1);
+      return;
+    }
+    let ce = Date.now(),
+      le = E.current;
+    if (le && ce - le.at < 330 && Math.abs(le.x - w.clientX) < 80) {
+      if (z.current != null) window.clearTimeout(z.current);
+      z.current = null, E.current = null;
+      let de = w.currentTarget.getBoundingClientRect(),
+        Ba = (w.clientX - de.left) / Math.max(1, de.width);
+      if (Ba < 0.35) On(-10), pl({
+        kind: "seek",
+        label: "Back",
+        value: "10 seconds",
+        progress: D > 0 ? Math.max(0, x - 10) / D * 100 : 0
+      });else if (Ba > 0.65) On(10), pl({
+        kind: "seek",
+        label: "Forward",
+        value: "10 seconds",
+        progress: D > 0 ? Math.min(D, x + 10) / D * 100 : 0
+      });else An();
+      return;
+    }
+    if (E.current = {
+      at: ce,
+      x: w.clientX
+    }, z.current != null) window.clearTimeout(z.current);
+    z.current = window.setTimeout(() => {
+      Rc(de => !de), E.current = null, z.current = null;
+    }, 280);
+  }
+  function vg(w) {
+    if (T.current?.pointerId === w.pointerId) T.current = null;
+  }
+  function Qc(w) {
+    let O = c.current,
+      ce = Math.max(0, Math.min(1, w));
+    if (U(ce), ue(ce === 0), O) O.volume = ce, O.muted = ce === 0;
+  }
+  function bg() {
+    let w = c.current;
+    if (!w) return;
+    let O = !_;
+    w.muted = O, ue(O);
+  }
+  function Bc(w) {
+    let O = c.current;
+    if (!O) return;
+    for (let ce = 0; ce < O.textTracks.length; ce += 1) {
+      let le = O.textTracks[ce];
+      if (le) le.mode = ce === w ? "showing" : "disabled";
+    }
+    X(w);
+  }
+  function xg(w) {
+    let ce = c.current?.audioTracks;
+    if (ce) for (let le = 0; le < ce.length; le += 1) {
+      let Qe = ce[le];
+      if (Qe) Qe.enabled = le === w;
+    }
+    I(w);
+  }
+  async function Sg(w) {
+    let O = await w.text();
+    if (/\.srt$/i.test(w.name)) O = `WEBVTT
+
+${O.replace(/\r/g, "").replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, "$1.$2")}`;
+    if (He) URL.revokeObjectURL(He);
+    let ce = URL.createObjectURL(new Blob([O], {
+      type: "text/vtt"
+    }));
+    q(w.name.replace(/\.(srt|vtt)$/i, "")), Qa(ce), window.setTimeout(() => {
+      qc();
+      let le = c.current;
+      if (le) Bc(le.textTracks.length - 1);
+    }, 80);
+  }
+  async function jc() {
+    let w = g.current;
+    if (w?.requestFullscreen) {
+      await w.requestFullscreen();
+      return;
+    }
+    if (w?.webkitRequestFullscreen) {
+      await w.webkitRequestFullscreen();
+      return;
+    }
+    c.current?.webkitEnterFullscreen?.();
+  }
+  function Mo(w) {
+    if (!w) return;
+    if (!w.media) {
+      o(w.fileName);
+      return;
+    }
+    mi(!1), r(w);
+  }
+  function wg() {
+    mi(y.current), s();
+  }
+  let Lc = {
+      src: e.url,
+      controls: !1,
+      autoPlay: !0,
+      onLoadedMetadata: () => {
+        let w = c.current;
+        if (w) {
+          if (A(Number.isFinite(w.duration) ? w.duration : 0), l > 3 && l < w.duration - 3) w.currentTime = l;
+          S(w.currentTime);
+        }
+        qc();
+      },
+      onDurationChange: () => {
+        let w = c.current;
+        if (w) A(Number.isFinite(w.duration) ? w.duration : 0);
+      },
+      onPlay: () => m(!0),
+      onPause: () => {
+        if (m(!1), !y.current) mi(!1);
+      },
+      onVolumeChange: () => {
+        let w = c.current;
+        if (w) U(w.volume), ue(w.muted);
+      },
+      onTimeUpdate: () => {
+        let w = c.current;
+        if (!w) return;
+        if (S(w.currentTime), !y.current && Math.abs(w.currentTime - h.current) >= 5) mi(!1);
+      },
+      onEnded: () => {
+        if (y.current = !0, S(D), mi(!0), zn?.media) window.setTimeout(() => r(zn), 350);
+      }
+    },
+    Yc = e.mimeType.startsWith("audio/"),
+    Tg = Ac(x),
+    Mg = Ac(D);
+  return v("div", {
+    ref: g,
+    className: `player-modal vlc-player ${bt ? "" : "controls-hidden"}`,
+    role: "dialog",
+    "aria-modal": "true",
+    "aria-label": `Playing ${t}`,
+    children: [v("div", {
+      className: "player-toolbar",
+      children: [v("div", {
+        className: "player-title",
+        children: [u("span", {
+          className: "playing-indicator",
+          "aria-hidden": "true"
+        }), v("div", {
+          children: [u("small", {
+            children: d ? "Now playing" : "Paused"
+          }), u("strong", {
+            children: t
+          })]
+        })]
+      }), u("button", {
+        onClick: wg,
+        "aria-label": "Close player",
+        children: u(k, {
+          name: "close"
+        })
+      })]
+    }), v("div", {
+      className: "player-stage",
+      onPointerDown: mg,
+      onPointerMove: gg,
+      onPointerUp: yg,
+      onPointerCancel: vg,
+      onDoubleClick: () => void jc(),
+      children: [Yc ? v("div", {
+        className: "audio-stage",
+        style: {
+          filter: `brightness(${Me}%)`
+        },
+        children: [u("span", {
+          className: "audio-disc",
+          children: u(k, {
+            name: "music",
+            size: 58
+          })
+        }), u("h2", {
+          children: t
+        }), u("p", {
+          children: "Local audio"
+        }), u("audio", {
+          ref: c,
+          ...Lc
+        })]
+      }) : u("video", {
+        ref: c,
+        ...Lc,
+        style: {
+          filter: `brightness(${Me}%)`
+        },
+        playsInline: !0,
+        children: He && u("track", {
+          kind: "subtitles",
+          src: He,
+          srcLang: "und",
+          label: N,
+          default: !0
+        }, He)
+      }), !Yc && !d && u("button", {
+        className: "stage-play",
+        onClick: An,
+        "aria-label": "Play video",
+        children: u(k, {
+          name: "play",
+          size: 34
+        })
+      }), pg && v("div", {
+        className: "gesture-guide",
+        "aria-hidden": "true",
+        children: [u("span", {
+          children: "Swipe across to seek"
+        }), u("span", {
+          children: "Left edge: brightness"
+        }), u("span", {
+          children: "Right edge: volume"
+        })]
+      }), Ht && v("div", {
+        className: `gesture-feedback ${Ht.kind}`,
+        role: "status",
+        "aria-live": "polite",
+        children: [u(k, {
+          name: Ht.kind === "brightness" ? "brightness" : Ht.kind === "volume" ? "volume" : Ht.value.startsWith("-") || Ht.label === "Back" ? "rewind" : "forward",
+          size: 27
+        }), u("strong", {
+          children: Ht.label
+        }), u("span", {
+          children: Ht.value
+        }), u("i", {
+          children: u("b", {
+            style: {
+              width: `${Math.max(0, Math.min(100, Ht.progress))}%`
+            }
+          })
+        })]
+      })]
+    }), v("div", {
+      className: "player-control-deck",
+      "aria-label": "Playback controls",
+      children: [v("div", {
+        className: "seek-row",
+        children: [u("span", {
+          children: Tg
+        }), u("input", {
+          "aria-label": "Playback position",
+          type: "range",
+          min: "0",
+          max: Math.max(D, 0),
+          step: "0.1",
+          value: Math.min(x, D || 0),
+          onChange: w => Hc(Number(w.target.value)),
+          style: {
+            "--seek-progress": `${D > 0 ? x / D * 100 : 0}%`
+          }
+        }), u("span", {
+          children: Mg
+        })]
+      }), v("div", {
+        className: "vlc-control-row",
+        children: [v("div", {
+          className: "transport-controls",
+          children: [u("button", {
+            onClick: () => Mo(Uc),
+            disabled: !Uc,
+            "aria-label": "Previous episode or file",
+            children: u(k, {
+              name: "previous"
+            })
+          }), v("button", {
+            onClick: () => On(-10),
+            "aria-label": "Go back 10 seconds",
+            children: [u(k, {
+              name: "rewind"
+            }), u("small", {
+              children: "10"
+            })]
+          }), u("button", {
+            className: "play-toggle",
+            onClick: An,
+            "aria-label": d ? "Pause" : "Play",
+            children: u(k, {
+              name: d ? "pause" : "play",
+              size: 27
+            })
+          }), v("button", {
+            onClick: () => On(10),
+            "aria-label": "Go forward 10 seconds",
+            children: [u("small", {
+              children: "10"
+            }), u(k, {
+              name: "forward"
+            })]
+          }), u("button", {
+            onClick: () => Mo(zn),
+            disabled: !zn,
+            "aria-label": "Next episode or file",
+            children: u(k, {
+              name: "next"
+            })
+          })]
+        }), v("div", {
+          className: "vlc-utilities",
+          children: [v("div", {
+            className: "volume-control",
+            children: [u("button", {
+              onClick: bg,
+              "aria-label": _ ? "Unmute" : "Mute",
+              children: u(k, {
+                name: _ || R === 0 ? "mute" : "volume"
+              })
+            }), u("input", {
+              "aria-label": "Volume",
+              type: "range",
+              min: "0",
+              max: "100",
+              value: _ ? 0 : Math.round(R * 100),
+              onChange: w => Qc(Number(w.target.value) / 100)
+            })]
+          }), u("button", {
+            className: me ? "active" : "",
+            onClick: () => nt(w => !w),
+            "aria-label": "Audio, subtitles and picture settings",
+            "aria-expanded": me,
+            children: u(k, {
+              name: "captions"
+            })
+          }), u("button", {
+            className: qt ? "active" : "",
+            onClick: () => ra(w => !w),
+            "aria-label": "Show all episodes and files",
+            "aria-expanded": qt,
+            children: u(k, {
+              name: "list"
+            })
+          }), u("button", {
+            onClick: () => void jc(),
+            "aria-label": "Enter full screen",
+            children: u(k, {
+              name: "expand"
+            })
+          })]
+        })]
+      }), me && v("div", {
+        className: "track-options",
+        children: [v("label", {
+          className: "picture-control",
+          children: [v("span", {
+            children: [u(k, {
+              name: "brightness",
+              size: 17
+            }), " Brightness ", v("output", {
+              children: [Me, "%"]
+            })]
+          }), u("input", {
+            "aria-label": "Brightness",
+            type: "range",
+            min: "50",
+            max: "150",
+            value: Me,
+            onChange: w => lt(Number(w.target.value))
+          })]
+        }), v("label", {
+          children: [v("span", {
+            children: [u(k, {
+              name: "audio",
+              size: 17
+            }), " Audio track"]
+          }), u("select", {
+            "aria-label": "Choose audio track",
+            value: oa,
+            onChange: w => xg(Number(w.target.value)),
+            children: ae.map(w => u("option", {
+              value: w.index,
+              children: w.label
+            }, w.index))
+          }), u("small", {
+            children: ae.length === 1 ? "No alternate track detected" : `${ae.length} tracks available`
+          })]
+        }), v("label", {
+          children: [v("span", {
+            children: [u(k, {
+              name: "captions",
+              size: 17
+            }), " Subtitles"]
+          }), v("select", {
+            "aria-label": "Choose subtitle track",
+            value: C,
+            onChange: w => Bc(Number(w.target.value)),
+            children: [u("option", {
+              value: -1,
+              children: "Off"
+            }), ve.map(w => u("option", {
+              value: w.index,
+              children: w.label
+            }, w.index))]
+          })]
+        }), v("button", {
+          className: "load-subtitle",
+          onClick: () => b.current?.click(),
+          children: [u(k, {
+            name: "plus",
+            size: 17
+          }), " Load subtitle"]
+        }), u("input", {
+          ref: b,
+          className: "sr-only",
+          type: "file",
+          accept: ".vtt,.srt,text/vtt,application/x-subrip",
+          "aria-label": "Choose subtitle file",
+          onChange: w => {
+            let O = w.target.files?.[0];
+            if (O) Sg(O);
+          }
+        })]
+      })]
+    }), qt && v("aside", {
+      className: "player-queue",
+      "aria-label": "All episodes and files",
+      children: [v("div", {
+        className: "queue-head",
+        children: [v("div", {
+          children: [u("small", {
+            children: "Playlist"
+          }), u("strong", {
+            children: "All episodes & files"
+          })]
+        }), u("button", {
+          onClick: () => ra(!1),
+          "aria-label": "Close episode list",
+          children: u(k, {
+            name: "close"
+          })
+        })]
+      }), u("div", {
+        className: "queue-list",
+        children: n.map((w, O) => v("button", {
+          className: w.mediaFileId === i ? "active" : "",
+          onClick: () => Mo(w),
+          "aria-current": w.mediaFileId === i ? "true" : void 0,
+          children: [u("span", {
+            children: String(O + 1).padStart(2, "0")
+          }), v("span", {
+            children: [u("strong", {
+              children: w.label
+            }), u("small", {
+              children: w.media ? w.title : `${w.title} · reconnect file`
+            })]
+          }), w.mediaFileId === i ? u(k, {
+            name: "play",
+            size: 17
+          }) : u("span", {
+            className: "row-arrow",
+            children: "›"
+          })]
+        }, w.mediaFileId))
+      })]
+    })]
+  });
+}
+function xb({
+  target: e,
+  onClose: t
+}) {
+  let a = St(),
+    i = ["online-availability", e.collectionId, e.itemKey],
+    l = ca({
+      queryKey: i,
+      queryFn: () => it.getOnlineAvailability({
+        collectionId: e.collectionId,
+        itemKey: e.itemKey,
+        title: e.title,
+        year: e.year,
+        refresh: !1
+      }),
+      staleTime: 1 / 0
+    }),
+    n = da({
+      mutationFn: () => it.getOnlineAvailability({
+        collectionId: e.collectionId,
+        itemKey: e.itemKey,
+        title: e.title,
+        year: e.year,
+        refresh: !0
+      }),
+      onSuccess: o => a.setQueryData(i, o)
+    }),
+    r = l.data?.providers ?? [];
+  return v("div", {
+    className: "online-modal",
+    role: "dialog",
+    "aria-modal": "true",
+    "aria-labelledby": "online-heading",
+    children: [u("button", {
+      className: "modal-close",
+      onClick: t,
+      "aria-label": "Close online availability",
+      children: u(k, {
+        name: "close"
+      })
+    }), v("div", {
+      className: "online-modal-head",
+      children: [u("span", {
+        className: "online-symbol",
+        children: u(k, {
+          name: "internet",
+          size: 24
+        })
+      }), v("div", {
+        children: [u("p", {
+          className: "eyebrow",
+          children: "Watch online"
+        }), u("h2", {
+          id: "online-heading",
+          children: e.title
+        })]
+      })]
+    }), l.isPending ? v("div", {
+      className: "provider-state",
+      children: [u("span", {
+        className: "spinner"
+      }), " Checking saved availability…"]
+    }) : l.isError ? v("div", {
+      className: "provider-state",
+      children: [u("span", {
+        children: "Couldn’t check streaming services."
+      }), v("button", {
+        className: "secondary-action",
+        onClick: () => l.refetch(),
+        children: [u(k, {
+          name: "refresh"
+        }), " Try again"]
+      })]
+    }) : r.length > 0 ? u("div", {
+      className: "online-provider-list",
+      children: r.map(o => v("a", {
+        href: o.url,
+        target: "_blank",
+        rel: "noopener noreferrer",
+        children: [v("span", {
+          children: [u("strong", {
+            children: o.name
+          }), u("small", {
+            children: o.languages.length > 0 ? `Languages: ${o.languages.join(", ")}` : "Languages not listed by the provider"
+          })]
+        }), u("span", {
+          className: "row-arrow",
+          children: "↗"
+        })]
+      }, `${o.name}-${o.url}`))
+    }) : u("div", {
+      className: "provider-state",
+      children: u("span", {
+        children: "No direct service link was found for this title."
+      })
+    }), v("div", {
+      className: "online-modal-foot",
+      children: [u("p", {
+        children: "Language and availability can vary by region and subscription."
+      }), l.data?.checkedAt && v("small", {
+        children: ["Checked ", new Date(l.data.checkedAt).toLocaleString([], {
+          dateStyle: "medium",
+          timeStyle: "short"
+        })]
+      }), v("button", {
+        className: "secondary-action",
+        onClick: () => n.mutate(),
+        disabled: n.isPending,
+        children: [u(k, {
+          name: "refresh"
+        }), " ", n.isPending ? "Checking…" : "Check again"]
+      })]
+    })]
+  });
+}
+function Sb({
+  collectionId: e,
+  initialReviews: t
+}) {
+  let a = ca({
+      queryKey: ["reviews", e],
+      queryFn: () => it.getReviews({
+        collectionId: e,
+        refresh: !1
+      }),
+      staleTime: 1 / 0
+    }),
+    i = a.data?.reviews ?? t;
+  if (a.isPending && i.length === 0) return v("section", {
+    className: "reviews-section",
+    "aria-labelledby": "reviews-heading",
+    children: [u("div", {
+      className: "reviews-heading",
+      children: v("div", {
+        children: [u("p", {
+          className: "eyebrow",
+          children: "What people say"
+        }), u("h2", {
+          id: "reviews-heading",
+          children: "Reviews"
+        })]
+      })
+    }), v("div", {
+      className: "provider-state",
+      children: [u("span", {
+        className: "spinner"
+      }), " Loading saved reviews…"]
+    })]
+  });
+  if (i.length === 0) return v("section", {
+    className: "reviews-section",
+    "aria-labelledby": "reviews-heading",
+    children: [u("div", {
+      className: "reviews-heading",
+      children: v("div", {
+        children: [u("p", {
+          className: "eyebrow",
+          children: "What people say"
+        }), u("h2", {
+          id: "reviews-heading",
+          children: "Reviews"
+        })]
+      })
+    }), u("p", {
+      className: "reviews-empty",
+      children: "No supported review excerpts were found. Use Refresh details to check again."
+    })]
+  });
+  return v("section", {
+    className: "reviews-section",
+    "aria-labelledby": "reviews-heading",
+    children: [v("div", {
+      className: "reviews-heading",
+      children: [v("div", {
+        children: [u("p", {
+          className: "eyebrow",
+          children: "What people say"
+        }), u("h2", {
+          id: "reviews-heading",
+          children: "Reviews"
+        })]
+      }), v("small", {
+        children: ["Saved ", new Date(a.data?.checkedAt ?? i[0]?.fetchedAt ?? "").toLocaleDateString([], {
+          dateStyle: "medium"
+        })]
+      })]
+    }), u("div", {
+      className: "reviews-grid",
+      children: i.map(l => v("article", {
+        children: [v("div", {
+          className: "review-meta",
+          children: [u("span", {
+            children: l.reviewType === "critic" ? "Critic" : "Audience"
+          }), u("strong", {
+            children: l.sourceName
+          })]
+        }), v("blockquote", {
+          children: ["“", l.excerpt, "”"]
+        }), v("div", {
+          children: [l.author && u("small", {
+            children: l.author
+          }), u("a", {
+            href: l.sourceUrl,
+            target: "_blank",
+            rel: "noopener noreferrer",
+            "aria-label": `Read review from ${l.sourceName}`,
+            children: "Read source ↗"
+          })]
+        })]
+      }, l.id))
+    })]
+  });
+}
+function wb({
+  id: e,
+  localMedia: t,
+  onBack: a,
+  onPlay: i,
+  onConnect: l
+}) {
+  let n = St(),
+    [r, o] = H(null),
+    [s, c] = H(null),
+    [g, b] = H(null),
+    [h, y] = H(null),
+    [T, E] = H(!1),
+    [z, p] = H(null),
+    d = ca({
+      queryKey: ["collection", e],
+      queryFn: () => it.getCollection({
+        id: e
+      })
+    }),
+    m = da({
+      mutationFn: () => it.refreshMetadata({
+        id: e
+      }),
+      onSuccess: async () => {
+        await Promise.all([n.invalidateQueries({
+          queryKey: ["collection", e]
+        }), n.invalidateQueries({
+          queryKey: ["collections"]
+        }), n.invalidateQueries({
+          queryKey: ["reviews", e]
+        }), n.invalidateQueries({
+          queryKey: ["watch-providers", e]
+        })]);
+      }
+    }),
+    x = da({
+      mutationFn: () => it.deleteCollection({
+        id: e
+      }),
+      onSuccess: async () => {
+        await n.invalidateQueries({
+          queryKey: ["collections"]
+        }), a();
+      }
+    }),
+    S = d.data?.collection,
+    D = Bo(() => S ? Array.from(new Set([...S.episodes.map(f => f.seasonNumber), ...S.files.filter(f => f.mediaKind === "episode" && f.seasonNumber != null).map(f => f.seasonNumber)])).sort((f, C) => f - C) : [], [S]);
+  if (Ee(() => {
+    if (r == null && D[0] != null) o(D[0]);else if (r == null && s == null && S?.relatedMedia[0]) c(S.relatedMedia[0].id);
+  }, [r, D, s, S]), d.isPending) return v("main", {
+    className: "detail-loading",
+    children: [u("span", {
+      className: "spinner"
+    }), " Loading collection…"]
+  });
+  if (!S) return v("main", {
+    className: "detail-loading",
+    children: [u("p", {
+      children: "Collection not found."
+    }), u("button", {
+      className: "secondary-action",
+      onClick: a,
+      children: "Back to library"
+    })]
+  });
+  let A = S.episodes.filter(f => f.seasonNumber === r),
+    R = S.files.filter(f => f.mediaKind === "episode" && f.seasonNumber === r),
+    U = [...A];
+  for (let f of R) if (!U.some(C => C.episodeNumber === f.episodeNumber)) U.push({
+    id: -f.id,
+    seasonNumber: f.seasonNumber ?? r ?? 0,
+    episodeNumber: f.episodeNumber,
+    title: f.displayTitle,
+    airDate: null,
+    runtimeMinutes: null,
+    sourceUrl: null,
+    thumbnailUrl: null,
+    localFileName: f.fileName
+  });
+  U.sort((f, C) => (f.episodeNumber ?? 9999) - (C.episodeNumber ?? 9999));
+  let _ = S.files.filter(f => f.mediaKind !== "episode"),
+    ue = S.files.some(f => {
+      let C = t.get(f.fileName);
+      return Boolean(C && cg(C));
+    }),
+    Me = [...S.seasons].sort((f, C) => (f.firstAirDate ?? `${f.releaseYear ?? 9999}`).localeCompare(C.firstAirDate ?? `${C.releaseYear ?? 9999}`) || f.seasonNumber - C.seasonNumber),
+    lt = new Map(Me.filter(f => f.seasonNumber > 0).map((f, C) => [f.seasonNumber, f.seasonNumber >= 1900 ? C + 1 : f.seasonNumber])),
+    me = new Set(),
+    nt = S.relatedMedia.map(f => {
+      let C = ng(f.title),
+        X = _.find(ae => {
+          if (me.has(ae.id) || ae.contentType !== f.contentType) return !1;
+          let Oe = ng(ae.displayTitle);
+          return Boolean(C && Oe && (C.includes(Oe) || Oe.includes(C))) || f.releaseYear != null && ae.releaseYear === f.releaseYear && _.filter(I => I.contentType === f.contentType && I.releaseYear === f.releaseYear).length === 1;
+        }) ?? null;
+      if (X) me.add(X.id);
+      return {
+        related: f,
+        matchingFile: X
+      };
+    }),
+    qt = [...Me.map(f => ({
+      kind: "season",
+      id: `season-${f.seasonNumber}`,
+      season: f,
+      related: null,
+      file: null,
+      orderYear: f.releaseYear ?? (f.seasonNumber >= 1900 ? f.seasonNumber : null),
+      orderDetail: f.firstAirDate ?? ""
+    })), ...nt.map(({
+      related: f,
+      matchingFile: C
+    }) => ({
+      kind: "related",
+      id: `related-${f.id}`,
+      season: null,
+      related: f,
+      file: C,
+      orderYear: f.releaseYear,
+      orderDetail: f.releaseDate ?? `${f.releaseYear ?? 9999}-12-30-${f.title}`
+    })), ..._.filter(f => f.mediaKind !== "music" && !me.has(f.id)).map(f => ({
+      kind: "file",
+      id: `file-${f.id}`,
+      season: null,
+      related: null,
+      file: f,
+      orderYear: f.releaseYear,
+      orderDetail: `${f.releaseYear ?? 9999}-12-31-${String(f.sortOrder).padStart(8, "0")}`
+    }))].sort((f, C) => (f.orderYear ?? 9999) - (C.orderYear ?? 9999) || f.orderDetail.localeCompare(C.orderDetail)),
+    ra = 0,
+    He = 0,
+    Qa = qt.map(f => {
+      if (f.kind === "season") {
+        let X = f.season.seasonNumber === 0 ? null : lt.get(f.season.seasonNumber) ?? f.season.seasonNumber;
+        return {
+          ...f,
+          label: X == null ? "Specials" : `Season ${X}`,
+          year: f.season.releaseYear
+        };
+      }
+      let C = f.kind === "related" ? f.related.contentType : f.file.contentType;
+      if (C === "ova") return He += 1, {
+        ...f,
+        label: `OVA ${He}`,
+        year: f.orderYear
+      };
+      if (C === "special") return {
+        ...f,
+        label: "Special",
+        year: f.orderYear
+      };
+      return ra += 1, {
+        ...f,
+        label: `Movie ${ra}`,
+        year: f.orderYear
+      };
+    }),
+    N = s == null ? null : S.relatedMedia.find(f => f.id === s) ?? null,
+    q = N ? nt.find(f => f.related.id === N.id)?.matchingFile ?? null : null;
+  function ve(f) {
+    if (f === 0) return "Specials";
+    let C = Me.find(ae => ae.seasonNumber === f);
+    return `Season ${lt.get(f) ?? f}${C?.releaseYear ? ` (${C.releaseYear})` : ""}`;
+  }
+  return v("main", {
+    className: "detail-view",
+    children: [v("button", {
+      className: "back-button",
+      onClick: a,
+      children: [u(k, {
+        name: "back"
+      }), " Library"]
+    }), v("section", {
+      className: `detail-hero ${ue ? "has-local-clip" : ""}`,
+      children: [ue && u(To, {
+        collectionId: S.id,
+        title: S.title,
+        localMedia: t,
+        active: !0,
+        variant: "detail"
+      }), v("div", {
+        className: "hero-art",
+        children: [u(Cc, {
+          item: S,
+          className: "hero-poster",
+          eager: !0
+        }), v("button", {
+          className: "trailer-trigger",
+          onClick: () => ue ? E(!0) : l(),
+          "aria-label": ue ? `Play a random local clip from ${S.title}` : `Connect local files for ${S.title} preview`,
+          children: [u(k, {
+            name: ue ? "play" : "folder",
+            size: 30
+          }), u("span", {
+            children: ue ? "Random local clip" : "Connect for preview"
+          })]
+        })]
+      }), v("div", {
+        className: "hero-copy",
+        children: [v("p", {
+          className: "detail-kicker",
+          children: [Nn(S.kind), S.year ? ` · ${S.year}` : ""]
+        }), u("h1", {
+          children: S.title
+        }), v("div", {
+          className: "meta-line",
+          children: [v("strong", {
+            className: "score",
+            children: ["★ ", sg(S)]
+          }), S.genres.map(f => u("span", {
+            children: f
+          }, f))]
+        }), u("p", {
+          className: "synopsis",
+          children: S.synopsis ?? "No synopsis was returned for this title yet."
+        }), v("div", {
+          className: "hero-actions",
+          children: [_[0] && v("button", {
+            className: "primary-action",
+            onClick: () => {
+              let f = _[0];
+              if (f) i(f.fileName, f.displayTitle, f.id, f.completed ? 0 : f.positionSeconds, S.files);
+            },
+            children: [u(k, {
+              name: "play"
+            }), " ", _[0].positionSeconds > 3 && !_[0].completed ? "Resume" : "Play local file"]
+          }), v("button", {
+            className: "secondary-action",
+            onClick: () => b({
+              collectionId: S.id,
+              target: "collection",
+              label: `${S.title} poster`,
+              currentUrl: S.posterUrl
+            }),
+            children: [u(k, {
+              name: "edit"
+            }), " Modify artwork"]
+          }), v("button", {
+            className: "secondary-action",
+            onClick: () => m.mutate(),
+            disabled: m.isPending,
+            children: [u(k, {
+              name: "refresh"
+            }), " ", m.isPending ? "Finding…" : "Refresh details"]
+          }), u("button", {
+            className: "ghost-danger",
+            onClick: () => x.mutate(),
+            disabled: x.isPending,
+            "aria-label": `Delete ${S.title}`,
+            children: u(k, {
+              name: "trash"
+            })
+          })]
+        }), S.sourceUrl && v("a", {
+          className: "source-link",
+          href: S.sourceUrl,
+          target: "_blank",
+          rel: "noopener",
+          children: ["Metadata: ", S.ratingSource ?? "source", " ↗"]
+        }), S.metadataNote && u("p", {
+          className: "metadata-note",
+          children: S.metadataNote
+        })]
+      })]
+    }), S.kind === "series" && v("section", {
+      className: "watch-order-section unified-watch-section",
+      id: "watch-order",
+      "aria-labelledby": "watch-order-heading",
+      children: [v("div", {
+        className: "section-heading",
+        children: [u("div", {
+          children: u("h2", {
+            id: "watch-order-heading",
+            children: "Watch order"
+          })
+        }), u("p", {
+          className: "order-note",
+          children: "Seasons, movies and OVAs together in release order. Pick any item to see its episodes or details below."
+        })]
+      }), Qa.length > 0 ? u("div", {
+        className: "watch-order-list",
+        children: Qa.map((f, C) => {
+          let X = f.kind === "season" ? f.season.thumbnailUrl ?? S.posterUrl : f.kind === "related" ? f.related.thumbnailUrl ?? S.posterUrl : S.posterUrl,
+            ae = f.file && f.file.durationSeconds > 0 ? Math.min(100, Math.max(0, f.file.positionSeconds / f.file.durationSeconds * 100)) : 0,
+            Oe = f.kind === "season" ? s == null && r === f.season.seasonNumber : f.kind === "related" ? s === f.related.id : !1,
+            oa = f.kind === "season" ? `${S.episodes.filter(I => I.seasonNumber === f.season.seasonNumber).length} episodes` : f.kind === "related" ? f.related.title : f.file.displayTitle;
+          return v("button", {
+            className: `watch-order-card ${Oe ? "active" : ""}`,
+            onClick: () => {
+              if (f.kind === "season") c(null), o(f.season.seasonNumber), document.getElementById("watch-content")?.scrollIntoView({
+                behavior: "smooth",
+                block: "start"
+              });else if (f.kind === "related") c(f.related.id), document.getElementById("watch-content")?.scrollIntoView({
+                behavior: "smooth",
+                block: "start"
+              });else i(f.file.fileName, f.file.displayTitle, f.file.id, f.file.completed ? 0 : f.file.positionSeconds, S.files);
+            },
+            "aria-label": f.kind === "season" ? `Open ${f.label}${f.year ? `, ${f.year}` : ""}` : f.kind === "related" ? `Open ${f.label}: ${f.related.title}` : `Play ${f.label}${f.year ? `, ${f.year}` : ""}`,
+            children: [u("span", {
+              className: "order-index",
+              children: String(C + 1).padStart(2, "0")
+            }), v("span", {
+              className: "order-thumb",
+              children: [X ? u("img", {
+                src: X,
+                alt: "",
+                loading: "lazy"
+              }) : u(k, {
+                name: f.kind === "season" ? "screen" : "film",
+                size: 28
+              }), ae > 0 && u("span", {
+                className: "order-progress",
+                children: u("i", {
+                  style: {
+                    width: `${ae}%`
+                  }
+                })
+              })]
+            }), v("span", {
+              className: "order-copy",
+              children: [v("strong", {
+                children: [f.label, f.year ? ` (${f.year})` : ""]
+              }), u("small", {
+                children: oa
+              })]
+            }), u("span", {
+              className: "row-arrow",
+              children: "›"
+            })]
+          }, f.id);
+        })
+      }) : v("div", {
+        className: "empty-inline",
+        children: [u("p", {
+          children: "No watch-order details were found for this title yet."
+        }), v("button", {
+          className: "secondary-action",
+          onClick: () => m.mutate(),
+          children: [u(k, {
+            name: "refresh"
+          }), " Try again"]
+        })]
+      }), u("div", {
+        className: "watch-content",
+        id: "watch-content",
+        children: N ? v("article", {
+          className: "related-detail",
+          children: [u("div", {
+            className: "related-art",
+            children: N.thumbnailUrl ? u("img", {
+              src: N.thumbnailUrl,
+              alt: `${N.title} poster`
+            }) : u("span", {
+              children: u(k, {
+                name: "film",
+                size: 42
+              })
+            })
+          }), v("div", {
+            className: "related-copy",
+            children: [v("p", {
+              className: "related-type",
+              children: [N.contentType === "ova" ? "OVA" : "Movie", N.releaseYear ? ` · ${N.releaseYear}` : "", N.relation ? ` · ${N.relation}` : ""]
+            }), u("h3", {
+              children: N.title
+            }), N.rating != null && v("strong", {
+              className: "score",
+              children: ["★ ", N.rating.toFixed(1), " / ", N.ratingScale ?? 10]
+            }), u("p", {
+              children: N.synopsis ?? "No synopsis was returned for this title yet."
+            }), u("div", {
+              className: "related-actions",
+              children: q ? v("button", {
+                className: "primary-action",
+                onClick: () => i(q.fileName, N.title, q.id, q.completed ? 0 : q.positionSeconds, S.files),
+                children: [u(k, {
+                  name: "play"
+                }), " ", q.positionSeconds > 3 && !q.completed ? "Resume" : "Play local file"]
+              }) : v(Z, {
+                children: [v("button", {
+                  className: "secondary-action",
+                  onClick: l,
+                  children: [u(k, {
+                    name: "folder"
+                  }), " Connect local file"]
+                }), v("button", {
+                  className: "secondary-action",
+                  onClick: () => y({
+                    collectionId: S.id,
+                    itemKey: `related-${N.id}`,
+                    title: N.title,
+                    year: N.releaseYear
+                  }),
+                  children: [u(k, {
+                    name: "internet"
+                  }), " Watch online"]
+                })]
+              })
+            }), N.sourceUrl && u("a", {
+              className: "source-link",
+              href: N.sourceUrl,
+              target: "_blank",
+              rel: "noopener",
+              children: "Metadata: AniList ↗"
+            })]
+          })]
+        }) : v("div", {
+          className: "episode-panel",
+          children: [v("div", {
+            className: "episode-panel-heading",
+            children: [u("h3", {
+              children: r == null ? "Episodes" : ve(r)
+            }), D.length > 1 && v("label", {
+              className: "season-select",
+              children: [u("span", {
+                children: "Season"
+              }), u("select", {
+                "aria-label": "Choose season",
+                value: r ?? "",
+                onChange: f => {
+                  c(null), o(Number(f.target.value));
+                },
+                children: D.map(f => u("option", {
+                  value: f,
+                  children: ve(f)
+                }, f))
+              })]
+            })]
+          }), U.length > 0 ? u("div", {
+            className: "episode-grid",
+            children: U.map(f => {
+              let C = R.find(bt => bt.fileName === f.localFileName || bt.episodeNumber === f.episodeNumber) ?? null,
+                X = C?.fileName ?? f.localFileName ?? null,
+                ae = X ? t.get(X) ?? null : null,
+                Oe = Boolean(ae),
+                oa = S.seasons.find(bt => bt.seasonNumber === f.seasonNumber)?.thumbnailUrl ?? S.posterUrl,
+                I = f.thumbnailUrl ?? oa;
+              return v("article", {
+                className: `episode-card ${Oe ? "connected" : ""}`,
+                onMouseEnter: () => {
+                  if (Oe && C) p(C.id);
+                },
+                onMouseLeave: () => p(bt => bt === C?.id ? null : bt),
+                children: [v("div", {
+                  className: "episode-visual",
+                  children: [v("button", {
+                    className: "episode-thumb",
+                    onClick: () => X && C ? i(X, f.title, C.id, C.completed ? 0 : C.positionSeconds, S.files) : l(),
+                    "aria-label": X ? `Play episode ${f.episodeNumber}: ${f.title}` : `Connect local file for episode ${f.episodeNumber}`,
+                    children: [I && u("img", {
+                      src: I,
+                      alt: f.thumbnailUrl ? `Episode ${f.episodeNumber ?? "special"}: ${f.title}` : `${S.title} artwork used for episode ${f.episodeNumber ?? "special"}`,
+                      loading: "lazy"
+                    }), u("span", {
+                      className: "episode-shade"
+                    }), u("span", {
+                      className: "episode-number",
+                      children: f.episodeNumber == null ? "SP" : String(f.episodeNumber).padStart(2, "0")
+                    }), u("span", {
+                      className: "episode-play",
+                      children: u(k, {
+                        name: X ? "play" : "folder",
+                        size: 26
+                      })
+                    }), C && C.durationSeconds > 0 && u("span", {
+                      className: "episode-progress",
+                      children: u("i", {
+                        style: {
+                          width: `${Math.min(100, Math.max(0, C.positionSeconds / C.durationSeconds * 100))}%`
+                        }
+                      })
+                    })]
+                  }), ae && C && u(gb, {
+                    collectionId: S.id,
+                    mediaFileId: C.id,
+                    title: f.title,
+                    media: ae,
+                    active: z === C.id
+                  }), u("button", {
+                    className: "thumb-edit",
+                    onClick: () => b({
+                      collectionId: S.id,
+                      target: "episode",
+                      seasonNumber: f.seasonNumber,
+                      episodeId: f.id,
+                      label: `Episode ${f.episodeNumber ?? "special"} thumbnail`,
+                      currentUrl: I
+                    }),
+                    "aria-label": `Modify episode ${f.episodeNumber ?? "special"} thumbnail`,
+                    children: u(k, {
+                      name: "edit",
+                      size: 16
+                    })
+                  }), !X && u("button", {
+                    className: "episode-online",
+                    onClick: () => y({
+                      collectionId: S.id,
+                      itemKey: `episode-${f.seasonNumber}-${f.episodeNumber ?? "special"}`,
+                      title: `${S.title} ${f.title}`,
+                      year: S.year
+                    }),
+                    "aria-label": `Find where to watch episode ${f.episodeNumber ?? "special"} online`,
+                    children: u(k, {
+                      name: "internet",
+                      size: 20
+                    })
+                  })]
+                }), v("div", {
+                  children: [u("h3", {
+                    children: f.title
+                  }), v("p", {
+                    children: [f.runtimeMinutes ? `${f.runtimeMinutes} min` : "Runtime unavailable", X ? Oe ? C && C.positionSeconds > 3 && !C.completed ? " · Resume" : " · Ready to play" : " · Reconnect file" : " · No local file"]
+                  })]
+                })]
+              }, `${f.seasonNumber}-${f.episodeNumber}-${f.id}`);
+            })
+          }) : v("div", {
+            className: "empty-inline",
+            children: [u("p", {
+              children: "No episode list was found for this season. Your imported files are still kept."
+            }), v("button", {
+              className: "secondary-action",
+              onClick: () => m.mutate(),
+              children: [u(k, {
+                name: "refresh"
+              }), " Try again"]
+            })]
+          })]
+        })
+      })]
+    }), S.kind !== "series" && _.length > 0 && v("section", {
+      className: "movies-section",
+      children: [u("div", {
+        className: "section-heading",
+        children: v("div", {
+          children: [u("p", {
+            className: "eyebrow",
+            children: S.kind === "music" ? "Local audio" : "Local video"
+          }), u("h2", {
+            children: S.kind === "music" ? "Tracks" : "Files"
+          })]
+        })
+      }), u("div", {
+        className: "file-list",
+        children: _.map(f => v("button", {
+          className: "file-row",
+          onClick: () => i(f.fileName, f.displayTitle, f.id, f.completed ? 0 : f.positionSeconds, S.files),
+          children: [u("span", {
+            className: `file-icon ${S.posterUrl ? "has-art" : ""}`,
+            children: S.posterUrl ? u("img", {
+              src: S.posterUrl,
+              alt: "",
+              loading: "lazy"
+            }) : u(k, {
+              name: f.mediaKind === "music" ? "music" : "play"
+            })
+          }), v("span", {
+            children: [u("strong", {
+              children: f.displayTitle
+            }), u("small", {
+              children: t.has(f.fileName) ? "Ready to play" : "Tap to reconnect local file"
+            })]
+          }), u("span", {
+            className: "row-arrow",
+            children: "›"
+          })]
+        }, f.id))
+      })]
+    }), S.kind !== "music" && u(Sb, {
+      collectionId: S.id,
+      initialReviews: S.reviews
+    }), T && v("div", {
+      className: "random-clip-modal",
+      role: "dialog",
+      "aria-modal": "true",
+      "aria-label": `Random local clip from ${S.title}`,
+      children: [u("button", {
+        className: "modal-close",
+        onClick: () => E(!1),
+        "aria-label": "Close random clip",
+        children: u(k, {
+          name: "close"
+        })
+      }), u(To, {
+        collectionId: S.id,
+        title: S.title,
+        localMedia: t,
+        active: !0,
+        variant: "modal",
+        onConnect: l
+      })]
+    }), h && u(xb, {
+      target: h,
+      onClose: () => y(null)
+    }), g && u(vb, {
+      target: g,
+      onClose: () => b(null)
+    })]
+  });
+}
+function dg() {
+  let [e, t] = H(""),
+    [a, i] = H("all"),
+    [l, n] = H(!1),
+    [r, o] = H(null),
+    [s, c] = H(null),
+    [g, b] = H(0),
+    [h, y] = H(!1),
+    [T, E] = H(new Map()),
+    [z, p] = H(null),
+    [d, m] = H(null),
+    x = Ue(null),
+    S = Ue(T),
+    D = ca({
+      queryKey: ["collections", e, a],
+      queryFn: () => it.listCollections({
+        query: e,
+        kind: a
+      })
+    }),
+    A = ca({
+      queryKey: ["continue-watching"],
+      queryFn: () => it.listContinueWatching({
+        limit: 12
+      })
+    });
+  Ee(() => {
+    S.current = T;
+  }, [T]), Ee(() => {
+    let N = !0;
+    return hb().then(q => {
+      if (!N || q.length === 0) return;
+      E(ve => {
+        let f = new Map(ve);
+        for (let C of q) {
+          if (f.has(C.name)) continue;
+          f.set(C.name, {
+            url: URL.createObjectURL(C.blob),
+            mimeType: C.type || (C.name.match(/\.(mp3|m4a|wav|flac)$/i) ? "audio/mpeg" : "video/mp4"),
+            fileName: C.name
+          });
+        }
+        return f;
+      });
+    }).catch(() => {
+      return;
+    }), () => {
+      N = !1;
+      for (let q of S.current.values()) URL.revokeObjectURL(q.url);
+    };
+  }, []);
+  let R = D.data?.collections ?? [],
+    U = R.filter(N => N.kind === "series"),
+    _ = R.filter(N => N.kind === "movie"),
+    ue = R.filter(N => N.kind === "music"),
+    Me = [...R].sort((N, q) => Date.parse(q.createdAt) - Date.parse(N.createdAt)).slice(0, 3),
+    lt = (A.data?.items ?? []).slice(0, 2),
+    me = [...Me.map(N => ({
+      kind: "recent",
+      item: N
+    })), ...lt.map(N => ({
+      kind: "watched",
+      entry: N,
+      item: R.find(q => q.id === N.collectionId) ?? null
+    }))],
+    nt = me.length > 0 ? me[g % me.length] ?? null : null;
+  Ee(() => {
+    if (h || me.length < 2 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let N = window.setInterval(() => b(q => (q + 1) % me.length), 6500);
+    return () => window.clearInterval(N);
+  }, [h, me.length]);
+  function qt(N) {
+    if (N.length === 0) return;
+    pb(N).catch(() => m("Files are connected now, but this browser could not remember them for next time.")), E(q => {
+      let ve = new Map(q);
+      for (let f of N) {
+        let C = ve.get(f.name);
+        if (C) URL.revokeObjectURL(C.url);
+        ve.set(f.name, {
+          url: URL.createObjectURL(f),
+          mimeType: f.type || (f.name.match(/\.(mp3|m4a|wav|flac)$/i) ? "audio/mpeg" : "video/mp4"),
+          fileName: f.name
+        });
+      }
+      return ve;
+    }), m(`${N.length} local ${N.length === 1 ? "file" : "files"} connected for this session.`), window.setTimeout(() => m(null), 3500);
+  }
+  function ra(N, q, ve, f, C, X) {
+    let ae = T.get(N);
+    if (!ae) {
+      m(`Reconnect “${N}” to play it on this device.`), x.current?.click();
+      return;
+    }
+    let Oe = X ?? r;
+    if (Oe == null) return;
+    let oa = C && C.length > 0 ? [...C].sort((I, bt) => I.sortOrder - bt.sortOrder).map(I => ({
+      media: T.get(I.fileName) ?? null,
+      fileName: I.fileName,
+      title: I.id === ve ? q : I.displayTitle,
+      label: I.seasonNumber != null && I.episodeNumber != null ? `S${String(I.seasonNumber).padStart(2, "0")} E${String(I.episodeNumber).padStart(2, "0")} · ${I.displayTitle}` : I.displayTitle,
+      collectionId: Oe,
+      mediaFileId: I.id,
+      startAt: I.completed ? 0 : I.positionSeconds
+    })) : [{
+      media: ae,
+      fileName: N,
+      title: q,
+      label: q,
+      collectionId: Oe,
+      mediaFileId: ve,
+      startAt: f
+    }];
+    p({
+      media: ae,
+      title: q,
+      collectionId: Oe,
+      mediaFileId: ve,
+      startAt: f,
+      queue: oa
+    });
+  }
+  function He(N) {
+    if (!N.media) return;
+    p({
+      media: N.media,
+      title: N.title,
+      collectionId: N.collectionId,
+      mediaFileId: N.mediaFileId,
+      startAt: N.startAt,
+      queue: z?.queue ?? [N]
+    });
+  }
+  function Qa(N) {
+    m(`Reconnect “${N}” to play it on this device.`), x.current?.click();
+  }
+  if (r != null) return v("div", {
+    className: "app-shell",
+    children: [u(Bn, {
+      backgroundColor: "var(--bg)"
+    }), u(wb, {
+      id: r,
+      localMedia: T,
+      onBack: () => o(null),
+      onPlay: ra,
+      onConnect: () => x.current?.click()
+    }), u("input", {
+      ref: x,
+      className: "sr-only",
+      "aria-label": "Reconnect local media files",
+      type: "file",
+      multiple: !0,
+      accept: "video/*,audio/*,.mkv",
+      onChange: N => qt(Array.from(N.target.files ?? []))
+    }), z && u(rg, {
+      media: z.media,
+      title: z.title,
+      collectionId: z.collectionId,
+      mediaFileId: z.mediaFileId,
+      startAt: z.startAt,
+      queue: z.queue,
+      onNavigate: He,
+      onMissing: Qa,
+      onClose: () => p(null)
+    }, z.mediaFileId), d && u("div", {
+      className: "toast",
+      role: "status",
+      children: d
+    })]
+  });
+  return v("div", {
+    className: "app-shell",
+    children: [u(Bn, {
+      backgroundColor: "var(--bg)"
+    }), v("header", {
+      className: "topbar",
+      children: [v("nav", {
+        "aria-label": "Library sections",
+        children: [u("button", {
+          className: a === "all" ? "active" : "",
+          onClick: () => i("all"),
+          children: "Home"
+        }), u("button", {
+          className: a === "series" ? "active" : "",
+          onClick: () => i("series"),
+          children: "Shows"
+        }), u("button", {
+          className: a === "movie" ? "active" : "",
+          onClick: () => i("movie"),
+          children: "Movies"
+        }), u("button", {
+          className: a === "music" ? "active" : "",
+          onClick: () => i("music"),
+          children: "Music"
+        })]
+      }), v("div", {
+        className: "top-actions",
+        children: [v("label", {
+          className: "search-field",
+          children: [u(k, {
+            name: "search",
+            size: 18
+          }), u("input", {
+            "aria-label": "Search library",
+            value: e,
+            onChange: N => t(N.target.value),
+            placeholder: "Search"
+          })]
+        }), v("button", {
+          className: "connect-button",
+          onClick: () => x.current?.click(),
+          children: [u(k, {
+            name: "folder",
+            size: 18
+          }), u("span", {
+            children: "Connect files"
+          })]
+        }), v("button", {
+          className: "add-button",
+          onClick: () => n(!0),
+          children: [u(k, {
+            name: "plus",
+            size: 18
+          }), u("span", {
+            children: "Add"
+          })]
+        })]
+      })]
+    }), u("main", {
+      className: "library-main",
+      children: D.isPending ? v("div", {
+        className: "loading-state",
+        children: [u("span", {
+          className: "spinner"
+        }), " Opening your library…"]
+      }) : R.length === 0 ? v("section", {
+        className: "empty-library",
+        children: [v("div", {
+          className: "empty-mark",
+          children: [u(k, {
+            name: "screen",
+            size: 54
+          }), u("span", {})]
+        }), u("p", {
+          className: "eyebrow",
+          children: "Your private screen"
+        }), u("h1", {
+          children: e || a !== "all" ? "Nothing matches this view" : "Build your streaming shelf"
+        }), u("p", {
+          children: e || a !== "all" ? "Try another search or switch sections." : "Choose local movies, shows or music. Add a poster once; seasons, episode titles and ratings are found for you, while previews use your own files."
+        }), !e && a === "all" && v("button", {
+          className: "primary-action",
+          onClick: () => n(!0),
+          children: [u(k, {
+            name: "plus"
+          }), " Add your first collection"]
+        })]
+      }) : v(Z, {
+        children: [nt && a === "all" && !e && (() => {
+          let N = nt.item,
+            q = nt.kind === "watched" ? nt.entry : null,
+            ve = q ? q.seasonNumber != null && q.episodeNumber != null ? `S${q.seasonNumber} E${q.episodeNumber}` : q.contentType === "ova" ? "OVA" : q.contentType === "special" ? "Special" : q.contentType === "movie" ? "Movie" : "Track" : null,
+            f = N?.posterUrl ?? q?.posterUrl ?? null,
+            C = nt.kind === "recent" ? `recent-${nt.item.id}` : `watched-${nt.entry.mediaFileId}`;
+          return v("section", {
+            className: "home-carousel",
+            "aria-roledescription": "carousel",
+            "aria-label": "Recently added and recently watched",
+            onMouseEnter: () => y(!0),
+            onMouseLeave: () => y(!1),
+            children: [v("div", {
+              className: "featured-backdrop",
+              children: [f && u("img", {
+                src: f,
+                className: "featured-blur",
+                alt: ""
+              }), N && u(To, {
+                collectionId: N.id,
+                title: N.title,
+                localMedia: T,
+                active: !0,
+                variant: "hero"
+              })]
+            }, `${C}-backdrop`), v("div", {
+              className: "featured-copy",
+              children: [u("p", {
+                className: "eyebrow",
+                children: q ? "Recently watched" : "Recently added"
+              }), u("h1", {
+                children: N?.title ?? q?.collectionTitle
+              }), q ? v(Z, {
+                children: [v("p", {
+                  className: "featured-meta",
+                  children: [ve, " · ", q.displayTitle]
+                }), u("div", {
+                  className: "hero-progress",
+                  "aria-label": `${Math.round(q.progressPercent)} percent watched`,
+                  children: u("i", {
+                    style: {
+                      width: `${Math.max(0, Math.min(100, q.progressPercent))}%`
+                    }
+                  })
+                })]
+              }) : N && v("p", {
+                className: "featured-meta",
+                children: [Nn(N.kind), N.year ? ` · ${N.year}` : "", " · ", v("strong", {
+                  children: ["★ ", sg(N)]
+                })]
+              }), u("p", {
+                children: q ? "Continue from where you stopped." : N?.synopsis ?? "Your local collection is ready."
+              }), u("div", {
+                children: q ? v("button", {
+                  className: "primary-action",
+                  onClick: () => ra(q.fileName, q.displayTitle, q.mediaFileId, q.positionSeconds, void 0, q.collectionId),
+                  children: [u(k, {
+                    name: "play"
+                  }), " Resume"]
+                }) : N && v("button", {
+                  className: "primary-action",
+                  onClick: () => o(N.id),
+                  children: [u(k, {
+                    name: "play"
+                  }), " Open collection"]
+                })
+              })]
+            }, `${C}-copy`), u("div", {
+              className: "featured-poster",
+              children: N ? u(Cc, {
+                item: N,
+                className: "poster-image",
+                eager: !0
+              }) : f ? u("img", {
+                src: f,
+                className: "poster-image",
+                alt: `${q?.collectionTitle ?? "Recently watched"} poster`
+              }) : v("div", {
+                className: "poster-fallback poster-image",
+                children: [u("span", {
+                  children: "RW"
+                }), u("small", {
+                  children: "Recently watched"
+                })]
+              })
+            }, `${C}-poster`), me.length > 1 && v("div", {
+              className: "carousel-controls",
+              children: [u("button", {
+                "aria-label": "Previous carousel item",
+                onClick: () => b(X => (X - 1 + me.length) % me.length),
+                children: "‹"
+              }), u("div", {
+                className: "carousel-dots",
+                children: me.map((X, ae) => u("button", {
+                  className: ae === g % me.length ? "active" : "",
+                  "aria-label": `Show carousel item ${ae + 1}`,
+                  "aria-current": ae === g % me.length ? "true" : void 0,
+                  onClick: () => b(ae)
+                }, `${X.kind}-${X.kind === "recent" ? X.item.id : X.entry.mediaFileId}`))
+              }), u("button", {
+                "aria-label": "Next carousel item",
+                onClick: () => b(X => (X + 1) % me.length),
+                children: "›"
+              })]
+            })]
+          });
+        })(), u("div", {
+          className: "rail-stack",
+          children: [["series", "Series collections", U], ["movie", "Movies", _], ["music", "Music", ue]].map(([N, q, ve]) => ve.length > 0 && v("section", {
+            className: "media-rail",
+            children: [v("div", {
+              className: "rail-heading",
+              children: [u("h2", {
+                children: q
+              }), u("span", {
+                children: ve.length
+              })]
+            }), u("div", {
+              className: "poster-grid",
+              children: ve.map(f => u(bb, {
+                item: f,
+                previewing: s === f.id,
+                localMedia: T,
+                onPreview: () => c(C => C === f.id ? null : f.id),
+                onOpen: () => o(f.id),
+                onConnect: () => x.current?.click()
+              }, f.id))
+            })]
+          }, N))
+        })]
+      })
+    }), u("input", {
+      ref: x,
+      className: "sr-only",
+      "aria-label": "Reconnect local media files",
+      type: "file",
+      multiple: !0,
+      accept: "video/*,audio/*,.mkv",
+      onChange: N => qt(Array.from(N.target.files ?? []))
+    }), l && u(yb, {
+      onClose: () => n(!1),
+      onFilesReady: qt
+    }), z && u(rg, {
+      media: z.media,
+      title: z.title,
+      collectionId: z.collectionId,
+      mediaFileId: z.mediaFileId,
+      startAt: z.startAt,
+      queue: z.queue,
+      onNavigate: He,
+      onMissing: Qa,
+      onClose: () => p(null)
+    }, z.mediaFileId), d && u("div", {
+      className: "toast",
+      role: "status",
+      children: d
+    })]
+  });
+}
+var fg = document.querySelector("[data-generated-space-root]");
+if (!fg) throw Error("missing generated space root element");
+zc(fg).render(u(Ho, {
+  children: u(Yo, {
+    client: Ot,
+    children: u("div", {
+      className: "hatch-space-root",
+      "data-hatch-space-root": !0,
+      children: u(dg, {})
+    })
+  })
+}));
+
+})();
