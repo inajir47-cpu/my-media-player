@@ -1,13 +1,25 @@
-name: Build Exact Media Player APK
+name: Live Preview & Build Exact APK
 
 on:
   push:
     branches: [ "main", "master" ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
 jobs:
-  build-apk:
+  live-web-preview:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -17,58 +29,41 @@ jobs:
         with:
           node-version: 20
 
-      - name: Setup Java 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '21'
-
-      - name: Package Exact true-konosuba-player.txt with Native Back Button
+      - name: Build Patched Web App for Live Testing
         run: |
-          mkdir -p exact-app/www
-          cp true-konosuba-player.txt exact-app/raw.html
-          cd exact-app
+          mkdir -p www
+          cp true-konosuba-player.txt raw.html
 
           cat << 'EOF_PATCH' > patch.js
           const fs = require("fs");
           let html = fs.readFileSync("raw.html", "utf8");
 
-          // 1. Remove Muse iframe bridge scripts
           html = html.replace(/<script data-hatch-cvm-opaque-url-compat[\s\S]*?<\/script>/, "");
           html = html.replace(/<script data-hatch-cvm-bridge[\s\S]*?<\/script>/, "");
 
-          // 2. Clear static HTML snapshot so React mounts cleanly
           html = html.replace(
             /(<div class="hatch-space-root" data-hatch-space-root="true">)[\s\S]*?(<\/div><\/div>\s*<script data-hatch-cvm-bundle)/,
             "$1$2"
           );
 
-          // 3. Inject local ./actions handler + Android Hardware Back Button handler
           const localRuntime = `<script data-hatch-cvm-bundle="">
           (function() {
-            // Smart Android Back Button Handler
             window.__handleAndroidBack = function() {
-              // 1. If Playlist Queue drawer inside video player is open, close it first
               var queueClose = document.querySelector('.player-queue .queue-head button');
               if (queueClose) { queueClose.click(); return true; }
 
-              // 2. If VLC Video Player is open, click its Close button
               var playerClose = document.querySelector('.player-modal .player-toolbar > button');
               if (playerClose) { playerClose.click(); return true; }
 
-              // 3. If Random Clip Modal or Online Availability Modal is open, close it
               var modalClose = document.querySelector('.random-clip-modal > .modal-close, .online-modal .modal-close, .trailer-modal .modal-close');
               if (modalClose) { modalClose.click(); return true; }
 
-              // 4. If Add Collection or Modify Artwork sheet is open, close it
               var sheetClose = document.querySelector('.sheet-backdrop .icon-button');
               if (sheetClose) { sheetClose.click(); return true; }
 
-              // 5. If on a Series / Movie Detail page, click the "< Library" back button
               var backBtn = document.querySelector('button.back-button');
               if (backBtn) { backBtn.click(); return true; }
 
-              // 6. If Search input has text, clear it
               var searchInput = document.querySelector('.search-field input');
               if (searchInput && searchInput.value) {
                 var nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
@@ -77,16 +72,27 @@ jobs:
                 return true;
               }
 
-              // 7. If on Shows / Movies / Music tab, return to Home tab
               var navButtons = document.querySelectorAll('.topbar nav button');
               if (navButtons.length > 0 && !navButtons[0].classList.contains('active')) {
                 navButtons[0].click();
                 return true;
               }
 
-              // Nothing left to go back to -> allow Android to minimize/close app
               return false;
             };
+
+            // Also let Browser Back Button & Escape key test the exact same back-stack in Chrome!
+            window.history.pushState({ appRoot: true }, "");
+            window.addEventListener("popstate", function() {
+              if (window.__handleAndroidBack && window.__handleAndroidBack()) {
+                window.history.pushState({ appRoot: true }, "");
+              }
+            });
+            document.addEventListener("click", function() {
+              if (!window.history.state || !window.history.state.appRoot) {
+                window.history.pushState({ appRoot: true }, "");
+              }
+            });
 
             var DB_KEY = "media_player_exact_db_v2";
             var SEED_DB = {
@@ -579,13 +585,54 @@ jobs:
 
           node patch.js
 
+      - name: Upload Web Artifact for GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./www
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Save Patched Web App for APK Job
+        uses: actions/upload-artifact@v4
+        with:
+          name: patched-web-dir
+          path: ./www/index.html
+
+  build-apk:
+    needs: live-web-preview
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Download Patched index.html
+        uses: actions/download-artifact@v4
+        with:
+          name: patched-web-dir
+          path: exact-app/www
+
+      - name: Build Android APK
+        run: |
+          cd exact-app
           npm init -y
           npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
           npx cap init "Media Player" "com.exact.mediaplayer" --web-dir www
           npx cap add android
           npx cap sync android
 
-          # Override Android MainActivity.java to route hardware/gesture Back button into window.__handleAndroidBack()
           cat << 'EOF_JAVA' > android/app/src/main/java/com/exact/mediaplayer/MainActivity.java
           package com.exact.mediaplayer;
 
