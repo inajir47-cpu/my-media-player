@@ -3605,8 +3605,26 @@ jobs:
                        document.querySelector('[aria-label="Watch History"] .history-grid') ||
                        document.querySelector('[aria-label="Watch History"] div[class*="grid"]');
               }
-              function ohInject() {
+              function ohEnsureSection() {
+                // Try to find existing grid first
                 var grid = ohFindGrid();
+                if (grid) return grid;
+                // Fallback: create our own section at top of History tab content
+                var histTab = document.querySelector('[aria-label="Watch History"]') ||
+                              document.querySelector('.continue-section');
+                if (!histTab) return null;
+                var sec = document.getElementById('__ohSection');
+                if (!sec) {
+                  sec = document.createElement('div');
+                  sec.id = '__ohSection';
+                  sec.innerHTML = '<h3 style="padding:12px 16px 4px;font-size:16px;">\\uD83C\\uDF10 Online History</h3>' +
+                                  '<div class="__ohGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;padding:0 16px 16px;"></div>';
+                  histTab.insertBefore(sec, histTab.firstChild);
+                }
+                return sec.querySelector('.__ohGrid');
+              }
+              function ohInject() {
+                var grid = ohEnsureSection();
                 if (!grid) return;
                 // Remove previously injected cards
                 var olds = grid.querySelectorAll('.continue-card.__oh');
@@ -4113,7 +4131,7 @@ jobs:
                   }).join('') + '</div>';
                 wireServerRow(sec);
                 Array.prototype.forEach.call(sec.querySelectorAll('.aw-card'), function (card) {
-                  card.onclick = function () { var r = res[+card.getAttribute('data-i')]; openAnimeWatchShell(r.title); showDetail(r, 0); };
+                  card.onclick = function () { var r = res[+card.getAttribute('data-i')]; showDetail(r, 0); };
                 });
               }
               /* ---- v3: episode chooser - local file vs online dub ---- */
