@@ -4637,29 +4637,55 @@ jobs:
                 if (q.length < 3) { clearOnlineSection(); lastOnlineQ = ''; restoreEmpty(); return; }
                 var main = document.querySelector('main.library-main');
                 if (!main) return;
-                var empty = main.querySelector('.empty-library');
-                if (!empty) { clearOnlineSection(); lastOnlineQ = ''; restoreEmpty(); return; }
+                // Always run online search for q.length >= 3, regardless of local matches
                 if (!force && q === lastOnlineQ && onlineSection()) return;
                 lastOnlineQ = q;
                 clearOnlineSection();
-                // Unified: hide the "Nothing matches" empty state, show online results in its place
-                empty.style.display = 'none';
-                empty.__awHidden = true;
+                var empty = main.querySelector('.empty-library');
                 var sec = document.createElement('section');
                 sec.className = 'aw-online aw-unified';
                 sec.innerHTML = '<div class="aw-ohead"><span class="aw-ot">\\u{1F310} Online results</span>' +
-                  '<span class="aw-osub">for &ldquo;' + esc(q) + '&rdquo; &mdash; not in your library</span></div>' +
+                  '<span class="aw-osub">for &ldquo;' + esc(q) + '&rdquo;</span></div>' +
                   serverRowHtml() +
                   '<div class="aw-ostatus"><span class="spinner"></span>Searching online for &ldquo;' + esc(q) + '&rdquo;&hellip;</div>';
-                empty.parentNode.insertBefore(sec, empty);
+                if (empty) {
+                  // No local matches: hide empty state, show online in its place
+                  empty.style.display = 'none';
+                  empty.__awHidden = true;
+                  empty.parentNode.insertBefore(sec, empty);
+                } else {
+                  // Local matches exist: inject online section below the rails
+                  var railStack = main.querySelector('.rail-stack');
+                  if (railStack && railStack.parentNode) {
+                    railStack.parentNode.insertBefore(sec, railStack.nextSibling);
+                  } else {
+                    main.appendChild(sec);
+                  }
+                }
                 wireServerRow(sec);
                 apiGet('/api/anime/search?q=' + encodeURIComponent(q)).then(function (d) {
                   var res = (d && d.results) || [];
                   if (!document.body.contains(sec)) return;
+                  // Deduplicate: filter out titles already in local library
+                  try {
+                    var dbRaw = localStorage.getItem('media_player_exact_db_v5');
+                    var db = dbRaw ? JSON.parse(dbRaw) : null;
+                    var localKeys = {};
+                    if (db && db.collections) {
+                      db.collections.forEach(function(c){
+                        localKeys[normalizeTitleKey(c.title)] = 1;
+                      });
+                    }
+                    res = res.filter(function(r){
+                      var t = (r.title && (r.title.english || r.title.romaji)) || r.title || '';
+                      return !localKeys[normalizeTitleKey(t)];
+                    });
+                  } catch(e) {}
                   if (res.length) renderOnlineCards(sec, res, q);
                   else {
-                    // No online results either: restore the empty state with a note
-                    sec.querySelector('.aw-ostatus').innerHTML = 'No online results for &ldquo;' + esc(q) + '&rdquo;.';
+                    sec.querySelector('.aw-ostatus').innerHTML = empty ?
+                      'No online results for &ldquo;' + esc(q) + '&rdquo;.' :
+                      'All online results are already in your library above.';
                   }
                 }, function (err) {
                   if (!document.body.contains(sec)) return;
