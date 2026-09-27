@@ -2535,14 +2535,21 @@ jobs:
                 // Returns one "Watch now" row; clicks are intercepted and open
                 // the in-app anime player (search -> episodes -> HLS + audio switch).
                 var colA = db.collections.find(function(c) { return Number(c.id) === Number(args.collectionId); });
-                var cleanTitle = colA ? colA.title : (args.title || "");
+                // Prioritize args.title (full Movie/OVA title) over parent series title
+                var cleanTitle = (args.title && String(args.title).trim()) ? String(args.title).trim() : (colA ? colA.title : "");
                 var epNum = 0;
                 var mEp = String(args.itemKey || "").match(/episode-\d+-(\d+)/);
                 if (mEp) epNum = parseInt(mEp[1], 10);
+                // Detect content type from itemKey: related-ova-*, related-movie-*, or movie
+                var cType = "series";
+                var ik = String(args.itemKey || "").toLowerCase();
+                if (ik.indexOf("related-ova-") === 0 || ik.indexOf("ova") >= 0) cType = "ova";
+                else if (ik.indexOf("related-movie-") === 0 || ik === "movie" || (colA && colA.kind === "movie")) cType = "movie";
+                else if (ik.indexOf("related-special-") === 0 || ik.indexOf("special") >= 0) cType = "special";
                 return {
                   checkedAt: new Date().toISOString(),
                   providers: [
-                    { name: "▶ Watch now", url: "#anime-watch:" + encodeURIComponent(cleanTitle) + ":" + epNum, languages: ["Japanese (Sub)", "English (Dub)"] }
+                    { name: "▶ Watch now", url: "#anime-watch:" + encodeURIComponent(cleanTitle) + ":" + epNum + ":" + cType, languages: ["Japanese (Sub)", "English (Dub)"] }
                   ]
                 };
               }
@@ -3642,10 +3649,11 @@ jobs:
                 e.preventDefault();
                 e.stopPropagation();
                 var rest = a.getAttribute('href').slice('#anime-watch:'.length);
-                var ci = rest.lastIndexOf(':');
-                var title = decodeURIComponent(rest.slice(0, ci));
-                var ep = parseInt(rest.slice(ci + 1), 10) || 0;
-                autoPlayOnline(title, ep);
+                var parts = rest.split(':');
+                var cType = parts.length > 2 ? parts.pop() : 'series'; // last part is contentType
+                var ep = parseInt(parts.pop(), 10) || 0; // second-to-last is ep
+                var title = decodeURIComponent(parts.join(':'));
+                autoPlayOnline(title, ep, cType);
               }, true);
               // Delete confirmation: the library detail view deletes immediately
               // on tap — ask first.
@@ -3991,18 +3999,68 @@ jobs:
                 });
               }
 
-              function autoPlayOnline(title, ep) {
+              function autoPlayOnline(title, ep, cType) {
+                cType = cType || 'series';
                 openAnimeWatchShell(title);
                 var qi = overlay.querySelector('#awQ');
                 if (qi) qi.value = title || '';
                 setStatus('<span class="spinner"></span>Searching for \\u201C' + esc(title) + '\\u201D\\u2026');
-                apiGet('/api/anime/search?q=' + encodeURIComponent(title)).then(function (d) {
-                  var res = (d && d.results) || [];
-                  lastResults = res; lastQuery = title;
-                  if (!res.length) { setStatus(errBox('No anime found for \\u201C' + title + '\\u201D.')); return; }
+                // Smart search: try full title, then fallback to simplified variants
+                function searchWithFallback(titles, idx) {
+                  if (idx >= titles.length) {
+                    setStatus(errBox('No anime found for \\u201C' + title + '\\u201D.'));
+                    return;
+                  }
+                  var qt = titles[idx];
+                  apiGet('/api/anime/search?q=' + encodeURIComponent(qt)).then(function (d) {
+                    var res = (d && d.results) || [];
+                    if (!res.length && idx + 1 < titles.length) {
+                      setStatus('<span class="spinner"></span>Trying \\u201C' + esc(titles[idx+1]) + '\\u201D\\u2026');
+                      searchWithFallback(titles, idx + 1);
+                      return;
+                    }
+                    lastResults = res; lastQuery = qt;
+                    if (!res.length) { setStatus(errBox('No anime found for \\u201C' + title + '\\u201D.')); return; }
+                    handleSearchResults(res, qt);
+                  }, function (err) { setStatus(errBox(err.message)); });
+                }
+                function buildFallbackTitles(t) {
+                  var out = [t];
+                  // Strip punctuation-heavy subtitles: "KONOSUBA -God's blessing...: Choker!" -> "KONOSUBA Choker"
+                  var simple = t.replace(/[-–—:;!?'".()[\]]/g, ' ').replace(/\s+/g, ' ').trim();
+                  if (simple && simple !== t) out.push(simple);
+                  // Try "Series OVA" / "Series Movie" pattern
+                  var m = t.match(/^(.+?)\s+[-–—]\s*(.+)$/);
+                  if (m) {
+                    var series = m[1].trim(), sub = m[2].trim();
+                    if (cType === 'ova' || cType === 'special') {
+                      out.push(series + ' OVA');
+                      out.push(series + ' ' + sub.split(' ').slice(0, 3).join(' '));
+                    } else if (cType === 'movie') {
+                      out.push(series + ' Movie');
+                    }
+                    out.push(series);
+                  }
+                  return out.filter(function(x, i){ return out.indexOf(x) === i; });
+                }
+                function handleSearchResults(res, qt) {
                   var pick = res[0];
                   var b = body();
                   if (!b) return;
+                  // For OVAs/Specials: show episode selector instead of auto-playing
+                  if (cType === 'ova' || cType === 'special') {
+                    b.innerHTML = '<div class="aw-status"><span class="spinner"></span>Found <b>' + esc(pick.title) + '</b> \\u2014 loading episodes\\u2026 ' +
+                      '<button type="button" class="aw-link" id="awWrong">Wrong title? pick another</button></div>';
+                    b.querySelector('#awWrong').onclick = function () { renderResultCards(res, ep || 0); };
+                    apiGet('/api/anime/detail?animeId=' + encodeURIComponent(pick.animeId) + '&enrich=0').then(function (dd) {
+                      var eps = (dd && dd.episodes) || [];
+                      if (!eps.length) { setStatus(errBox('No episodes found for ' + pick.title + '.')); return; }
+                      // Show manual episode selector for OVA
+                      renderOvaEpisodePicker(pick, dd.anilistId || pick.anilistId, eps, res);
+                    }, function (err) { setStatus(errBox(err.message)); });
+                    return;
+                  }
+                  // For Movies and Series: auto-play (movies play directly, series plays requested ep)
                   b.innerHTML = '<div class="aw-status"><span class="spinner"></span>Found <b>' + esc(pick.title) + '</b> \\u2014 loading episodes\\u2026 ' +
                     '<button type="button" class="aw-link" id="awWrong">Wrong title? pick another</button></div>';
                   b.querySelector('#awWrong').onclick = function () { renderResultCards(res, ep || 0); };
@@ -4012,9 +4070,34 @@ jobs:
                     for (i = 0; i < eps.length; i++) if (eps[i].number === want) target = eps[i].number;
                     if (target == null && eps.length) target = eps[0].number;
                     if (target == null) { setStatus(errBox('No episodes found for ' + pick.title + '.')); return; }
+                    // For movies with multiple matches, let user pick if more than 1 movie result
+                    if (cType === 'movie' && res.length > 1) {
+                      renderResultCards(res, 0);
+                      return;
+                    }
                     playEpisode(pick, dd.anilistId || pick.anilistId, target, eps, { preferDub: true, format: dd.info && dd.info.format });
                   }, function (err) { setStatus(errBox(err.message)); });
-                }, function (err) { setStatus(errBox(err.message)); });
+                }
+                function renderOvaEpisodePicker(pick, anilistId, eps, allRes) {
+                  var b = body();
+                  if (!b) return;
+                  b.innerHTML = '<div class="aw-ohead"><span class="aw-ot">' + esc(pick.title) + '</span>' +
+                    '<span class="aw-osub">Select OVA episode</span></div>' +
+                    '<div class="aw-grid">' + eps.map(function(e){
+                      return '<button type="button" class="aw-card" data-ep="' + e.number + '">' +
+                        '<div class="aw-card-t">Episode ' + e.number + (e.title ? ' - ' + esc(e.title) : '') + '</div></button>';
+                    }).join('') + '</div>' +
+                    (allRes.length > 1 ? '<button type="button" class="aw-link" id="awSwitchRes">Switch to another result (' + allRes.length + ' found)</button>' : '');
+                  Array.prototype.forEach.call(b.querySelectorAll('.aw-card'), function(card){
+                    card.onclick = function(){
+                      var epNum = parseInt(card.getAttribute('data-ep'), 10);
+                      playEpisode(pick, anilistId, epNum, eps, { preferDub: true, format: 'OVA' });
+                    };
+                  });
+                  var sw = b.querySelector('#awSwitchRes');
+                  if (sw) sw.onclick = function(){ renderResultCards(allRes, 0); };
+                }
+                searchWithFallback(buildFallbackTitles(title), 0);
               }
 
               var playerOverlay = null;
