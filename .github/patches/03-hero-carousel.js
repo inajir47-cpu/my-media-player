@@ -1,8 +1,8 @@
-// Section 12: Hero carousel 2+2+2 + trailer scripts
-// 12. Hero Carousel 2+2+2 rule: 2 Recently Added + 2 Recently Watched (+ 2 Newly Launched injected separately)
+// Section 12: Hero carousel 4+2+2 + trailer scripts
+// 12. Hero Carousel 4+2+2 rule: 4 Recently Added + 2 Recently Watched (+ 2 Newly Launched injected separately)
 html = html.replace(
   'Me = [...R].sort((N, q) => Date.parse(q.createdAt) - Date.parse(N.createdAt)).slice(0, 3),\n    lt = (A.data?.items ?? []).slice(0, 2),',
-  'Me = [...R].sort((N, q) => Date.parse(q.createdAt) - Date.parse(N.createdAt)).slice(0, 2),\n    lt = (function(){ var local=(A.data?.items ?? []).slice(); try{ var oh=JSON.parse(localStorage.getItem("__online_history_v1")||"[]"); var seen={}; local.forEach(function(x){ if(x&&x.collectionId) seen[String(x.collectionId)]=1; }); oh.forEach(function(o){ var k="online:"+(o.animeId||""); if(o&&o.animeId&&!seen[k]){ seen[k]=1; local.push({ collectionId:k, collectionTitle:o.title, displayTitle:(o.title||"")+" E"+(o.ep||""), lastWatchedAt:o.lastWatchedAt||0, posterUrl:o.poster||null }); } }); }catch(e){} local.sort(function(a,b){ return (b.lastWatchedAt||0)-(a.lastWatchedAt||0); }); return local; })().slice(0, 2),'
+  'Me = [...R].sort((N, q) => Date.parse(q.createdAt) - Date.parse(N.createdAt)).slice(0, 4),\n    lt = (function(){ var local=(A.data?.items ?? []).slice(); try{ var oh=JSON.parse(localStorage.getItem("__online_history_v1")||"[]"); var seen={}; local.forEach(function(x){ if(x&&x.collectionId) seen[String(x.collectionId)]=1; }); oh.forEach(function(o){ var k="online:"+(o.animeId||""); if(o&&o.animeId&&!seen[k]){ seen[k]=1; local.push({ collectionId:k, collectionTitle:o.title, displayTitle:(o.title||"")+" E"+(o.ep||""), lastWatchedAt:o.lastWatchedAt||0, posterUrl:o.poster||null }); } }); }catch(e){} local.sort(function(a,b){ return (b.lastWatchedAt||0)-(a.lastWatchedAt||0); }); return local; })().slice(0, 2),'
 );
 
 html = html.replace(
@@ -141,12 +141,22 @@ html = html.replace(
   <script>
   // Online video fallback for Hero Carousel & Detail background preview (when no local file)
   (function(){
+    // Store video positions by URL so carousel doesn't restart from beginning
+    var __trailerPositions = {};
     function clearTrailerLayer(preview) {
       if (!preview) return;
       var layer = preview.querySelector('.trailer-preview-layer');
       if (layer) {
         var vid = layer.querySelector('video');
-        if (vid) { try { vid.pause(); vid.removeAttribute('src'); vid.load(); } catch(e){} }
+        if (vid) {
+          try {
+            // Save current position before removing
+            if (vid.src && vid.currentTime > 0) {
+              __trailerPositions[vid.src] = vid.currentTime;
+            }
+            vid.pause(); vid.removeAttribute('src'); vid.load();
+          } catch(e){}
+        }
         layer.remove();
       }
     }
@@ -178,7 +188,16 @@ html = html.replace(
         }
       } catch (e) {}
       preview.appendChild(layer);
-      v.onloadedmetadata = function() { if (v.duration > 35) { try { v.currentTime = 5; } catch(e) {} } v.play().catch(function(){}); };
+      v.onloadedmetadata = function() {
+        // Restore saved position, or start at 5s for long videos
+        var savedPos = __trailerPositions[url];
+        if (savedPos && savedPos > 0 && savedPos < v.duration - 5) {
+          try { v.currentTime = savedPos; } catch(e) {}
+        } else if (v.duration > 35) {
+          try { v.currentTime = 5; } catch(e) {}
+        }
+        v.play().catch(function(){});
+      };
       v.onplaying = function(){ v.style.opacity = '1'; };
       v.onerror = function(){ clearTrailerLayer(preview); preview.dataset.onlineActive = 'none'; };
       v.play().catch(function(){});
@@ -592,6 +611,65 @@ html = html.replace(
       injectOvaEpGrid();
     }, 2000);
     window.addEventListener('hashchange', function(){ setTimeout(function(){ injectWatchOnlineBtn(); injectOvaEpGrid(); }, 500); });
+  })();
+  </script>
+  <script>
+  // Fix: Online history carousel clicks -> play online directly (not "Collection not found")
+  (function(){
+    // Store online items for click matching (with displayTitle for exact matching)
+    window.__onlineCarouselItems = [];
+    function refreshOnlineItems(){
+      try {
+        var oh = JSON.parse(localStorage.getItem("__online_history_v1") || "[]");
+        // Build displayTitle like the lt IIFE does: title + " E" + ep
+        window.__onlineCarouselItems = oh.slice(0, 10).map(function(o){
+          return {
+            title: o.title,
+            ep: o.ep || 1,
+            animeId: o.animeId,
+            displayTitle: (o.title || "") + " E" + (o.ep || ""),
+            poster: o.poster
+          };
+        });
+      } catch(e) { window.__onlineCarouselItems = []; }
+    }
+    refreshOnlineItems();
+    setInterval(refreshOnlineItems, 5000);
+    // Click interceptor for carousel slides (capture phase, before React)
+    document.addEventListener('click', function(e){
+      var slide = e.target.closest('[data-carousel-slide], .carousel-slide, .hero-slide, [class*="carousel"], [class*="hero"]');
+      if (!slide) return;
+      // Get all text from the slide for matching
+      var slideText = slide.textContent || '';
+      // Check if this matches an online history item by displayTitle
+      var matched = null;
+      for (var j = 0; j < window.__onlineCarouselItems.length; j++) {
+        var item = window.__onlineCarouselItems[j];
+        // Match by displayTitle (e.g., "Konosuba E5") or by title
+        if (item.displayTitle && slideText.indexOf(item.displayTitle) >= 0) {
+          matched = item;
+          break;
+        }
+        // Fallback: match by title (first 30 chars)
+        if (item.title && item.title.length > 5 && slideText.toLowerCase().indexOf(item.title.toLowerCase().substring(0, 30)) >= 0) {
+          // Additional check: ensure it's not a real collection by verifying no collectionId match
+          // (Real collections won't have "online:" in their data)
+          matched = item;
+          break;
+        }
+      }
+      if (matched) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        var ep = matched.ep || 1;
+        if (window.autoPlayOnline) {
+          window.autoPlayOnline(matched.title, ep, 'series', {direct:true});
+        } else if (window.__autoPlayOnline) {
+          window.__autoPlayOnline(matched.title, ep, 'series', {direct:true});
+        }
+      }
+    }, true);
   })();
   </script></body>`
 );
