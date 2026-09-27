@@ -32,11 +32,6 @@ jobs:
       - name: Fetch hls.js for online anime playback
         run: curl -fsSL -o hls.min.js https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js
 
-      - name: Fetch hanime signature files
-        run: |
-          curl -fsSL -o vendor.js https://raw.githubusercontent.com/varomine/hanime.tv-api/2fc680d9985f96cf310bf8a68fa0e3ddb431cb43/src/vendor.js
-          curl -fsSL -o signature.wasm https://raw.githubusercontent.com/varomine/hanime.tv-api/2fc680d9985f96cf310bf8a68fa0e3ddb431cb43/src/signature.wasm
-          ls -la vendor.js signature.wasm
 
       - name: Build Patched Web App for Live Testing
         run: |
@@ -615,85 +610,6 @@ jobs:
                 renderDiscoverFeed(false);
               }
               
-              // Load Hentai row from hanime index
-              async function loadHentaiRow() {
-                var carousel = document.getElementById('disc-hentai-carousel');
-                if (!carousel) return;
-                try {
-                  var idx = await hvGetIndex();
-                  var items = (idx || []).slice(0, 15);
-                  if (!items.length) {
-                    carousel.innerHTML = '<p style="color:#888;">No hentai available</p>';
-                    return;
-                  }
-                  window.__discoverHentai = items;
-                  var html = '';
-                  items.forEach(function(e, hidx){
-                    var m = hvMapResult(e);
-                    html += '<div class="disc-card disc-hentai-card" data-hidx="' + hidx + '" ' +
-                      'style="flex:0 0 156px;width:156px;max-width:156px;cursor:pointer;overflow:hidden;">' +
-                      '<div style="position:relative;width:156px;aspect-ratio:2/3;overflow:hidden;border-radius:8px;">' +
-                      '<img src="' + (m.image || '') + '" style="width:100%;height:100%;object-fit:cover;display:block;" loading="lazy">' +
-                      '<span style="position:absolute;top:6px;left:6px;background:#dc2626;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;z-index:2;">18+</span>' +
-                      '</div>' +
-                      '<div style="font-size:12px;margin-top:6px;line-height:1.3;height:2.6em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;text-overflow:ellipsis;word-break:break-word;">' + m.title + '</div>' +
-                      '<div style="font-size:11px;opacity:.6;">' + (m.year || '') + '</div>' +
-                      '</div>';
-                  });
-                  carousel.innerHTML = html;
-                  carousel.querySelectorAll('.disc-hentai-card').forEach(function(card){
-                    card.onclick = function(){
-                      var hidx = parseInt(card.getAttribute('data-hidx'), 10);
-                      var e = window.__discoverHentai[hidx];
-                      if (e) openHentaiDetail(e);
-                    };
-                  });
-                  // View All for hentai
-                  var vaBtn = document.querySelector('.disc-viewall-hentai');
-                  if (vaBtn) vaBtn.onclick = function(){ showHentaiGrid(); };
-                } catch(err) {
-                  carousel.innerHTML = '<p style="color:#888;">Failed to load hentai</p>';
-                }
-              }
-              function openHentaiDetail(e) {
-                var m = hvMapResult(e);
-                // Use the hanime detail flow
-                if (window.showHanimeDetail) {
-                  window.showHanimeDetail(m);
-                } else if (typeof showHanimeDetail === 'function') {
-                  showHanimeDetail(m);
-                } else if (window.openOnlineAsNative) {
-                  window.openOnlineAsNative(m);
-                }
-              }
-              async function showHentaiGrid() {
-                var disc = document.getElementById('discover-view');
-                try {
-                  var idx = await hvGetIndex();
-                  var items = idx || [];
-                  disc.innerHTML = '<div style="padding:16px;">' +
-                    '<button id="disc-back" style="background:none;border:none;color:#7c3aed;cursor:pointer;font-size:15px;margin-bottom:16px;">‹ Back to Discover</button>' +
-                    '<h2 style="margin:0 0 16px 0;">🔞 Hentai (18+) - All</h2>' +
-                    '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px;">' +
-                    items.map(function(e, hidx){
-                      var m = hvMapResult(e);
-                      return '<div class="disc-card" data-hidx="' + hidx + '" style="cursor:pointer;">' +
-                        '<div style="position:relative;width:100%;aspect-ratio:2/3;overflow:hidden;border-radius:8px;">' +
-                        '<img src="' + (m.image || '') + '" style="width:100%;height:100%;object-fit:cover;" loading="lazy">' +
-                        '<span style="position:absolute;top:6px;left:6px;background:#dc2626;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;">18+</span>' +
-                        '</div><div style="font-size:12px;margin-top:6px;">' + m.title + '</div></div>';
-                    }).join('') + '</div></div>';
-                  window.__discoverHentaiAll = items;
-                  document.getElementById('disc-back').onclick = function(){ renderDiscover(); };
-                  disc.querySelectorAll('.disc-card').forEach(function(card){
-                    card.onclick = function(){
-                      var hidx = parseInt(card.getAttribute('data-hidx'), 10);
-                      var e = window.__discoverHentaiAll[hidx];
-                      if (e) openHentaiDetail(e);
-                    };
-                  });
-                } catch(err) {}
-              }
               async function renderDiscoverFeed(force) {
                 var container = document.getElementById('disc-genres');
                 if (!container) return;
@@ -728,19 +644,8 @@ jobs:
                   html += '</div></div>';
                 });
                 
-                // Add Hentai (18+) row using hanime index
-                html += '<div class="disc-genre" id="disc-hentai-row" style="margin-bottom:24px;">' +
-                  '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
-                  '<h3 style="margin:0;font-size:16px;">🔞 Hentai (18+)</h3>' +
-                  '<button class="disc-viewall-hentai" style="background:none;border:none;color:#7c3aed;cursor:pointer;font-size:14px;">View All ›</button>' +
-                  '</div>' +
-                  '<div class="disc-carousel" id="disc-hentai-carousel" style="display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch;">' +
-                  '<p style="color:#888;">Loading hentai...</p></div></div>';
-                
                 container.innerHTML = html;
                 
-                // Load hentai row
-                loadHentaiRow();
                 
                 // Wire card clicks: store feed on window for reliable access
                 window.__discoverFeed = feed;
@@ -2090,6 +1995,10 @@ jobs:
             .awd-epmeta{display:block;font-size:12px;color:#9aa1b0;padding:0 12px 12px}
             .awd-loading{display:flex;align-items:center;justify-content:center;gap:10px;min-height:60vh;font-size:15px;color:#9aa1b0}
             .awd-status{max-width:1100px;margin:30px auto;padding:0 20px;color:#9aa1b0;font-size:15px}
+            .awd-tabs{display:flex;gap:4px;max-width:1100px;margin:8px auto 0;padding:0 20px;border-bottom:1px solid #232833}
+            .awd-tab{background:transparent;border:0;color:#9aa1b0;font-size:14px;font-weight:700;padding:12px 8px;margin:0 14px 0 0;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+            .awd-tab.active{color:#fff;border-bottom-color:#f2994a}
+            .awd-pane{padding-bottom:28px}
             @media (max-width:640px){.awd-hero{flex-direction:column;padding:16px}.awd-poster{flex:none;max-width:220px}.awd-eps{grid-template-columns:repeat(2,1fr);gap:10px;padding:0 12px 32px}.awd-epshead,.awd-wosect,.awd-sect,.awd-reviews,.awd-status{padding-left:12px;padding-right:12px}}
 
             /* ===== Anime SUB/DUB watch (streaming API) ===== */
@@ -2318,32 +2227,6 @@ jobs:
             html = html.replace("</head>", "<script>" + hlsBundle + "</script></head>");
           } catch (e) { console.log("hls.min.js not found - online anime playback disabled"); }
 
-          // Inline hanime signature engine (wasm + vendor.js) so hanime search/playback works with no runtime CDN dependency
-          try {
-            var hvVendorSrc = fs.readFileSync("vendor.js", "utf8").replace(/<\/script/gi, "<\\/script");
-            var hvWasmB64 = fs.readFileSync("signature.wasm").toString("base64");
-            var hvBoot = "(function(){function hvFail(m){try{window.__hanimeSigError=String(m)}catch(e){}}" +
-              "try{var b64=window.__hanimeWasmB64||'';if(!b64){hvFail('no wasm payload');return}" +
-              "var bin=atob(b64),bytes=new Uint8Array(bin.length);" +
-              "for(var i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);" +
-              "var origAEL=window.addEventListener.bind(window);" +
-              "window.addEventListener=function(t,l,o){if(t==='e'){try{window.__hanimeSigHandler=l}catch(e){}}return origAEL(t,l,o)};" +
-              "if(!window.WebAssembly||!window.WebAssembly.compile){hvFail('no WebAssembly');return}" +
-              "window.WebAssembly.compile(bytes).then(function(mod){" +
-              "try{window.wasmModule=mod;" +
-              "window.Module=window.Module||{};" +
-              "window.Module.instantiateWasm=function(info,cb){" +
-              "window.WebAssembly.instantiate(window.wasmModule,info).then(function(inst){cb(inst,window.wasmModule);}," +
-              "function(e){hvFail('instantiate: '+(e&&e.message||e))});return{}};" +
-              "var s=document.createElement('script');s.textContent=window.__hanimeVendorSrc||'';" +
-              "(document.head||document.documentElement).appendChild(s);window.__hanimeSigReady=true;" +
-              "}catch(e){hvFail('vendor: '+(e&&e.message||e))}},function(err){hvFail('compile: '+(err&&err.message||err))});" +
-              "}catch(e){hvFail(e&&e.message||e)}})();";
-            html = html.replace("</head>",
-              "<script>window.__hanimeVendorSrc=" + JSON.stringify(hvVendorSrc) + ";" +
-              "window.__hanimeWasmB64=" + JSON.stringify(hvWasmB64) + ";</script>" +
-              "<script>" + hvBoot + "</script></head>");
-          } catch (e) { console.log("hanime signature files not found - hanime playback disabled"); }
 
           const localRuntime = `<script data-hatch-cvm-bundle="">
           (function() {
@@ -4497,11 +4380,7 @@ jobs:
                       status: a.status || null
                     };
                   });
-                  return hvSearch(q).then(function (hv) {
-                    var mapped = [];
-                    try { mapped = hv.map(hvMapResult); } catch (e) {}
-                    return { results: results.concat(mapped) };
-                  }, function () { return { results: results }; });
+                  return { results: results };
                 });
               }
               function dDetail(slug) {
@@ -4690,215 +4569,11 @@ jobs:
                 return Promise.reject(new Error('Direct mode: unsupported path ' + path));
               }
 
-              /* ---------- Hanime (hentai) search + watch, merged into normal search ---------- */
-              var HV_INDEX_URL = 'https://guest.freeanimehentai.net/api/v11/search_hvs';
-              var HV_CSRF_URL = 'https://ct.hanime.tv/csrf-token';
-              var HV_HANDSHAKE_URL = 'https://auth.hanime.tv/api/v11/handshake';
-              var HV_HS_SECRET = 'htv-insecure-handshake-v1';
-              var HV_AAD = 'htv-insecure-v1';
-              var hvIndex = null, hvIndexPromise = null, hvKeyPromise = null;
-
-              function hvGetIndex() {
-                window.hvGetIndex = hvGetIndex;
-                if (hvIndex) return Promise.resolve(hvIndex);
-                if (hvIndexPromise) return hvIndexPromise;
-                hvIndexPromise = dmGetText(HV_INDEX_URL, 30000, false).then(function (t) {
-                  var d;
-                  try { d = JSON.parse(t); } catch (e) { throw new Error('Hanime index parse failed'); }
-                  var arr = (d && d.data) || d || [];
-                  hvIndex = Array.isArray(arr) ? arr : [];
-                  return hvIndex;
-                }, function () { hvIndexPromise = null; throw new Error('Hanime index unreachable'); });
-                return hvIndexPromise;
-              }
-
-              function hvSearch(q) {
-                q = String(q || '').trim().toLowerCase();
-                if (!q) return Promise.resolve([]);
-                return hvGetIndex().then(function (idx) {
-                  var words = q.split(/\\s+/), out = [];
-                  for (var i = 0; i < idx.length && out.length < 24; i++) {
-                    var e = idx[i] || {};
-                    var hay = ((e.name || '') + ' ' + (e.search_titles || '') + ' ' + (e.slug || '')).toLowerCase();
-                    var ok = true;
-                    for (var w = 0; w < words.length; w++) if (hay.indexOf(words[w]) < 0) { ok = false; break; }
-                    if (ok) out.push(e);
-                  }
-                  return out;
-                });
-              }
-
-              function hvMapResult(e) {
-                window.hvMapResult = hvMapResult;
-                var yr = null;
-                try { yr = parseInt(String(e.released_at || '').slice(0, 4), 10) || null; } catch (ign) {}
-                return {
-                  animeId: 'hanime:' + (e.slug || ''),
-                  title: e.name || e.slug || 'Unknown',
-                  image: e.cover_url || e.poster_url || null,
-                  year: yr,
-                  hanime: true,
-                  hvSlug: e.slug || '',
-                  hv: e
-                };
-              }
-
-              function hvWaitSigReady() {
-                return new Promise(function (resolve, reject) {
-                  var n = 0;
-                  (function poll() {
-                    if (window.__hanimeSigReady && window.ssignature && window.stime) { resolve(); return; }
-                    if (window.__hanimeSigError) { reject(new Error('Signature engine failed: ' + window.__hanimeSigError)); return; }
-                    if (++n > 120) { reject(new Error('Signature engine not ready')); return; }
-                    setTimeout(poll, 100);
-                  })();
-                });
-              }
-
-              function hvFreshSignature() {
-                return hvWaitSigReady().then(function () {
-                  var oldT = window.stime;
-                  try { if (window.__hanimeSigHandler) window.__hanimeSigHandler({ detail: {} }); } catch (e) {}
-                  return new Promise(function (resolve, reject) {
-                    var n = 0;
-                    (function poll() {
-                      if (window.ssignature && window.stime && window.stime !== oldT) { resolve({ s: window.ssignature, t: window.stime }); return; }
-                      if (++n > 40) {
-                        if (window.ssignature && window.stime) resolve({ s: window.ssignature, t: window.stime });
-                        else reject(new Error('Signature generation failed (WASM event handler not working)'));
-                        return;
-                      }
-                      setTimeout(poll, 100);
-                    })();
-                  });
-                });
-              }
-
-              function hvAesKey() {
-                if (hvKeyPromise) return hvKeyPromise;
-                hvKeyPromise = dmc.subtle.digest('SHA-256', dmEnc.encode(HV_HS_SECRET)).then(function (hash) {
-                  return dmc.subtle.importKey('raw', hash, 'AES-GCM', false, ['encrypt', 'decrypt']);
-                });
-                return hvKeyPromise;
-              }
-              function hvB64ToBytes(s) {
-                var bin = atob(s), b = new Uint8Array(bin.length);
-                for (var i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
-                return b;
-              }
-              function hvBytesToB64(bytes) {
-                var bin = '';
-                for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-                return btoa(bin);
-              }
-              function hvB64Url(bytes) {
-                return hvBytesToB64(bytes).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/, '');
-              }
-              function hvB64UrlDecode(s) {
-                s = String(s).replace(/-/g, '+').replace(/_/g, '/');
-                while (s.length % 4) s += '=';
-                return hvB64ToBytes(s);
-              }
-              function hvEncryptToken(payload) {
-                return hvAesKey().then(function (key) {
-                  var iv = dmc.getRandomValues(new Uint8Array(12));
-                  var plain = (typeof payload === 'string') ? payload : JSON.stringify(payload);
-                  return dmc.subtle.encrypt({ name: 'AES-GCM', iv: iv, additionalData: dmEnc.encode(HV_AAD), tagLength: 128 }, key, dmEnc.encode(plain)).then(function (encd) {
-                    var total = new Uint8Array(encd);
-                    var envelope = {
-                      v: 1, alg: 'AES-256-GCM',
-                      iv: hvB64Url(iv),
-                      tag: hvB64Url(total.slice(-16)),
-                      data: hvB64Url(total.slice(0, -16))
-                    };
-                    return hvB64Url(dmEnc.encode(JSON.stringify(envelope)));
-                  });
-                });
-              }
-              function hvDecryptToken(token) {
-                return hvAesKey().then(function (key) {
-                  var envelope = JSON.parse(dmDec.decode(hvB64UrlDecode(token)));
-                  var iv = hvB64UrlDecode(envelope.iv), tag = hvB64UrlDecode(envelope.tag), ct = hvB64UrlDecode(envelope.data);
-                  var total = new Uint8Array(ct.length + tag.length);
-                  total.set(ct, 0);
-                  total.set(tag, ct.length);
-                  return dmc.subtle.decrypt({ name: 'AES-GCM', iv: iv, additionalData: dmEnc.encode(HV_AAD), tagLength: 128 }, key, total).then(function (pt) {
-                    return JSON.parse(dmDec.decode(pt));
-                  });
-                });
-              }
-
-              function hvProxyXhr(method, url, headers, body) {
-                return new Promise(function (resolve, reject) {
-                  var xhr = new XMLHttpRequest();
-                  xhr.open(method, DM_PROXY_BASE + (method === 'POST' ? '/p?u=' : '/r?u=') + encodeURIComponent(url), true);
-                  xhr.timeout = 25000;
-                  for (var k in headers) { try { xhr.setRequestHeader(k, headers[k]); } catch (e) {} }
-                  xhr.onload = function () {
-                    if (xhr.status >= 200 && xhr.status < 300) {
-                      var xt = null;
-                      try { xt = xhr.getResponseHeader('x-token'); } catch (e) {}
-                      resolve({ text: xhr.responseText, xtoken: xt });
-                    } else reject(new Error('HTTP ' + xhr.status + ' at ' + (url.indexOf('csrf-token') >= 0 ? 'CSRF' : url.indexOf('handshake') >= 0 ? 'handshake' : 'stream')));
-                  };
-                  xhr.onerror = function () { reject(new Error('Network error')); };
-                  xhr.ontimeout = function () { reject(new Error('Request timed out')); };
-                  xhr.send(body == null ? null : body);
-                });
-              }
-
-              function hvHandshake(slug) {
-                if (!dmIsApp()) return Promise.reject(new Error('Hanime playback needs the installed app (phone only).'));
-                if (!dmc) return Promise.reject(new Error('WebCrypto unavailable.'));
-                return hvFreshSignature().then(function (sig) {
-                  var hs = { 'Accept': 'application/json', 'X-Signature': sig.s, 'X-Time': String(sig.t), 'X-Signature-Version': 'web2' };
-                  return hvProxyXhr('GET', HV_CSRF_URL, hs, null).then(function (r1) {
-                    var csrf = null;
-                    try { csrf = JSON.parse(r1.text).csrf_token; } catch (e) {}
-                    if (!csrf) throw new Error('CSRF handshake failed');
-                    return hvEncryptToken({ timestamp_unix: Math.floor(Date.now() / 1000), directive: 'htv_player_handshake', slug: slug }).then(function (tok) {
-                      return hvFreshSignature().then(function (sig2) {
-                        hs['X-Signature'] = sig2.s;
-                        hs['X-Time'] = String(sig2.t);
-                        hs['X-CSRF-Token'] = csrf;
-                        return hvProxyXhr('POST', HV_HANDSHAKE_URL, hs, JSON.stringify({ token: tok }));
-                      });
-                    });
-                  });
-                }).then(function (r2) {
-                  if (!r2.xtoken) throw new Error('No stream token returned');
-                  return hvDecryptToken(r2.xtoken);
-                });
-              }
-
-              function hvPickStream(data) {
-                try {
-                  var all = data.sources || [];
-                  var list = all.filter(function (s) { return s.src && s.kind === 'normal'; });
-                  if (!list.length) list = all.filter(function (s) { return s.src; });
-                  if (!list.length) return null;
-                  list.sort(function (a, b) { return (b.height || 0) - (a.height || 0); });
-                  var u = list[0].src;
-                  if (!/^https?:\\/\\//i.test(u)) u = 'https://hanime.tv' + (u.charAt(0) === '/' ? '' : '/') + u;
-                  return u;
-                } catch (e) { return null; }
-              }
-
-              function hvWatchUrl(slug) {
-                return hvHandshake(slug).then(function (data) {
-                  var url = hvPickStream(data);
-                  if (!url) throw new Error('No playable stream found');
-                  return dmProxyUrl(url);
-                });
-              }
-
               window.DirectMode = {
                 isApp: dmIsApp,
                 proxyUrl: dmProxyUrl,
                 directGet: dmDirectGet,
                 hlsConfig: dmHlsConfig,
-                hvWatch: hvWatchUrl,
-                hvSearch: hvSearch,
                 version: 'direct-1'
               };
             })();
@@ -5178,23 +4853,180 @@ jobs:
                 }, function (err) { setStatus(errBox(err.message)); });
               }
 
-              function renderResultCards(res, initialEp) {
-                var b = body();
-                if (!b) return;
-                b.innerHTML = '<div class="aw-grid">' + res.map(function (r, i) {
-                  return '<button type="button" class="aw-card" data-i="' + i + '">' +
-                    (r.image ? '<img loading="lazy" src="' + esc(r.image) + '" alt="" />' : '<div class="aw-noimg">\\u{1F3AC}</div>') +
-                    '<div class="aw-card-t">' + esc(r.title) + '</div>' +
-                    '<div class="aw-badges">' +
-                      (r.subbed ? '<span class="aw-badge sub">SUB</span>' : '') +
-                      (r.hasDub ? '<span class="aw-badge dub">DUB</span>' : '') +
-                      (r.hanime ? '<span class="aw-badge dub">18+</span>' : '') +
-                    '</div></button>';
-                }).join('') + '</div>';
-                Array.prototype.forEach.call(b.querySelectorAll('.aw-card'), function (card) {
-                  card.onclick = function () { openOnlineAsNative(res[+card.getAttribute('data-i')]); };
-                });
-              }
+                function renderResultCards(res, initialEp) {
+                  var b = body();
+                  if (!b) return;
+                  b.innerHTML = '<div class="aw-grid">' + res.map(function (r, i) {
+                    return '<button type="button" class="aw-card" data-i="' + i + '">' +
+                      (r.image ? '<img loading="lazy" src="' + esc(r.image) + '" alt="" />' : '<div class="aw-noimg">\\u{1F3AC}</div>') +
+                      '<div class="aw-card-t">' + esc(r.title) + '</div>' +
+                      '<div class="aw-badges">' +
+                        (r.subbed ? '<span class="aw-badge sub">SUB</span>' : '') +
+                        (r.hasDub ? '<span class="aw-badge dub">DUB</span>' : '') +
+                      '</div></button>';
+                  }).join('') + '</div>';
+
+                  Array.prototype.forEach.call(b.querySelectorAll('.aw-card'), function (card) {
+                    card.onclick = function () {
+                      var selectedAnime = res[+card.getAttribute('data-i')];
+                      // Open in-pop-up detail view instead of closing search
+                      openSearchAnimeDetail(selectedAnime);
+                    };
+                  });
+                }
+
+                function openSearchAnimeDetail(anime) {
+                  var b = body();
+                  if (!b) return;
+                  b.innerHTML = '<div class="aw-status"><span class="spinner"></span>Loading details for ' + esc(anime.title) + '...</div>';
+
+                  apiGet('/api/anime/detail?animeId=' + encodeURIComponent(anime.animeId)).then(function (d) {
+                    var eps = (d && d.episodes) || [];
+                    var info = (d && d.info) || {};
+                    var em = (d && d.meta) || null;
+                    var emT = {};
+                    ((em && em.episodes) || []).forEach(function (x) { if (x.title) emT[x.n] = x.title; });
+                    var score = info.averageScore != null ? info.averageScore : info.meanScore;
+                    if (score == null && em && em.rating != null) score = em.rating * 10;
+                    var scoreTxt = score != null ? (Math.round(score) / 10).toFixed(1) : null;
+                    var syn = info.description || (em && em.synopsis) || '';
+                    var poster = info.image || anime.image || '';
+                    var banner = info.banner || '';
+                    var title = info.title || anime.title;
+                    var format = String(info.format || anime.format || 'TV').toUpperCase();
+                    var isMovie = format === 'MOVIE';
+                    var eyebrow = format + ((info.year || anime.year) ? ' \\u00B7 ' + (info.year || anime.year) : '');
+                    var meta = [info.status, info.duration ? info.duration + ' min/ep' : null].filter(Boolean).join(' \\u00B7 ');
+                    var genresArr = (info.genres && info.genres.length) ? info.genres : ((em && em.genres) || []);
+                    var genres = genresArr.map(function (g) { return '<span class="awd-genre">' + esc(g) + '</span>'; }).join('');
+
+                    // watched state from online history, same as the native detail page
+                    var ohWatched = {};
+                    try {
+                      var __ohl = ohLoad();
+                      for (var __wi = 0; __wi < __ohl.length; __wi++) {
+                        var __we = __ohl[__wi];
+                        var __wa = (__we && __we.anime) || {};
+                        if (__wa.animeId && String(__wa.animeId) === String(anime.animeId)) ohWatched[__we.ep] = __we;
+                      }
+                    } catch (e) {}
+                    var ohWatchedCount = Object.keys(ohWatched).length;
+
+                    // episode cards in the native style: number, thumbnail, title, watched badge
+                    var epCards = eps.map(function (e) {
+                      var n = e.number;
+                      var et = emT[n] || e.title || ('Episode ' + n);
+                      var pad = n < 10 ? '0' + n : '' + n;
+                      var __w = ohWatched[n];
+                      var __wBadge = __w ? '<span class="awd-epwatch">' + (__w.durationSeconds > 0 && __w.positionSeconds / __w.durationSeconds > 0.9 ? '\\u2713 Watched' : (__w.positionSeconds > 0 ? 'Stopped at ' + fmtClock(__w.positionSeconds) : '\\u25B6 Started')) + '</span>' : '';
+                      return '<button type="button" class="awd-ep" data-ep="' + n + '">' +
+                        '<span class="awd-epnum">' + pad + '</span>' +
+                        '<span class="awd-epthumb">' + (poster ? '<img loading="lazy" src="' + esc(poster) + '" alt="" />' : '') +
+                        '<span class="awd-epplay">\\u25B6</span></span>' +
+                        '<span class="awd-eptitle">' + esc(et) + '</span>' +
+                        '<span class="awd-epmeta">' + (info.duration ? info.duration + ' min' : '') + '</span>' +
+                        __wBadge +
+                        '</button>';
+                    }).join('');
+
+                    var revHtml = '';
+                    if (em && em.reviews && em.reviews.length) {
+                      revHtml = '<div class="awd-reviews">' + em.reviews.slice(0, 3).map(function (r) {
+                        return '<div class="awd-review"><div class="awd-review-h"><span>' + esc(r.author || 'User') + '</span>' +
+                          (r.rating != null ? '<span class="awd-review-r">\\u2605 ' + esc(String(r.rating)) + '/10</span>' : '') + '</div>' +
+                          (r.text ? '<div class="awd-review-t">' + esc(r.text) + '</div>' : '') + '</div>';
+                      }).join('') + '</div>';
+                    }
+
+                    var ohEntry = null;
+                    try { ohEntry = ohFindEntry(anime.animeId, anime.title); } catch (e) {}
+                    var ohContHtml = (ohEntry && ohEntry.positionSeconds > 0)
+                      ? '<button type="button" class="awd-continue" id="awdContinueSearch">\\u25B6 Continue EP ' + ohEntry.ep + '</button>'
+                      : '';
+
+                    // movies get one big watch button inside the Overview tab; series get the episode grid tab
+                    var movieBtnHtml = '<div class="awd-wosect"><button type="button" class="awd-continue" id="awWatchMovie">\\u25B6 Watch movie online</button>' +
+                      (eps.length ? '<p class="awd-wosub">' + eps.length + ' part' + (eps.length === 1 ? '' : 's') + ' available.</p>' : '<p class="awd-wosub">The movie stream is resolved when you press play.</p>') + '</div>';
+                    var epsHtml = '<div class="awd-wosect">' +
+                      '<p class="awd-wosub">All episodes in release order. Pick any episode to watch it online.</p>' +
+                      '<div class="awd-epshead"><h2>Episodes \\u00B7 ' + eps.length + ' listed' + (ohWatchedCount ? ' \\u00B7 ' + ohWatchedCount + ' watched' : '') + '</h2></div>' +
+                      (eps.length ? '<div class="awd-eps">' + epCards + '</div>'
+                        : '<div class="awd-status">No episodes found for this title.</div>') + '</div>';
+
+                    b.innerHTML =
+                      '<div class="aw-dback">' +
+                      '<button type="button" class="aw-back" id="awBackSearch">\\u2039 Back to results</button>' +
+                      '<button type="button" class="aw-back" id="awAddHome" style="background:#7c3aed;border:0;">+ Add to Home screen</button>' +
+                      '</div>' +
+                      (banner ? '<div class="awd-banner"><img src="' + esc(banner) + '" alt="" /></div>' : '') +
+                      '<div class="awd-hero">' +
+                      '<div class="awd-poster">' + (poster ? '<img src="' + esc(poster) + '" alt="" />' : '') + '</div>' +
+                      '<div class="awd-info">' +
+                      '<div class="awd-eyebrow">\\uD83C\\uDF10 ONLINE \\u00B7 ' + esc(eyebrow) + '</div>' +
+                      '<h1 class="awd-title">' + esc(title) + '</h1>' +
+                      (scoreTxt ? '<div class="awd-scorerow"><span class="awd-score">\\u2605 ' + esc(scoreTxt) + ' / 10</span>' + genres + '</div>' : (genres ? '<div class="awd-scorerow">' + genres + '</div>' : '')) +
+                      '</div></div>' +
+                      '<div class="awd-tabs">' +
+                      '<button type="button" class="awd-tab active" data-tab="ov">Overview</button>' +
+                      (isMovie ? '' : '<button type="button" class="awd-tab" data-tab="ep">Episodes</button>') +
+                      (revHtml ? '<button type="button" class="awd-tab" data-tab="rev">Reviews</button>' : '') +
+                      '</div>' +
+                      '<div class="awd-pane" data-pane="ov">' +
+                      (syn ? '<p class="awd-syn">' + esc(syn) + '</p>' : '') +
+                      (meta ? '<div class="awd-meta">' + esc(meta) + '</div>' : '') +
+                      ((info.studios && info.studios.length) ? '<div class="awd-meta">Studio: ' + esc(info.studios.join(', ')) + '</div>' : '') +
+                      (info.ageRating ? '<div class="awd-meta">Rated: ' + esc(info.ageRating) + '</div>' : '') +
+                      '<div class="awd-badges">' +
+                      '<span class="aw-badge sub">SUB' + (info.subbed ? ' ' + info.subbed + ' EP' : '') + '</span>' +
+                      ((info.hasDub || anime.hasDub) ? '<span class="aw-badge dub">DUB' + (info.dubbed ? ' ' + info.dubbed + ' EP' : '') + '</span>' : '') +
+                      '</div>' +
+                      ohContHtml +
+                      (isMovie ? movieBtnHtml : '') +
+                      '</div>' +
+                      (isMovie ? '' : '<div class="awd-pane" data-pane="ep" hidden>' + epsHtml + '</div>') +
+                      (revHtml ? '<div class="awd-pane" data-pane="rev" hidden>' + revHtml + '</div>' : '');
+
+                    // Back to the search grid
+                    b.querySelector('#awBackSearch').onclick = function () { renderResultCards(lastResults, 0); };
+
+                    // Tab layout: Overview / Episodes / Reviews
+                    Array.prototype.forEach.call(b.querySelectorAll('.awd-tab'), function (t) {
+                      t.onclick = function () {
+                        Array.prototype.forEach.call(b.querySelectorAll('.awd-tab'), function (x) { x.classList.remove('active'); });
+                        t.classList.add('active');
+                        var k = t.getAttribute('data-tab');
+                        Array.prototype.forEach.call(b.querySelectorAll('.awd-pane'), function (p) {
+                          if (p.getAttribute('data-pane') === k) p.removeAttribute('hidden');
+                          else p.setAttribute('hidden', '');
+                        });
+                      };
+                    });
+
+                    // Add to Home screen (adds to the library database)
+                    b.querySelector('#awAddHome').onclick = function () {
+                      if (window.openOnlineAsNative) {
+                        window.openOnlineAsNative(anime);
+                        if (window.awToast) awToast('Added to your home library!');
+                      }
+                    };
+
+                    // Continue watching, movie watch, and per-episode play all use the streaming API
+                    var __c = b.querySelector('#awdContinueSearch');
+                    if (__c && ohEntry) { __c.onclick = function () { playEpisode(anime, d.anilistId || anime.anilistId, ohEntry.ep, eps, { preferDub: true, format: info.format }); }; }
+                    var __wm = b.querySelector('#awWatchMovie');
+                    if (__wm) { __wm.onclick = function () {
+                      var target = eps.length ? eps[0].number : 1;
+                      playEpisode(anime, d.anilistId || anime.anilistId, target, eps, { preferDub: true, format: info.format });
+                    }; }
+                    Array.prototype.forEach.call(b.querySelectorAll('.awd-ep'), function (btn) {
+                      btn.onclick = function () { playEpisode(anime, d.anilistId || anime.anilistId, +btn.getAttribute('data-ep'), eps, { preferDub: true, format: info.format }); };
+                    });
+                  }, function (err) {
+                    b.innerHTML = '<div class="aw-err">Could not load anime details.<br>' + esc(err.message) + '</div>' +
+                      '<button type="button" class="aw-back" id="awBackSearch2" style="margin-top:12px;">\\u2039 Back to results</button>';
+                    b.querySelector('#awBackSearch2').onclick = function () { renderResultCards(lastResults, 0); };
+                  });
+                }
 
               var detailPage = null;
               function closeDetailPage() {
@@ -5203,154 +5035,10 @@ jobs:
               }
               window.__closeOnlineDetail = closeDetailPage;
 
-              function showHanimeDetail(anime) {
-                window.showHanimeDetail = showHanimeDetail;
-                lastAnime = anime;
-                closeDetailPage();
-                closeAnimeWatch();
-                var e = anime.hv || {};
-                detailPage = document.createElement('div');
-                detailPage.className = 'awd-page';
-                var tags = '';
-                try {
-                  tags = (Array.isArray(e.tags) ? e.tags : []).map(function (t) {
-                    return '<span class="awd-genre">' + esc(t.name || t) + '</span>';
-                  }).join('');
-                } catch (ign) {}
-                var brand = e.brand || e.studio || '';
-                var views = null;
-                try { if (e.views) views = Number(e.views).toLocaleString(); } catch (ign) {}
-                var poster = anime.image || '';
-                var ohEntry = null;
-                try { ohEntry = ohFindEntry(anime.animeId, anime.title); } catch (ign) {}
-                var ohContHtml = (ohEntry && ohEntry.positionSeconds > 0)
-                  ? '<button type="button" class="awd-continue" id="awdContinue"><span class="awd-continue-play">\\u25B6</span><span>Continue from ' + fmtClock(ohEntry.positionSeconds) + '</span></button>'
-                  : '';
-                detailPage.innerHTML =
-                  '<div class="awd-top"><button type="button" class="awd-back" id="awdBack">\\u2039 Library</button></div>' +
-                  '<div class="awd-hero">' +
-                  '<div class="awd-poster">' + (poster ? '<img src="' + esc(poster) + '" alt="" />' : '') + '</div>' +
-                  '<div class="awd-info">' +
-                  '<div class="awd-eyebrow">\\uD83C\\uDF10 ONLINE \\u00B7 HENTAI</div>' +
-                  '<h1 class="awd-title">' + esc(anime.title) + '</h1>' +
-                  (brand ? '<div class="awd-meta">Studio: ' + esc(brand) + '</div>' : '') +
-                  (views ? '<div class="awd-meta">' + esc(views) + ' views</div>' : '') +
-                  (e.description ? '<p class="awd-syn">' + esc(String(e.description).replace(/<[^>]*>/g, '').slice(0, 600)) + '</p>' : '') +
-                  (tags ? '<div class="awd-scorerow">' + tags + '</div>' : '') +
-                  '<div class="awd-badges"><span class="aw-badge dub">18+</span><span class="aw-badge sub">SUB</span></div>' +
-                  '</div></div>' +
-                  ohContHtml +
-                  '<div class="awd-wosect"><h2>Watch</h2>' +
-                  '<p class="awd-wosub" id="hvEpCount">Loading episodes...</p></div>' +
-                  '<div class="awd-eps" id="hvEpList"></div>';
-                document.body.appendChild(detailPage);
-                document.body.classList.add('aw-detail-open');
-                detailPage.querySelector('#awdBack').onclick = function () { closeDetailPage(); };
-                var startAt = (ohEntry && ohEntry.positionSeconds) || 0;
-                function go(a) { playHanime(a || anime, { startAt: startAt }); }
-                var c = detailPage.querySelector('#awdContinue');
-                if (c) c.onclick = function(){ go(); };
-                // Group episodes by base title (strip trailing episode numbers)
-                (function renderHvEps(){
-                  var epList = detailPage.querySelector('#hvEpList');
-                  var epCount = detailPage.querySelector('#hvEpCount');
-                  if (!epList) return;
-                  var baseTitle = String(anime.title || '').replace(/\\s*(\\d+|OVA\\s*\\d+|Episode\\s*\\d+)\\s*$/i, '').trim().toLowerCase();
-                  var allEps = [];
-                  try {
-                    if (window.hvGetIndex) {
-                      var idx = window.hvGetIndex();
-                      (idx || []).forEach(function(entry){
-                        var t = String(entry.title || entry.name || '');
-                        var b = t.replace(/\\s*(\\d+|OVA\\s*\\d+|Episode\\s*\\d+)\\s*$/i, '').trim().toLowerCase();
-                        if (b === baseTitle || t.toLowerCase() === String(anime.title || '').toLowerCase()) {
-                          allEps.push(entry);
-                        }
-                      });
-                    }
-                  } catch(e) {}
-                  // Fallback: at least show the current anime
-                  if (!allEps.length) allEps = [anime];
-                  // Sort by episode number
-                  allEps.sort(function(a, b){
-                    var na = parseInt(String(a.title || a.name || '').match(/(\\d+)\\s*$/)?.[1] || '1', 10);
-                    var nb = parseInt(String(b.title || b.name || '').match(/(\\d+)\\s*$/)?.[1] || '1', 10);
-                    return na - nb;
-                  });
-                  if (epCount) epCount.textContent = 'Episodes \u00B7 ' + allEps.length + ' listed';
-                  allEps.forEach(function(epAnime, i){
-                    var epBtn = document.createElement('button');
-                    epBtn.type = 'button';
-                    epBtn.className = 'awd-ep';
-                    var epPoster = epAnime.image || poster;
-                    epBtn.innerHTML =
-                      '<span class="awd-epnum">\\u25B6</span>' +
-                      '<span class="awd-epthumb">' + (epPoster ? '<img loading="lazy" src="' + esc(epPoster) + '" alt="" />' : '') + '<span class="awd-epplay">\\u25B6</span></span>' +
-                      '<span class="awd-eptitle">' + esc(epAnime.title || epAnime.name || ('Episode ' + (i+1))) + '</span>' +
-                      '<span class="awd-epmeta">\\uD83C\\uDF10 Online \\u00B7 HLS</span>';
-                    epBtn.onclick = function(){ go(epAnime); };
-                    epList.appendChild(epBtn);
-                  });
-                  // Heart watchlist toggle
-                  var heartBtn = document.createElement('button');
-                  heartBtn.type = 'button';
-                  heartBtn.className = 'awd-heart';
-                  heartBtn.innerHTML = '\u2665';
-                  heartBtn.style.cssText = 'position:absolute;top:12px;right:12px;width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.3);color:#fff;font-size:22px;cursor:pointer;z-index:10;';
-                  var isFav = false;
-                  try {
-                    var favs = JSON.parse(localStorage.getItem('hv_favorites') || '[]');
-                    isFav = favs.indexOf(String(anime.animeId || anime.title)) >= 0;
-                  } catch(e) {}
-                  heartBtn.style.color = isFav ? '#ff4757' : '#fff';
-                  heartBtn.onclick = function(){
-                    try {
-                      var key = String(anime.animeId || anime.title);
-                      var favs = JSON.parse(localStorage.getItem('hv_favorites') || '[]');
-                      var idx2 = favs.indexOf(key);
-                      if (idx2 >= 0) { favs.splice(idx2, 1); heartBtn.style.color = '#fff'; }
-                      else { favs.push(key); heartBtn.style.color = '#ff4757'; }
-                      localStorage.setItem('hv_favorites', JSON.stringify(favs));
-                    } catch(e) {}
-                  };
-                  var heroEl = detailPage.querySelector('.awd-hero');
-                  if (heroEl) { heroEl.style.position = 'relative'; heroEl.appendChild(heartBtn); }
-                })();
-                detailPage.scrollTop = 0;
-              }
-
-              function playHanime(anime, opts) {
-                var DM = window.DirectMode;
-                var b = openPlayerShell();
-                destroyPlayer();
-                b.innerHTML = '<div class="aw-player">' +
-                  '<div class="aw-status"><span class="spinner"></span>Resolving stream\\u2026 (can take ~20 seconds)</div>' +
-                  '<button type="button" class="aw-back" id="awBack2">\\u2039 Back</button></div>';
-                b.querySelector('#awBack2').onclick = function () { closePlayerShell(); };
-                function fail(msg) {
-                  var b2 = playerBody();
-                  if (!b2) return;
-                  b2.innerHTML = '<div class="aw-player"><div class="aw-err"><b>Stream unavailable.</b><br>' +
-                    esc(msg || 'Unknown error') + '<br><br>Try again in a bit.</div>' +
-                    '<button type="button" class="aw-back" id="awBack3">\\u2039 Back</button></div>';
-                  b2.querySelector('#awBack3').onclick = function () { closePlayerShell(); };
-                }
-                if (!DM || !DM.hvWatch) { fail('Hanime playback needs the updated app.'); return; }
-                var slug = anime.hvSlug || String(anime.animeId || '').replace(/^hanime:/, '');
-                if (!slug) { fail('Missing video id.'); return; }
-                DM.hvWatch(slug).then(function (proxiedMaster) {
-                  var eps = [{ number: 1, title: anime.title }];
-                  renderPlayer(anime, 'hanime-' + slug, 1, eps,
-                    { _direct: true, _playlistKey: 'hv', stream: proxiedMaster, subtitles: [], audioTracks: [] },
-                    { startAt: (opts && opts.startAt) || 0 });
-                }, function (err) { fail(err && err.message); });
-              }
-
               // Unify online search with native library: add to collection DB, open native detail view
               function openOnlineAsNative(r) {
                 window.openOnlineAsNative = openOnlineAsNative; // expose globally for carousel injection
                 if (!r) return;
-                if (r.hanime) { showDetail(r, 0); return; } // Hanime keeps custom detail for now
                 var title = (r.title && (r.title.english || r.title.romaji)) || r.title || 'Unknown';
                 if (typeof title !== 'string') title = String(title);
                 var kind = (r.format && String(r.format).toUpperCase() === 'MOVIE') ? 'movie' : 'series';
@@ -5367,7 +5055,6 @@ jobs:
                 }).catch(function () { showDetail(r, 0); });
               }
               function showDetail(anime, initialEp) {
-                if (anime && anime.hanime) { showHanimeDetail(anime); return; }
                 lastAnime = anime;
                 closeDetailPage();
                 closeAnimeWatch();
@@ -5660,7 +5347,6 @@ jobs:
                 window.playEpisode = playEpisode; // expose for Continue Watching resume
                 window.autoPlayOnline = autoPlayOnline; // expose for Continue Watching resume
                 window.openAnimeWatch = openAnimeWatch; // expose for Discover 3-tap secret menu
-                if (anime && anime.hanime) { playHanime(anime, opts); return; }
                 var b = openPlayerShell();
                 destroyPlayer();
                 b.innerHTML = '<div class="aw-player">' +
@@ -6422,7 +6108,6 @@ jobs:
                       '<div class="aw-badges">' +
                         (r.subbed ? '<span class="aw-badge sub">SUB</span>' : '') +
                         (r.hasDub ? '<span class="aw-badge dub">DUB</span>' : '') +
-                        (r.hanime ? '<span class="aw-badge dub">18+</span>' : '') +
                       '</div></button>';
                   }).join('') + '</div>';
                 wireServerRow(sec);
@@ -6724,7 +6409,7 @@ jobs:
               private static final java.util.Map<String, String> proxyCookieJar = new java.util.HashMap<String, String>();
 
               // Share cookies across subdomains of the same registrable domain
-              // (e.g. htv_csrf_proof set by ct.hanime.tv must reach auth.hanime.tv).
+              // (e.g. a session cookie set on one subdomain must reach another).
               private String proxyCookieKey(String host) {
                   String[] labels = host.split("\\.");
                   if (labels.length >= 2) return labels[labels.length - 2] + "." + labels[labels.length - 1];
@@ -6877,7 +6562,6 @@ jobs:
                   try {
                       URL url = new URL(upstream);
                       String host = url.getHost().toLowerCase();
-                      boolean isHanime = host.contains("hanime.tv") || host.contains("freeanimehentai");
                       conn = (HttpURLConnection) url.openConnection();
                       conn.setRequestMethod(method);
                       conn.setConnectTimeout(15000);
@@ -6892,13 +6576,8 @@ jobs:
                               lk.startsWith("proxy-") || lk.startsWith("sec-")) continue;
                           try { conn.setRequestProperty(k, e.getValue()); } catch (Exception ignored) {}
                       }
-                      if (isHanime) {
-                          conn.setRequestProperty("Origin", "https://hanime.tv");
-                          conn.setRequestProperty("Referer", "https://hanime.tv/");
-                      } else {
-                          conn.setRequestProperty("Referer", "https://flixcloud.cc/");
-                          conn.setRequestProperty("Origin", "https://flixcloud.cc");
-                      }
+                      conn.setRequestProperty("Referer", "https://flixcloud.cc/");
+                      conn.setRequestProperty("Origin", "https://flixcloud.cc");
                       String jarCookie;
                       synchronized (proxyCookieJar) { jarCookie = proxyCookieJar.get(proxyCookieKey(host)); }
                       if (jarCookie != null && !jarCookie.isEmpty()) conn.setRequestProperty("Cookie", jarCookie);
