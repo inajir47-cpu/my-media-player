@@ -148,10 +148,10 @@ jobs:
             'onOpen: () => { window.__nativeOpenCollection = o; var __fid = String((f && f.id) || ""); if (__fid.indexOf("online:") === 0) { if (window.__openOnlineCol) window.__openOnlineCol(__fid.slice(7)); } else { o(f.id); } },'
           );
 
-          // 12. Expand Hero Carousel items & add Touch-Swipe gestures + One-Tap Tablet Poster Card opening
+          // 12. Hero Carousel 2+2+2 rule: 2 Recently Added + 2 Recently Watched (+ 2 Newly Launched injected separately)
           html = html.replace(
             'Me = [...R].sort((N, q) => Date.parse(q.createdAt) - Date.parse(N.createdAt)).slice(0, 3),\n    lt = (A.data?.items ?? []).slice(0, 2),',
-            'Me = [...R].sort((N, q) => Date.parse(q.createdAt) - Date.parse(N.createdAt)).slice(0, 6),\n    lt = (A.data?.items ?? []).slice(0, 4),'
+            'Me = [...R].sort((N, q) => Date.parse(q.createdAt) - Date.parse(N.createdAt)).slice(0, 2),\n    lt = (function(){ var local=(A.data?.items ?? []).slice(); try{ var oh=JSON.parse(localStorage.getItem("__online_history_v1")||"[]"); var seen={}; local.forEach(function(x){ if(x&&x.collectionId) seen[String(x.collectionId)]=1; }); oh.forEach(function(o){ var k="online:"+(o.animeId||""); if(o&&o.animeId&&!seen[k]){ seen[k]=1; local.push({ collectionId:k, collectionTitle:o.title, displayTitle:(o.title||"")+" E"+(o.ep||""), lastWatchedAt:o.lastWatchedAt||0, posterUrl:o.poster||null }); } }); }catch(e){} local.sort(function(a,b){ return (b.lastWatchedAt||0)-(a.lastWatchedAt||0); }); return local; })().slice(0, 2),'
           );
 
           html = html.replace(
@@ -162,6 +162,123 @@ jobs:
           html = html.replace(
             'onClick: () => {\n        if (r && !t) i();else l();\n      },',
             'onClick: () => { l(); },'
+          );
+
+          // 12b. Inject 2 Newly Launched Online anime into Hero Carousel (2+2+2 rule)
+          html = html.replace(
+            '</body>',
+            `<script>
+            (function(){
+              function fetchNewlyLaunched(){
+                var q = 'query { Page(page:1, perPage:10){ media(type:ANIME, status:RELEASING, sort:START_DATE_DESC){ id title{ romaji english } coverImage{ large } startDate{ year } } } }';
+                return fetch('https://graphql.anilist.co', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({query:q}) })
+                  .then(function(r){ return r.json(); })
+                  .then(function(d){
+                    var list = ((d.data||{}).Page||{}).media||[];
+                    return list.slice(0,2).map(function(m){
+                      return { title:(m.title.english||m.title.romaji||'Unknown'), anilistId:m.id, image:(m.coverImage||{}).large||null, year:(m.startDate||{}).year||null, _newlyLaunched:true };
+                    });
+                  }).catch(function(){ return []; });
+              }
+              function injectSlides(items){
+                if(!items.length) return;
+                // Find carousel container
+                var car = document.querySelector('.home-carousel, [class*="carousel"]');
+                if(!car) { setTimeout(function(){ injectSlides(items); }, 2000); return; }
+                // Deduplicate: skip if title already in carousel
+                var existing = {};
+                car.querySelectorAll('[class*="title"], [class*="heading"]').forEach(function(el){
+                  existing[el.textContent.trim().toLowerCase()] = 1;
+                });
+                items.forEach(function(item){
+                  var key = String(item.title).toLowerCase();
+                  if(existing[key]) return;
+                  existing[key] = 1;
+                  // Create slide element (simplified - will be styled by existing CSS)
+                  var slide = document.createElement('div');
+                  slide.className = 'carousel-slide newly-launched-online';
+                  slide.innerHTML = '<div class="newly-launched-badge">Newly Launched \u00B7 Online</div>' +
+                    (item.image ? '<img src="'+item.image+'" alt="" />' : '') +
+                    '<div class="slide-title">'+item.title+'</div>';
+                  slide.onclick = function(){ if(window.openOnlineAsNative) window.openOnlineAsNative(item); };
+                  car.appendChild(slide);
+                });
+              }
+              // Wait for app to load, then fetch and inject
+              setTimeout(function(){ fetchNewlyLaunched().then(injectSlides); }, 5000);
+            })();
+            </script>
+            <script>
+            // Online video fallback for Hero background preview (when no local file)
+            (function(){
+              var activeStream = null;
+              function tryOnlinePreview(){
+                var preview = document.querySelector('.local-clip-preview');
+                if(!preview) return;
+                // Check if already has a video playing or online preview active
+                if(preview.querySelector('video') || preview.dataset.onlineActive) return;
+                // Check for empty state (no local video)
+                var emptyMsg = preview.textContent || '';
+                if(emptyMsg.indexOf('No local') < 0 && emptyMsg.indexOf('not connected') < 0 && preview.children.length > 0) return;
+                // Try to get current slide's anime info
+                var slide = document.querySelector('.carousel-slide.active, .home-carousel .active');
+                if(!slide) return;
+                var titleEl = slide.querySelector('.slide-title, [class*="title"]');
+                if(!titleEl) return;
+                var title = titleEl.textContent.trim();
+                if(!title) return;
+                // Mark as attempting to avoid loops
+                preview.dataset.onlineActive = '1';
+                // Hide empty placeholder
+                preview.innerHTML = '';
+                preview.style.background = '#000';
+                // Search for anime to get anilistId, then fetch EP1 stream
+                // Use window.dWatch if available (needs anilistId)
+                // For now, try to find anilistId from slide data attributes
+                var anilistId = slide.dataset.anilistId || null;
+                if(!anilistId || !window.dWatch){
+                  // Fallback: search via reanime API
+                  fetch('https://reanime.to/api/v1/search?q='+encodeURIComponent(title)+'&limit=1')
+                    .then(function(r){ return r.json(); })
+                    .then(function(d){
+                      var res = (d.results||[])[0];
+                      if(res && res.anilistId && window.dWatch){
+                        return window.dWatch(res.anilistId, 1).then(function(url){
+                          playPreview(preview, url);
+                        });
+                      }
+                    }).catch(function(){ preview.dataset.onlineActive=''; });
+                } else {
+                  window.dWatch(anilistId, 1).then(function(url){ playPreview(preview, url); })
+                    .catch(function(){ preview.dataset.onlineActive=''; });
+                }
+              }
+              function playPreview(preview, url){
+                if(!url) { preview.dataset.onlineActive=''; return; }
+                var v = document.createElement('video');
+                v.muted = true; v.loop = true; v.playsInline = true;
+                v.style.cssText = 'width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1s ease;';
+                preview.appendChild(v);
+                if(window.Hls && window.Hls.isSupported() && url.indexOf('.m3u8')>=0){
+                  var hls = new window.Hls();
+                  hls.loadSource(url); hls.attachMedia(v);
+                  hls.on(window.Hls.Events.MANIFEST_PARSED, function(){ v.play().catch(function(){}); });
+                } else {
+                  v.src = url;
+                  v.play().catch(function(){});
+                }
+                v.onplaying = function(){ v.style.opacity='1'; };
+                // Play 30s preview then fade
+                setTimeout(function(){
+                  v.style.opacity='0';
+                  setTimeout(function(){ v.pause(); preview.dataset.onlineActive=''; }, 1000);
+                }, 30000);
+                activeStream = v;
+              }
+              // Check periodically for empty preview states
+              setInterval(tryOnlinePreview, 3000);
+            })();
+            </script></body>`
           );
 
           // 13. Upgrade VLC Player (rg) with YouTube Pinch-to-Zoom, Fit/Fill/Stretch, Swipe-Down Mini-Player & System PiP
@@ -3747,6 +3864,7 @@ jobs:
 
               // Unify online search with native library: add to collection DB, open native detail view
               function openOnlineAsNative(r) {
+                window.openOnlineAsNative = openOnlineAsNative; // expose globally for carousel injection
                 if (!r) return;
                 if (r.hanime) { showDetail(r, 0); return; } // Hanime keeps custom detail for now
                 var title = (r.title && (r.title.english || r.title.romaji)) || r.title || 'Unknown';
