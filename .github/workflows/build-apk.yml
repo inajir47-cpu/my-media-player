@@ -3042,7 +3042,7 @@ jobs:
                 }, function () { return []; });
               }
               function dServers(anilistId, ep) {
-                return dmGetText(REANIME + '/api/flix/' + anilistId + '/' + ep, 20000, false).then(function (t) {
+                return dmGetText(REANIME + '/api/flix/' + anilistId + '/' + ep, 20000, true).then(function (t) {
                   var d = JSON.parse(t);
                   return { servers: (d && d.servers) || [] };
                 });
