@@ -141,24 +141,13 @@ window.__switchLangInPlayer = function() {
 };
 
 window.__playHindiEpisode = function(anime, ep, startAt) {
-  var slug = anime.hindiSlug;
-  var type = anime.hindiType || 'series';
-  if (typeof apiGet !== 'function') return;
-  var pb = (typeof playerBody === 'function') ? playerBody() : null;
-  if (pb) {
-    pb.innerHTML = '<div class="aw-player"><div class="aw-status"><span class="spinner"></span>Loading Hindi EP ' + ep + '...</div></div>';
+  // The main playEpisode already handles Hindi via the anime.hindi flag
+  // Just call it with the Hindi anime object
+  if (window.playEpisode) {
+    window.playEpisode(anime, anime.anilistId, ep, [], { startAt: startAt || 0 });
+  } else {
+    alert('Player not ready');
   }
-  apiGet('/api/anime/hwatch?slug=' + encodeURIComponent(slug) + '&type=' + type + '&ep=' + ep).then(function(w) {
-    // The hwatch returns stream info - try to play via the Hindi flow
-    // For now, show the stream is ready
-    if (pb) {
-      pb.innerHTML = '<div class="aw-player"><div class="aw-err">Hindi stream loaded. Player integration needed.</div></div>';
-    }
-  }, function(err) {
-    if (pb) {
-      pb.innerHTML = '<div class="aw-player"><div class="aw-err">Hindi stream unavailable.</div></div>';
-    }
-  });
 };
 })();
 </script>

@@ -27,7 +27,8 @@ html = html.replace(
         .then(function(d){
           var list = ((d.data||{}).Page||{}).media||[];
           return list.slice(0,2).map(function(m){
-            return { title:(m.title.english||m.title.romaji||'Unknown'), anilistId:m.id, image:(m.coverImage||{}).large||null, year:(m.startDate||{}).year||null, _newlyLaunched:true };
+            var t = (m.title.english||m.title.romaji||'Unknown');
+            return { title:'🆕 '+t, anilistId:m.id, image:(m.coverImage||{}).large||null, year:(m.startDate||{}).year||null, _newlyLaunched:true };
           });
         }).catch(function(){ return []; });
     }
