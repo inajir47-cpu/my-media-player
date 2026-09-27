@@ -3260,8 +3260,8 @@ jobs:
 
               function hvAesKey() {
                 if (hvKeyPromise) return hvKeyPromise;
-                hvKeyPromise = dmc.digest('SHA-256', dmEnc.encode(HV_HS_SECRET)).then(function (hash) {
-                  return dmc.importKey('raw', hash, 'AES-GCM', false, ['encrypt', 'decrypt']);
+                hvKeyPromise = dmc.subtle.digest('SHA-256', dmEnc.encode(HV_HS_SECRET)).then(function (hash) {
+                  return dmc.subtle.importKey('raw', hash, 'AES-GCM', false, ['encrypt', 'decrypt']);
                 });
                 return hvKeyPromise;
               }
@@ -3287,7 +3287,7 @@ jobs:
                 return hvAesKey().then(function (key) {
                   var iv = dmc.getRandomValues(new Uint8Array(12));
                   var plain = (typeof payload === 'string') ? payload : JSON.stringify(payload);
-                  return dmc.encrypt({ name: 'AES-GCM', iv: iv, additionalData: dmEnc.encode(HV_AAD), tagLength: 128 }, key, dmEnc.encode(plain)).then(function (encd) {
+                  return dmc.subtle.encrypt({ name: 'AES-GCM', iv: iv, additionalData: dmEnc.encode(HV_AAD), tagLength: 128 }, key, dmEnc.encode(plain)).then(function (encd) {
                     var total = new Uint8Array(encd);
                     var envelope = {
                       v: 1, alg: 'AES-256-GCM',
@@ -3306,7 +3306,7 @@ jobs:
                   var total = new Uint8Array(ct.length + tag.length);
                   total.set(ct, 0);
                   total.set(tag, ct.length);
-                  return dmc.decrypt({ name: 'AES-GCM', iv: iv, additionalData: dmEnc.encode(HV_AAD), tagLength: 128 }, key, total).then(function (pt) {
+                  return dmc.subtle.decrypt({ name: 'AES-GCM', iv: iv, additionalData: dmEnc.encode(HV_AAD), tagLength: 128 }, key, total).then(function (pt) {
                     return JSON.parse(dmDec.decode(pt));
                   });
                 });
