@@ -145,7 +145,7 @@ jobs:
           // 11c. Route taps on online collection cards to the online detail page
           html = html.replace(
             'onOpen: () => o(f.id),',
-            'onOpen: () => { var __fid = String((f && f.id) || ""); if (__fid.indexOf("online:") === 0) { if (window.__openOnlineCol) window.__openOnlineCol(__fid.slice(7)); } else { o(f.id); } },'
+            'onOpen: () => { window.__nativeOpenCollection = o; var __fid = String((f && f.id) || ""); if (__fid.indexOf("online:") === 0) { if (window.__openOnlineCol) window.__openOnlineCol(__fid.slice(7)); } else { o(f.id); } },'
           );
 
           // 12. Expand Hero Carousel items & add Touch-Swipe gestures + One-Tap Tablet Poster Card opening
@@ -3652,7 +3652,7 @@ jobs:
                     '</div></button>';
                 }).join('') + '</div>';
                 Array.prototype.forEach.call(b.querySelectorAll('.aw-card'), function (card) {
-                  card.onclick = function () { showDetail(res[+card.getAttribute('data-i')], initialEp); };
+                  card.onclick = function () { openOnlineAsNative(res[+card.getAttribute('data-i')]); };
                 });
               }
 
@@ -3745,6 +3745,25 @@ jobs:
                 }, function (err) { fail(err && err.message); });
               }
 
+              // Unify online search with native library: add to collection DB, open native detail view
+              function openOnlineAsNative(r) {
+                if (!r) return;
+                if (r.hanime) { showDetail(r, 0); return; } // Hanime keeps custom detail for now
+                var title = (r.title && (r.title.english || r.title.romaji)) || r.title || 'Unknown';
+                if (typeof title !== 'string') title = String(title);
+                var kind = (r.format && String(r.format).toUpperCase() === 'MOVIE') ? 'movie' : 'series';
+                var year = r.year || r.season_year || null;
+                // handleAction is async; it deduplicates via normalizeTitleKey internally
+                handleAction('addCollection', { title: title, kind: kind, year: year, files: [] }).then(function (res) {
+                  var col = res && res.collection;
+                  if (col && window.__nativeOpenCollection) {
+                    window.__nativeOpenCollection(col.id);
+                  } else if (col) {
+                    // Fallback: open via custom detail if native opener not captured yet
+                    showDetail(r, 0);
+                  }
+                }).catch(function () { showDetail(r, 0); });
+              }
               function showDetail(anime, initialEp) {
                 if (anime && anime.hanime) { showHanimeDetail(anime); return; }
                 lastAnime = anime;
@@ -4064,23 +4083,9 @@ jobs:
                 if (e) ohOpenDetail(e);
               }
               window.__onlineCols = function (kind) {
-                var out = [], seen = {}, h = ohLoad();
-                for (var i = 0; i < h.length; i++) {
-                  var e = h[i], aid = e && e.anime && e.anime.animeId;
-                  if (!aid || seen[aid]) continue;
-                  seen[aid] = true;
-                  if ((e.kind || 'series') !== kind) continue;
-                  out.push({
-                    id: 'online:' + aid,
-                    title: e.title,
-                    kind: kind,
-                    year: null,
-                    seasonCount: null,
-                    posterUrl: e.poster,
-                    metadataStatus: 'complete'
-                  });
-                }
-                return out;
+                // Disabled: online titles now merge into native collections via addCollection
+                // (prevents duplicate cards on Home screen)
+                return [];
               };
               window.__openOnlineCol = function (animeId) {
                 try {
@@ -4563,7 +4568,7 @@ jobs:
                   }).join('') + '</div>';
                 wireServerRow(sec);
                 Array.prototype.forEach.call(sec.querySelectorAll('.aw-card'), function (card) {
-                  card.onclick = function () { var r = res[+card.getAttribute('data-i')]; showDetail(r, 0); };
+                  card.onclick = function () { var r = res[+card.getAttribute('data-i')]; openOnlineAsNative(r); };
                 });
               }
               /* ---- v3: episode chooser - local file vs online dub ---- */
