@@ -341,28 +341,18 @@ html = html.replace(
 );
 
 // 19c. Ultimate Search: run the English and Hindi searches in parallel and merge.
+// Uses regex for robustness against backslash-escaping differences.
 html = html.replace(
+  /function searchAnime\(q, initialEp\) \{[\s\S]*?renderResultCards\(lastResults, initialEp\);\n      \}, function \(err\) \{ setStatus\(errBox\(err\.message\)\); \}\);\n    \}/,
   `function searchAnime(q, initialEp) {
-      setStatus('<span class="spinner"></span>Searching\\\\u2026');
-      apiGet('/api/anime/search?q=' + encodeURIComponent(q)).then(function (d) {
-        lastResults = (d && d.results) || [];
-        lastQuery = q;
-        if (!lastResults.length) {
-          setStatus('No anime found for \\\\[SECURITY_DATA]"' + esc(q) + '\\\\u201D. Try the exact Japanese or English title.');
-          return;
-        }
-        renderResultCards(lastResults, initialEp);
-      }, function (err) { setStatus(errBox(err.message)); });
-    }`,
-  `function searchAnime(q, initialEp) {
-      setStatus('<span class="spinner"></span>Searching\\\\u2026 <span style="opacity:.6">EN + Hindi</span>');
+      setStatus('<span class="spinner"></span>Searching… <span style="opacity:.6">EN + Hindi</span>');
       var __enP = apiGet('/api/anime/search?q=' + encodeURIComponent(q)).then(function (d) { return (d && d.results) || []; }, function () { return []; });
       var __hiP = apiGet('/api/anime/hsearch?q=' + encodeURIComponent(q)).then(function (d) { return (d && d.results) || []; }, function () { return []; });
       Promise.all([__enP, __hiP]).then(function (__rs) {
         lastResults = __rs[0].concat(__rs[1]);
         lastQuery = q;
         if (!lastResults.length) {
-          setStatus('No anime found for \\\\[SECURITY_DATA]"' + esc(q) + '\\\\u201D. Try the exact Japanese or English title.');
+          setStatus('No anime found for "' + esc(q) + '". Try the exact Japanese or English title.');
           return;
         }
         renderResultCards(lastResults, initialEp);
