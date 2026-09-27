@@ -455,13 +455,17 @@ jobs:
                               lk.startsWith("proxy-") || lk.startsWith("sec-")) continue;
                           try { conn.setRequestProperty(k, e.getValue()); } catch (Exception ignored) {}
                       }
-                      boolean isFlixHost = host.indexOf("flixcloud") >= 0;
+                      boolean isFlixHost = host.indexOf("flixcloud") >= 0 || host.indexOf("rundowncdn") >= 0;
                       if (isFlixHost) {
                           conn.setRequestProperty("Referer", "https://flixcloud.cc/");
                           conn.setRequestProperty("Origin", "https://flixcloud.cc");
-                      } else {
-                          if (xReferer != null && !xReferer.isEmpty()) conn.setRequestProperty("Referer", xReferer);
+                      } else if (xReferer != null && !xReferer.isEmpty()) {
+                          conn.setRequestProperty("Referer", xReferer);
                           if (xOrigin != null && !xOrigin.isEmpty()) conn.setRequestProperty("Origin", xOrigin);
+                      } else {
+                          // Default to FlixCloud headers for video streams without explicit headers
+                          conn.setRequestProperty("Referer", "https://flixcloud.cc/");
+                          conn.setRequestProperty("Origin", "https://flixcloud.cc");
                       }
                       String jarCookie;
                       synchronized (proxyCookieJar) { jarCookie = proxyCookieJar.get(proxyCookieKey(host)); }
