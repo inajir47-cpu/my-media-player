@@ -582,6 +582,7 @@ jobs:
               }
               function renderDiscover() {
                 // Hide main content, show discover view
+                document.body.classList.add('discover-open');
                 var main = document.querySelector('main') || document.querySelector('[class*="main"]');
                 if (!main) return;
                 
@@ -844,6 +845,7 @@ jobs:
               }
               
               function hideDiscover() {
+                document.body.classList.remove('discover-open');
                 var disc = document.getElementById('discover-view');
                 var main = document.querySelector('main') || document.querySelector('[class*="main"]');
                 if (disc) disc.style.display = 'none';
@@ -1369,16 +1371,9 @@ jobs:
               .topbar nav button {
                 flex-shrink: 0 !important;
               }
-              /* Discover button: transparent when inactive */
-              .topbar nav button[data-tab="discover"]:not(.active) {
-                background: transparent !important;
-                color: inherit !important;
-                opacity: 0.7 !important;
-              }
             }
-            /* Hero carousel: fixed height, no random stretching */
-            .recent-carousel, .hero-carousel, .hero-slide,
-            .home-carousel, .home-carousel .carousel-slide {
+            /* Hero carousel: fixed height for generic hero classes (recent-carousel rail excluded) */
+            .hero-carousel, .hero-slide {
               height: 360px !important;
               max-height: 360px !important;
               min-height: 360px !important;
@@ -1386,12 +1381,67 @@ jobs:
               overflow: hidden !important;
             }
             @media (max-width: 760px) {
-              .recent-carousel, .hero-carousel, .hero-slide,
-              .home-carousel, .home-carousel .carousel-slide {
+              .hero-carousel, .hero-slide {
                 height: 320px !important;
                 max-height: 320px !important;
                 min-height: 320px !important;
               }
+            }
+            /* Desktop & Tablet Hero Carousel: fit title, meta, synopsis, button & poster cleanly */
+            .home-carousel {
+              height: 430px !important;
+              min-height: 430px !important;
+              max-height: 430px !important;
+              padding: 28px clamp(22px, 5vw, 64px) 54px !important;
+              align-items: center !important;
+              overflow: hidden !important;
+              position: relative !important;
+            }
+            .home-carousel .featured-copy {
+              display: flex !important;
+              flex-direction: column !important;
+              justify-content: center !important;
+              max-height: 100% !important;
+              min-width: 0 !important;
+              z-index: 3 !important;
+            }
+            .home-carousel .featured-copy h1 {
+              font-size: clamp(28px, 4.2vw, 52px) !important;
+              line-height: 1.05 !important;
+              max-width: 18ch !important;
+              margin: 0 !important;
+              display: -webkit-box !important;
+              -webkit-line-clamp: 2 !important;
+              -webkit-box-orient: vertical !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+            }
+            .home-carousel .featured-meta {
+              margin: 10px 0 0 !important;
+              font-size: 14px !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+            }
+            .home-carousel .featured-copy > p:not(.eyebrow):not(.featured-meta) {
+              margin: 10px 0 0 !important;
+              font-size: 14px !important;
+              line-height: 1.45 !important;
+              display: -webkit-box !important;
+              -webkit-line-clamp: 2 !important;
+              -webkit-box-orient: vertical !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              max-height: 2.9em !important;
+            }
+            .home-carousel .featured-copy > div:not(.hero-progress) {
+              margin-top: 16px !important;
+            }
+            .home-carousel .featured-poster {
+              width: min(100%, 220px) !important;
+              max-height: 330px !important;
+              aspect-ratio: 2 / 3 !important;
+              z-index: 3 !important;
             }
             /* Clamp synopsis to 2 lines */
             .hero-synopsis, .hero-description,
@@ -1415,18 +1465,34 @@ jobs:
               height: 100% !important;
               object-fit: cover !important;
             }
-            /* Injected tab buttons: never show white unless actually active */
-            .topbar nav button[data-tab="discover"]:not(.active),
+            /* Hide empty preview placeholder behind carousel & detail titles (all screens) */
+            .home-carousel .local-clip-preview.empty,
+            .home-carousel .clip-empty,
+            .detail-hero .local-clip-preview.empty,
+            .detail-hero .clip-empty {
+              opacity: 0 !important;
+              visibility: hidden !important;
+              pointer-events: none !important;
+            }
+            .home-carousel .local-clip-preview video,
+            .detail-hero .local-clip-preview video {
+              opacity: 1 !important;
+              visibility: visible !important;
+            }
+            /* When Discover is NOT open, Discover & Ultimate buttons must NEVER be white */
+            body:not(.discover-open) .topbar nav button[data-tab="discover"],
             .topbar nav button[data-tab="ultimate-search"] {
               background: transparent !important;
-              background-color: transparent !important;
-              color: rgba(255,255,255,0.65) !important;
+              color: var(--dim) !important;
             }
-            .topbar nav button[data-tab="discover"].active {
-              background: #fff !important;
-              background-color: #fff !important;
-              color: #111 !important;
-              opacity: 1 !important;
+            /* When Discover IS open, force native tabs to look inactive and only Discover white */
+            body.discover-open .topbar nav button:not([data-tab="discover"]) {
+              background: transparent !important;
+              color: var(--dim) !important;
+            }
+            body.discover-open .topbar nav button[data-tab="discover"] {
+              background: var(--text) !important;
+              color: var(--bg) !important;
             }
             </style>
             <script>
