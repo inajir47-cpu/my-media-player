@@ -873,6 +873,15 @@ jobs:
             .awp-overlay{position:fixed;inset:0;z-index:100000;background:#000;display:flex;flex-direction:column}
             .awp-shell{flex:1;display:flex;flex-direction:column;min-height:0}
             .awp-shell .awp{flex:1}
+            /* VLC-style mini player mode for online player */
+            .awp-overlay.awp-mini{inset:auto;left:12px;right:12px;bottom:80px;top:auto;height:220px;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.6);z-index:100001}
+            .awp-overlay.awp-mini .awp-top,.awp-overlay.awp-mini .awp-bot{display:none}
+            .awp-overlay.awp-mini .awp-video{object-fit:cover}
+            /* VLC-style polish for online player controls */
+            .awp-icobtn{background:rgba(255,255,255,.1);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s}
+            .awp-icobtn:active{background:rgba(255,255,255,.25)}
+            .awp-btn{background:rgba(255,255,255,.08);border:none;color:#fff;min-width:40px;height:40px;border-radius:8px;font-size:16px;cursor:pointer}
+            .awp-btn:active{background:rgba(255,255,255,.2)}
 
             /* ===== Online detail full-page (local-style) ===== */
             .awd-page{position:fixed;inset:0;z-index:99998;background:#0b0d12;color:#eef;overflow-y:auto;-webkit-overflow-scrolling:touch}
@@ -4515,6 +4524,8 @@ jobs:
                     '<div class=\\\"awp-title\\\">' + esc(anime.title) + ' \u00b7 EP ' + ep + '</div></div>' +
                     '<div class=\\\"awp-topicons\\\">' +
                       '<button type=\\\"button\\\" class=\\\"awp-icobtn\\\" id=\\\"awpBack\\\" aria-label=\\\"Back to episodes\\\">\u2304</button>' +
+                      '<button type=\\\"button\\\" class=\\\"awp-icobtn\\\" id=\\\"awpMini\\\" aria-label=\\\"Mini player\\\">\u231e</button>' +
+                      '<button type=\\\"button\\\" class=\\\"awp-icobtn\\\" id=\\\"awpFit\\\" aria-label=\\\"Toggle fit/zoom\\\">\u29e2</button>' +
                       '<button type=\\\"button\\\" class=\\\"awp-icobtn\\\" id=\\\"awpFs2\\\" aria-label=\\\"Fullscreen\\\">\u26f6</button>' +
                       '<button type=\\\"button\\\" class=\\\"awp-icobtn\\\" id=\\\"awpPip\\\" aria-label=\\\"Picture in picture\\\">\u25a3</button>' +
                       '<button type=\\\"button\\\" class=\\\"awp-icobtn\\\" id=\\\"awpClose\\\" aria-label=\\\"Close player\\\">\u2715</button>' +
@@ -4684,11 +4695,48 @@ jobs:
                 root.querySelector('#awpPip').onclick = function (e) {
                   if (e) e.stopPropagation();
                   try {
-                    if (document.pictureInPictureElement) { document.exitPictureInPicture(); }
+                    if (window.__enterVideoPiP) { window.__enterVideoPiP(video, playerOverlay); }
+                    else if (document.pictureInPictureElement) { document.exitPictureInPicture(); }
                     else if (video.requestPictureInPicture) { video.requestPictureInPicture(); }
                   } catch (x) {}
                   showUI();
                 };
+                // Mini player button (vlc-style)
+                var miniBtn = root.querySelector('#awpMini');
+                if (miniBtn) miniBtn.onclick = function(e) {
+                  if (e) e.stopPropagation();
+                  try {
+                    if (window.__setMiniPlayerMode && playerOverlay) {
+                      // Convert awp-overlay to mini mode via CSS class
+                      playerOverlay.classList.toggle('awp-mini');
+                      var isMini = playerOverlay.classList.contains('awp-mini');
+                      if (window.__isMiniPlayer !== undefined) window.__isMiniPlayer = isMini;
+                    }
+                  } catch(x) {}
+                  showUI();
+                };
+                // Fit/Zoom toggle button (vlc-style)
+                var fitBtn = root.querySelector('#awpFit');
+                if (fitBtn) fitBtn.onclick = function(e) {
+                  if (e) e.stopPropagation();
+                  try {
+                    if (window.__cycleVideoFit) window.__cycleVideoFit(video, function(msg){});
+                    else {
+                      // Fallback: toggle object-fit
+                      video.style.objectFit = video.style.objectFit === 'cover' ? 'contain' : 'cover';
+                    }
+                  } catch(x) {}
+                  showUI();
+                };
+                // Wire vlc-style touch gestures (volume, brightness, seek, pinch-zoom)
+                try {
+                  var stageEl = root.querySelector('.awp-video');
+                  if (stageEl && window.__stageTouchStart) {
+                    stageEl.addEventListener('touchstart', function(e){ window.__stageTouchStart(e, video, playerOverlay); }, {passive: true});
+                    stageEl.addEventListener('touchmove', function(e){ window.__stageTouchMove(e, video, playerOverlay, null); }, {passive: true});
+                    stageEl.addEventListener('touchend', function(e){ window.__stageTouchEnd(e, video, playerOverlay, null); }, {passive: true});
+                  }
+                } catch(x) {}
                 var volSlider = root.querySelector('#awpVol'), muteBtn = root.querySelector('#awpMute');
                 if (volSlider) {
                   volSlider.oninput = function () { video.volume = parseFloat(volSlider.value); video.muted = false; updateMuteIcon(); };
