@@ -319,7 +319,7 @@ jobs:
                   } else {
                     preview.dataset.onlineActive='';
                   }
-                });
+                }).catch(function(){ preview.dataset.onlineActive=''; });
               }
               // Play AnimeThemes trailer (muted, loop, with unmute toggle)
               function playTrailerPreview(preview, url){
@@ -904,9 +904,16 @@ jobs:
                   ultBtn.setAttribute('data-tab', 'ultimate-search');
                   ultBtn.className = discBtn.className;
                   ultBtn.onclick = function(){
-                    if (window.openAnimeWatch) window.openAnimeWatch("");
-                    else if (typeof openAnimeWatch === 'function') openAnimeWatch("");
-                    else if (window.awToast) awToast('Search not ready yet, try again');
+                    try {
+                      if (window.openAnimeWatch) { window.openAnimeWatch(""); return; }
+                      if (typeof openAnimeWatch === 'function') { openAnimeWatch(""); return; }
+                      if (window.__openAnimeWatch) { window.__openAnimeWatch(""); return; }
+                    } catch(e) {}
+                    // Fallback feedback so tap never appears dead
+                    try {
+                      if (window.awToast) awToast('Search not ready yet, try again');
+                      else alert('Search not ready yet, try again');
+                    } catch(e2) {}
                   };
                   // Insert right after Discover button
                   if (discBtn.nextSibling) {
@@ -1614,9 +1621,13 @@ jobs:
             }
             .history-grid-full {
               display: grid !important;
-              grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)) !important;
+              grid-template-columns: repeat(auto-fill, minmax(160px, 200px)) !important;
               gap: 16px !important;
               padding-bottom: 36px !important;
+              justify-content: start !important;
+            }
+            .history-grid-full .continue-card {
+              max-width: 200px !important;
             }
             .episode-grid {
               grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)) !important;
@@ -4762,8 +4773,8 @@ jobs:
               'use strict';
               var BASE_KEY = '__anime_api_base_v1';
               function apiBase() {
-                try { return (localStorage.getItem(BASE_KEY) || 'http://localhost:4000').replace(/\\/+$/, ''); }
-                catch (e) { return 'http://localhost:4000'; }
+                try { return (localStorage.getItem(BASE_KEY) || 'http://127.0.0.1:18923').replace(/\\/+$/, ''); }
+                catch (e) { return 'http://127.0.0.1:18923'; }
               }
               function setApiBase(v) {
                 try { localStorage.setItem(BASE_KEY, String(v || '').replace(/\\/+$/, '')); } catch (e) {}
@@ -6181,7 +6192,7 @@ jobs:
               function wireServerRow(sec) {
                 var pc = sec.querySelector('#awOUsePc');
                 if (pc) pc.onclick = function () {
-                  setApiBase('http://localhost:4000');
+                  setApiBase('http://127.0.0.1:18923');
                   try { localStorage.setItem('__anime_backend_mode_v1', '1'); } catch (e) {}
                   maybeOnlineSearch(true);
                 };
