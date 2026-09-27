@@ -278,6 +278,92 @@ jobs:
               // Check periodically for empty preview states
               setInterval(tryOnlinePreview, 3000);
             })();
+            </script>
+            <script>
+            // OVA Episode Count & Episode Grid Enhancement for Watch Order
+            (function(){
+              function getRelatedMedia() {
+                try {
+                  var dbRaw = localStorage.getItem('media_player_exact_db_v5');
+                  var db = dbRaw ? JSON.parse(dbRaw) : null;
+                  // Find current collection from URL or active detail
+                  var hash = window.location.hash || '';
+                  var m = hash.match(/collection\/(\d+)/) || hash.match(/(\d+)/);
+                  if (!m || !db) return null;
+                  var col = db.collections.find(function(c){ return String(c.id) === m[1]; });
+                  return col ? col.relatedMedia || [] : [];
+                } catch(e) { return []; }
+              }
+              function enhanceWatchOrder() {
+                var related = getRelatedMedia();
+                if (!related.length) return;
+                // Find watch order cards
+                document.querySelectorAll('.watch-order-card').forEach(function(card){
+                  if (card.dataset.ovaEnhanced) return;
+                  var titleEl = card.querySelector('[class*="title"]');
+                  if (!titleEl) return;
+                  var title = titleEl.textContent.trim();
+                  var rm = related.find(function(r){
+                    return r.title && title.toLowerCase().indexOf(r.title.toLowerCase().slice(0, 20)) >= 0;
+                  });
+                  if (rm && (rm.contentType === 'ova' || rm.contentType === 'special') && rm.episodeCount > 1) {
+                    card.dataset.ovaEnhanced = '1';
+                    // Add episode count badge
+                    var badge = document.createElement('span');
+                    badge.className = 'ova-ep-count';
+                    badge.style.cssText = 'background:#7c3aed;color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:8px;';
+                    badge.textContent = rm.episodeCount + ' episodes';
+                    titleEl.appendChild(badge);
+                  }
+                });
+                // Enhance related-detail header with episode count
+                document.querySelectorAll('[class*="related-detail"], [class*="relatedDetail"]').forEach(function(detail){
+                  if (detail.dataset.ovaEnhanced) return;
+                  var typeEl = detail.querySelector('p[class*="related-type"], .related-type');
+                  if (!typeEl) return;
+                  var titleEl = detail.querySelector('h2, h3, [class*="title"]');
+                  var title = titleEl ? titleEl.textContent.trim() : '';
+                  var rm = related.find(function(r){
+                    return r.title && title.toLowerCase().indexOf(r.title.toLowerCase().slice(0, 20)) >= 0;
+                  });
+                  if (rm && (rm.contentType === 'ova' || rm.contentType === 'special') && rm.episodeCount) {
+                    detail.dataset.ovaEnhanced = '1';
+                    // Update header to include episode count
+                    if (typeEl.textContent.indexOf('EPISODE') < 0) {
+                      typeEl.textContent = typeEl.textContent.replace(/·\s*$/, '') + ' · ' + rm.episodeCount + ' EPISODES';
+                    }
+                    // Render episode grid below info box
+                    if (rm.episodes && rm.episodes.length > 1 && !detail.querySelector('.ova-ep-grid')) {
+                      var grid = document.createElement('div');
+                      grid.className = 'ova-ep-grid';
+                      grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:16px;padding:0 16px;';
+                      grid.innerHTML = '<div style="grid-column:1/-1;font-weight:600;margin-bottom:4px;">Episodes · ' + rm.episodes.length + ' listed</div>' +
+                        rm.episodes.map(function(e){
+                          return '<button type="button" class="ova-ep-card" data-ep="' + e.number + '" data-title="' + rm.title.replace(/"/g, '&quot;') + '" ' +
+                            'style="background:#1a1d24;border:1px solid #2a2e38;border-radius:8px;padding:12px;cursor:pointer;color:#fff;text-align:left;">' +
+                            '<div style="font-weight:600;">EP ' + String(e.number).padStart(2, '0') + '</div>' +
+                            '<div style="font-size:12px;opacity:0.7;margin-top:4px;">' + e.title + '</div>' +
+                            '<div style="font-size:11px;color:#7c3aed;margin-top:8px;">🌐 Watch online</div>' +
+                            '</button>';
+                        }).join('');
+                      detail.appendChild(grid);
+                      // Wire episode buttons
+                      grid.querySelectorAll('.ova-ep-card').forEach(function(btn){
+                        btn.onclick = function(){
+                          var epNum = parseInt(btn.getAttribute('data-ep'), 10);
+                          var t = btn.getAttribute('data-title');
+                          if (window.autoPlayOnline) window.autoPlayOnline(t, epNum, 'ova');
+                        };
+                      });
+                    }
+                  }
+                });
+              }
+              // Run periodically to catch dynamically rendered content
+              setInterval(enhanceWatchOrder, 2000);
+              // Also run on hash change (navigation)
+              window.addEventListener('hashchange', function(){ setTimeout(enhanceWatchOrder, 500); });
+            })();
             </script></body>`
           );
 
@@ -2252,6 +2338,20 @@ jobs:
                         : isRel
                           ? ("🟢 Running" + (n.nextAiringEpisode ? (" at Ep " + Math.max(1, n.nextAiringEpisode.episode - 1)) : ""))
                           : null;
+                      // Episode count for OVAs/Specials: from AniList or streamingEpisodes
+                      var epCount = n.episodes || ((n.streamingEpisodes && n.streamingEpisodes.length) || 1);
+                      var epsArr = [];
+                      if (cType === "ova" || cType === "special") {
+                        for (var ei = 1; ei <= epCount; ei++) {
+                          var se = (n.streamingEpisodes || []).find(function(s){ return s.episode === ei; });
+                          epsArr.push({
+                            number: ei,
+                            title: (se && se.title) || ("OVA Episode " + ei),
+                            thumbnail: (se && se.thumbnail) || null,
+                            runtime: n.duration || null
+                          });
+                        }
+                      }
                       return {
                         id: n.id || (Date.now() + idx + 1),
                         contentType: cType,
@@ -2264,7 +2364,10 @@ jobs:
                         ratingScale: 10,
                         synopsis: cleanHtml(n.description) || (isUnrel ? "Upcoming release — announced on AniList." : ""),
                         thumbnailUrl: (n.coverImage && (n.coverImage.extraLarge || n.coverImage.large)) || result.posterUrl,
-                        sourceUrl: n.siteUrl || null
+                        sourceUrl: n.siteUrl || null,
+                        episodeCount: epCount,
+                        episodes: epsArr,
+                        anilistId: n.id || null
                       };
                     });
                   }
