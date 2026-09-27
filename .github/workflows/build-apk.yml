@@ -891,6 +891,26 @@ jobs:
                 } else {
                   nav.appendChild(discBtn);
                 }
+
+                // Ultimate Search tab: opens the anime search popup directly
+                if (!nav.querySelector('[data-tab="ultimate-search"]')) {
+                  var ultBtn = document.createElement('button');
+                  ultBtn.textContent = 'Ultimate Search';
+                  ultBtn.setAttribute('data-tab', 'ultimate-search');
+                  ultBtn.className = discBtn.className;
+                  ultBtn.onclick = function(){
+                    if (window.openAnimeWatch) window.openAnimeWatch("");
+                    else if (typeof openAnimeWatch === 'function') openAnimeWatch("");
+                    else if (window.awToast) awToast('Search not ready yet, try again');
+                  };
+                  // Insert right after Discover button
+                  if (discBtn.nextSibling) {
+                    nav.insertBefore(ultBtn, discBtn.nextSibling);
+                  } else {
+                    nav.appendChild(ultBtn);
+                  }
+                  window.__ultBtn = ultBtn;
+                }
                 
                 // Hide discover when other tabs clicked
                 buttons.forEach(function(btn){
