@@ -398,20 +398,10 @@ jobs:
               
               // Fetch dubbed anime by genre from AniList
               async function fetchGenreFeed(genre) {
-                var query = `query ($genre: String) {
-                  Page(page: 1, perPage: 20) {
-                    media(genre: $genre, type: ANIME, sort: POPULARITY_DESC, isAdult: false) {
-                      id
-                      title { english romaji }
-                      coverImage { large extraLarge }
-                      averageScore
-                      genres
-                      format
-                      episodes
-                      seasonYear
-                    }
-                  }
-                }`;
+                var query = 'query ($genre: String) { Page(page: 1, perPage: 20) { ' +
+                  'media(genre: $genre, type: ANIME, sort: POPULARITY_DESC, isAdult: false) { ' +
+                  'id title { english romaji } coverImage { large extraLarge } ' +
+                  'averageScore genres format episodes seasonYear } } }';
                 try {
                   var res = await fetch('https://graphql.anilist.co', {
                     method: 'POST',
