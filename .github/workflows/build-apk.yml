@@ -32,6 +32,12 @@ jobs:
       - name: Fetch hls.js for online anime playback
         run: curl -fsSL -o hls.min.js https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js
 
+      - name: Fetch hanime signature files
+        run: |
+          curl -fsSL -o vendor.js https://raw.githubusercontent.com/varomine/hanime.tv-api/2fc680d9985f96cf310bf8a68fa0e3ddb431cb43/vendor.js
+          curl -fsSL -o signature.wasm https://raw.githubusercontent.com/varomine/hanime.tv-api/2fc680d9985f96cf310bf8a68fa0e3ddb431cb43/signature.wasm
+          ls -la vendor.js signature.wasm
+
       - name: Build Patched Web App for Live Testing
         run: |
           mkdir -p www
@@ -928,6 +934,28 @@ jobs:
             var hlsBundle = fs.readFileSync("hls.min.js", "utf8").replace(/<\/script/gi, "<\\/script");
             html = html.replace("</head>", "<script>" + hlsBundle + "</script></head>");
           } catch (e) { console.log("hls.min.js not found - online anime playback disabled"); }
+
+          // Inline hanime signature engine (wasm + vendor.js) so hanime search/playback works with no runtime CDN dependency
+          try {
+            var hvVendorSrc = fs.readFileSync("vendor.js", "utf8").replace(/<\/script/gi, "<\\/script");
+            var hvWasmB64 = fs.readFileSync("signature.wasm").toString("base64");
+            var hvBoot = "(function(){function hvFail(m){try{window.__hanimeSigError=String(m)}catch(e){}}" +
+              "try{var b64=window.__hanimeWasmB64||'';if(!b64){hvFail('no wasm payload');return}" +
+              "var bin=atob(b64),bytes=new Uint8Array(bin.length);" +
+              "for(var i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);" +
+              "var origAEL=window.addEventListener.bind(window);" +
+              "window.addEventListener=function(t,l,o){if(t==='e'){try{window.__hanimeSigHandler=l}catch(e){}}return origAEL(t,l,o)};" +
+              "if(!window.WebAssembly||!window.WebAssembly.compile){hvFail('no WebAssembly');return}" +
+              "window.WebAssembly.compile(bytes).then(function(mod){" +
+              "try{window.wasmModule=mod;var s=document.createElement('script');s.textContent=window.__hanimeVendorSrc||'';" +
+              "(document.head||document.documentElement).appendChild(s);window.__hanimeSigReady=true;" +
+              "}catch(e){hvFail('vendor: '+(e&&e.message||e))}},function(err){hvFail('compile: '+(err&&err.message||err))});" +
+              "}catch(e){hvFail(e&&e.message||e)}})();";
+            html = html.replace("</head>",
+              "<script>window.__hanimeVendorSrc=" + JSON.stringify(hvVendorSrc) + ";" +
+              "window.__hanimeWasmB64=" + JSON.stringify(hvWasmB64) + ";</script>" +
+              "<script>" + hvBoot + "</script></head>");
+          } catch (e) { console.log("hanime signature files not found - hanime playback disabled"); }
 
           const localRuntime = `<script data-hatch-cvm-bundle="">
           (function() {
@@ -2954,7 +2982,11 @@ jobs:
                       status: a.status || null
                     };
                   });
-                  return { results: results };
+                  return hvSearch(q).then(function (hv) {
+                    var mapped = [];
+                    try { mapped = hv.map(hvMapResult); } catch (e) {}
+                    return { results: results.concat(mapped) };
+                  }, function () { return { results: results }; });
                 });
               }
               function dDetail(slug) {
@@ -3102,7 +3134,8 @@ jobs:
                   callbacks.onSuccess = function (response, stats, ctx) {
                     try {
                       if (typeof response.data === 'string' && playlistKey) {
-                        var out = dmRewriteNested(dmDecryptPlaylist(response.data, playlistKey), ctx.url);
+                        var plain = (playlistKey === 'hv') ? response.data : dmDecryptPlaylist(response.data, playlistKey);
+                        var out = dmRewriteNested(plain, ctx.url);
                         response.data = out;
                         if (stats) { stats.loaded = out.length; stats.total = out.length; }
                       }
@@ -3142,11 +3175,205 @@ jobs:
                 return Promise.reject(new Error('Direct mode: unsupported path ' + path));
               }
 
+              /* ---------- Hanime (hentai) search + watch, merged into normal search ---------- */
+              var HV_INDEX_URL = 'https://guest.freeanimehentai.net/api/v11/search_hvs';
+              var HV_CSRF_URL = 'https://ct.hanime.tv/csrf-token';
+              var HV_HANDSHAKE_URL = 'https://auth.hanime.tv/api/v11/handshake';
+              var HV_HS_SECRET = 'htv-insecure-handshake-v1';
+              var HV_AAD = 'htv-insecure-v1';
+              var hvIndex = null, hvIndexPromise = null, hvKeyPromise = null;
+
+              function hvGetIndex() {
+                if (hvIndex) return Promise.resolve(hvIndex);
+                if (hvIndexPromise) return hvIndexPromise;
+                hvIndexPromise = dmGetText(HV_INDEX_URL, 30000, false).then(function (t) {
+                  var d;
+                  try { d = JSON.parse(t); } catch (e) { throw new Error('Hanime index parse failed'); }
+                  var arr = (d && d.data) || d || [];
+                  hvIndex = Array.isArray(arr) ? arr : [];
+                  return hvIndex;
+                }, function () { hvIndexPromise = null; throw new Error('Hanime index unreachable'); });
+                return hvIndexPromise;
+              }
+
+              function hvSearch(q) {
+                q = String(q || '').trim().toLowerCase();
+                if (!q) return Promise.resolve([]);
+                return hvGetIndex().then(function (idx) {
+                  var words = q.split(/\\s+/), out = [];
+                  for (var i = 0; i < idx.length && out.length < 24; i++) {
+                    var e = idx[i] || {};
+                    var hay = ((e.name || '') + ' ' + (e.search_titles || '') + ' ' + (e.slug || '')).toLowerCase();
+                    var ok = true;
+                    for (var w = 0; w < words.length; w++) if (hay.indexOf(words[w]) < 0) { ok = false; break; }
+                    if (ok) out.push(e);
+                  }
+                  return out;
+                });
+              }
+
+              function hvMapResult(e) {
+                var yr = null;
+                try { yr = parseInt(String(e.released_at || '').slice(0, 4), 10) || null; } catch (ign) {}
+                return {
+                  animeId: 'hanime:' + (e.slug || ''),
+                  title: e.name || e.slug || 'Unknown',
+                  image: e.cover_url || e.poster_url || null,
+                  year: yr,
+                  hanime: true,
+                  hvSlug: e.slug || '',
+                  hv: e
+                };
+              }
+
+              function hvWaitSigReady() {
+                return new Promise(function (resolve, reject) {
+                  var n = 0;
+                  (function poll() {
+                    if (window.__hanimeSigReady && window.ssignature && window.stime) { resolve(); return; }
+                    if (window.__hanimeSigError) { reject(new Error('Signature engine failed: ' + window.__hanimeSigError)); return; }
+                    if (++n > 120) { reject(new Error('Signature engine not ready')); return; }
+                    setTimeout(poll, 100);
+                  })();
+                });
+              }
+
+              function hvFreshSignature() {
+                return hvWaitSigReady().then(function () {
+                  var oldT = window.stime;
+                  try { if (window.__hanimeSigHandler) window.__hanimeSigHandler({ detail: {} }); } catch (e) {}
+                  return new Promise(function (resolve) {
+                    var n = 0;
+                    (function poll() {
+                      if (window.ssignature && window.stime && window.stime !== oldT) { resolve({ s: window.ssignature, t: window.stime }); return; }
+                      if (++n > 40) { resolve({ s: window.ssignature, t: window.stime }); return; }
+                      setTimeout(poll, 100);
+                    })();
+                  });
+                });
+              }
+
+              function hvAesKey() {
+                if (hvKeyPromise) return hvKeyPromise;
+                hvKeyPromise = dmc.digest('SHA-256', dmEnc.encode(HV_HS_SECRET)).then(function (hash) {
+                  return dmc.importKey('raw', hash, 'AES-GCM', false, ['encrypt', 'decrypt']);
+                });
+                return hvKeyPromise;
+              }
+              function hvB64ToBytes(s) {
+                var bin = atob(s), b = new Uint8Array(bin.length);
+                for (var i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
+                return b;
+              }
+              function hvBytesToB64(bytes) {
+                var bin = '';
+                for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+                return btoa(bin);
+              }
+              function hvB64Url(bytes) {
+                return hvBytesToB64(bytes).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/, '');
+              }
+              function hvB64UrlDecode(s) {
+                s = String(s).replace(/-/g, '+').replace(/_/g, '/');
+                while (s.length % 4) s += '=';
+                return hvB64ToBytes(s);
+              }
+              function hvEncryptToken(payload) {
+                return hvAesKey().then(function (key) {
+                  var iv = dmc.getRandomValues(new Uint8Array(12));
+                  var plain = (typeof payload === 'string') ? payload : JSON.stringify(payload);
+                  return dmc.encrypt({ name: 'AES-GCM', iv: iv, additionalData: dmEnc.encode(HV_AAD), tagLength: 128 }, key, dmEnc.encode(plain)).then(function (encd) {
+                    var total = new Uint8Array(encd);
+                    var envelope = {
+                      v: 1, alg: 'AES-256-GCM',
+                      iv: hvB64Url(iv),
+                      tag: hvB64Url(total.slice(-16)),
+                      data: hvB64Url(total.slice(0, -16))
+                    };
+                    return hvB64Url(dmEnc.encode(JSON.stringify(envelope)));
+                  });
+                });
+              }
+              function hvDecryptToken(token) {
+                return hvAesKey().then(function (key) {
+                  var envelope = JSON.parse(dmDec.decode(hvB64UrlDecode(token)));
+                  var iv = hvB64UrlDecode(envelope.iv), tag = hvB64UrlDecode(envelope.tag), ct = hvB64UrlDecode(envelope.data);
+                  var total = new Uint8Array(ct.length + tag.length);
+                  total.set(ct, 0);
+                  total.set(tag, ct.length);
+                  return dmc.decrypt({ name: 'AES-GCM', iv: iv, additionalData: dmEnc.encode(HV_AAD), tagLength: 128 }, key, total).then(function (pt) {
+                    return JSON.parse(dmDec.decode(pt));
+                  });
+                });
+              }
+
+              function hvProxyXhr(method, url, headers, body) {
+                return new Promise(function (resolve, reject) {
+                  var xhr = new XMLHttpRequest();
+                  xhr.open(method, DM_PROXY_BASE + (method === 'POST' ? '/p?u=' : '/r?u=') + encodeURIComponent(url), true);
+                  xhr.timeout = 25000;
+                  for (var k in headers) { try { xhr.setRequestHeader(k, headers[k]); } catch (e) {} }
+                  xhr.onload = function () {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                      var xt = null;
+                      try { xt = xhr.getResponseHeader('x-token'); } catch (e) {}
+                      resolve({ text: xhr.responseText, xtoken: xt });
+                    } else reject(new Error('HTTP ' + xhr.status));
+                  };
+                  xhr.onerror = function () { reject(new Error('Network error')); };
+                  xhr.ontimeout = function () { reject(new Error('Request timed out')); };
+                  xhr.send(body == null ? null : body);
+                });
+              }
+
+              function hvHandshake(slug) {
+                if (!dmIsApp()) return Promise.reject(new Error('Hanime playback needs the installed app (phone only).'));
+                if (!dmc) return Promise.reject(new Error('WebCrypto unavailable.'));
+                return hvFreshSignature().then(function (sig) {
+                  var hs = { 'Accept': 'application/json', 'X-Signature': sig.s, 'X-Time': String(sig.t), 'X-Signature-Version': 'web2' };
+                  return hvProxyXhr('GET', HV_CSRF_URL, hs, null).then(function (r1) {
+                    var csrf = null;
+                    try { csrf = JSON.parse(r1.text).csrf_token; } catch (e) {}
+                    if (!csrf) throw new Error('CSRF handshake failed');
+                    return hvEncryptToken({ timestamp_unix: Math.floor(Date.now() / 1000), directive: 'htv_player_handshake', slug: slug }).then(function (tok) {
+                      hs['X-CSRF-Token'] = csrf;
+                      return hvProxyXhr('POST', HV_HANDSHAKE_URL, hs, JSON.stringify({ token: tok }));
+                    });
+                  });
+                }).then(function (r2) {
+                  if (!r2.xtoken) throw new Error('No stream token returned');
+                  return hvDecryptToken(r2.xtoken);
+                });
+              }
+
+              function hvPickStream(data) {
+                try {
+                  var all = data.sources || [];
+                  var list = all.filter(function (s) { return s.src && s.kind === 'normal'; });
+                  if (!list.length) list = all.filter(function (s) { return s.src; });
+                  if (!list.length) return null;
+                  list.sort(function (a, b) { return (b.height || 0) - (a.height || 0); });
+                  var u = list[0].src;
+                  if (!/^https?:\\/\\//i.test(u)) u = 'https://hanime.tv' + (u.charAt(0) === '/' ? '' : '/') + u;
+                  return u;
+                } catch (e) { return null; }
+              }
+
+              function hvWatchUrl(slug) {
+                return hvHandshake(slug).then(function (data) {
+                  var url = hvPickStream(data);
+                  if (!url) throw new Error('No playable stream found');
+                  return dmProxyUrl(url);
+                });
+              }
+
               window.DirectMode = {
                 isApp: dmIsApp,
                 proxyUrl: dmProxyUrl,
                 directGet: dmDirectGet,
                 hlsConfig: dmHlsConfig,
+                hvWatch: hvWatchUrl,
+                hvSearch: hvSearch,
                 version: 'direct-1'
               };
             })();
@@ -3408,6 +3635,7 @@ jobs:
                     '<div class="aw-badges">' +
                       (r.subbed ? '<span class="aw-badge sub">SUB</span>' : '') +
                       (r.hasDub ? '<span class="aw-badge dub">DUB</span>' : '') +
+                      (r.hanime ? '<span class="aw-badge dub">18+</span>' : '') +
                     '</div></button>';
                 }).join('') + '</div>';
                 Array.prototype.forEach.call(b.querySelectorAll('.aw-card'), function (card) {
@@ -3422,7 +3650,90 @@ jobs:
               }
               window.__closeOnlineDetail = closeDetailPage;
 
+              function showHanimeDetail(anime) {
+                lastAnime = anime;
+                closeDetailPage();
+                closeAnimeWatch();
+                var e = anime.hv || {};
+                detailPage = document.createElement('div');
+                detailPage.className = 'awd-page';
+                var tags = '';
+                try {
+                  tags = (Array.isArray(e.tags) ? e.tags : []).map(function (t) {
+                    return '<span class="awd-genre">' + esc(t.name || t) + '</span>';
+                  }).join('');
+                } catch (ign) {}
+                var brand = e.brand || e.studio || '';
+                var views = null;
+                try { if (e.views) views = Number(e.views).toLocaleString(); } catch (ign) {}
+                var poster = anime.image || '';
+                var ohEntry = null;
+                try { ohEntry = ohFindEntry(anime.animeId, anime.title); } catch (ign) {}
+                var ohContHtml = (ohEntry && ohEntry.positionSeconds > 0)
+                  ? '<button type="button" class="awd-continue" id="awdContinue"><span class="awd-continue-play">\\u25B6</span><span>Continue from ' + fmtClock(ohEntry.positionSeconds) + '</span></button>'
+                  : '';
+                detailPage.innerHTML =
+                  '<div class="awd-top"><button type="button" class="awd-back" id="awdBack">\\u2039 Library</button></div>' +
+                  '<div class="awd-hero">' +
+                  '<div class="awd-poster">' + (poster ? '<img src="' + esc(poster) + '" alt="" />' : '') + '</div>' +
+                  '<div class="awd-info">' +
+                  '<div class="awd-eyebrow">\\uD83C\\uDF10 ONLINE \\u00B7 HENTAI</div>' +
+                  '<h1 class="awd-title">' + esc(anime.title) + '</h1>' +
+                  (brand ? '<div class="awd-meta">Studio: ' + esc(brand) + '</div>' : '') +
+                  (views ? '<div class="awd-meta">' + esc(views) + ' views</div>' : '') +
+                  (e.description ? '<p class="awd-syn">' + esc(String(e.description).replace(/<[^>]*>/g, '').slice(0, 600)) + '</p>' : '') +
+                  (tags ? '<div class="awd-scorerow">' + tags + '</div>' : '') +
+                  '<div class="awd-badges"><span class="aw-badge dub">18+</span><span class="aw-badge sub">SUB</span></div>' +
+                  '</div></div>' +
+                  ohContHtml +
+                  '<div class="awd-wosect"><h2>Watch</h2>' +
+                  '<p class="awd-wosub">Single video. Tap play to start streaming.</p></div>' +
+                  '<div class="awd-eps"><button type="button" class="awd-ep" id="hvPlayBtn">' +
+                  '<span class="awd-epnum">\\u25B6</span>' +
+                  '<span class="awd-epthumb">' + (poster ? '<img loading="lazy" src="' + esc(poster) + '" alt="" />' : '') + '<span class="awd-epplay">\\u25B6</span></span>' +
+                  '<span class="awd-eptitle">' + esc(anime.title) + '</span>' +
+                  '<span class="awd-epmeta">\\uD83C\\uDF10 Online \\u00B7 HLS</span>' +
+                  '</button></div>';
+                document.body.appendChild(detailPage);
+                document.body.classList.add('aw-detail-open');
+                detailPage.querySelector('#awdBack').onclick = function () { closeDetailPage(); };
+                var startAt = (ohEntry && ohEntry.positionSeconds) || 0;
+                function go() { playHanime(anime, { startAt: startAt }); }
+                detailPage.querySelector('#hvPlayBtn').onclick = go;
+                var c = detailPage.querySelector('#awdContinue');
+                if (c) c.onclick = go;
+                detailPage.scrollTop = 0;
+              }
+
+              function playHanime(anime, opts) {
+                var DM = window.DirectMode;
+                var b = openPlayerShell();
+                destroyPlayer();
+                b.innerHTML = '<div class="aw-player">' +
+                  '<div class="aw-status"><span class="spinner"></span>Resolving stream\\u2026 (can take ~20 seconds)</div>' +
+                  '<button type="button" class="aw-back" id="awBack2">\\u2039 Back</button></div>';
+                b.querySelector('#awBack2').onclick = function () { closePlayerShell(); };
+                function fail(msg) {
+                  var b2 = playerBody();
+                  if (!b2) return;
+                  b2.innerHTML = '<div class="aw-player"><div class="aw-err"><b>Stream unavailable.</b><br>' +
+                    esc(msg || 'Unknown error') + '<br><br>Try again in a bit.</div>' +
+                    '<button type="button" class="aw-back" id="awBack3">\\u2039 Back</button></div>';
+                  b2.querySelector('#awBack3').onclick = function () { closePlayerShell(); };
+                }
+                if (!DM || !DM.hvWatch) { fail('Hanime playback needs the updated app.'); return; }
+                var slug = anime.hvSlug || String(anime.animeId || '').replace(/^hanime:/, '');
+                if (!slug) { fail('Missing video id.'); return; }
+                DM.hvWatch(slug).then(function (proxiedMaster) {
+                  var eps = [{ number: 1, title: anime.title }];
+                  renderPlayer(anime, 'hanime-' + slug, 1, eps,
+                    { _direct: true, _playlistKey: 'hv', stream: proxiedMaster, subtitles: [], audioTracks: [] },
+                    { startAt: (opts && opts.startAt) || 0 });
+                }, function (err) { fail(err && err.message); });
+              }
+
               function showDetail(anime, initialEp) {
+                if (anime && anime.hanime) { showHanimeDetail(anime); return; }
                 lastAnime = anime;
                 closeDetailPage();
                 closeAnimeWatch();
@@ -3572,6 +3883,7 @@ jobs:
               }
               window.__closeOnlinePlayer = closePlayerShell;
               function playEpisode(anime, anilistId, ep, episodes, opts) {
+                if (anime && anime.hanime) { playHanime(anime, opts); return; }
                 var b = openPlayerShell();
                 destroyPlayer();
                 b.innerHTML = '<div class="aw-player">' +
@@ -4233,6 +4545,7 @@ jobs:
                       '<div class="aw-badges">' +
                         (r.subbed ? '<span class="aw-badge sub">SUB</span>' : '') +
                         (r.hasDub ? '<span class="aw-badge dub">DUB</span>' : '') +
+                        (r.hanime ? '<span class="aw-badge dub">18+</span>' : '') +
                       '</div></button>';
                   }).join('') + '</div>';
                 wireServerRow(sec);
@@ -4531,33 +4844,52 @@ jobs:
                   t.start();
               }
 
+              private static final java.util.Map<String, String> proxyCookieJar = new java.util.HashMap<String, String>();
+
+              // Share cookies across subdomains of the same registrable domain
+              // (e.g. htv_csrf_proof set by ct.hanime.tv must reach auth.hanime.tv).
+              private String proxyCookieKey(String host) {
+                  String[] labels = host.split("\\.");
+                  if (labels.length >= 2) return labels[labels.length - 2] + "." + labels[labels.length - 1];
+                  return host;
+              }
+
+              private String proxyReadLine(java.io.InputStream in) throws java.io.IOException {
+                  StringBuilder sb = new StringBuilder();
+                  int b;
+                  while ((b = in.read()) != -1) {
+                      if (b == '\n') break;
+                      if (b != '\r') sb.append((char) b);
+                  }
+                  if (b == -1 && sb.length() == 0) return null;
+                  return sb.toString();
+              }
+
               private void handleProxyConnection(Socket client) {
                   try {
                       client.setSoTimeout(30000);
-                      BufferedReader reader = new BufferedReader(new InputStreamReader(client.getInputStream(), "UTF-8"));
-                      String requestLine = reader.readLine();
+                      java.io.InputStream rawIn = client.getInputStream();
+                      String requestLine = proxyReadLine(rawIn);
                       if (requestLine == null) { try { client.close(); } catch (Exception ignored) {} return; }
                       String[] parts = requestLine.split(" ");
                       if (parts.length < 2) { sendSimple(client, 400, "Bad Request"); try { client.close(); } catch (Exception ignored) {} return; }
                       String method = parts[0];
-                      String rangeHeader = null;
+                      java.util.Map<String, String> reqHeaders = new java.util.LinkedHashMap<String, String>();
                       String line;
-                      while ((line = reader.readLine()) != null && !line.isEmpty()) {
+                      while ((line = proxyReadLine(rawIn)) != null && !line.isEmpty()) {
                           int colon = line.indexOf(':');
-                          if (colon > 0 && line.substring(0, colon).trim().equalsIgnoreCase("Range")) {
-                              rangeHeader = line.substring(colon + 1).trim();
-                          }
+                          if (colon > 0) reqHeaders.put(line.substring(0, colon).trim(), line.substring(colon + 1).trim());
                       }
                       if (method.equals("OPTIONS")) {
                           sendOptions(client);
-                          try { client.close(); } catch (Exception ignored) {}
-                          return;
+                          try { client.close(); } catch (Exception ignored) {} return;
                       }
-                      if (!method.equals("GET")) { sendSimple(client, 405, "Method Not Allowed"); try { client.close(); } catch (Exception ignored) {} return; }
+                      boolean isPost = method.equals("POST");
+                      if (!method.equals("GET") && !isPost) { sendSimple(client, 405, "Method Not Allowed"); try { client.close(); } catch (Exception ignored) {} return; }
                       String path = parts[1];
                       String upstream = null;
                       int q = path.indexOf("?u=");
-                      if (path.startsWith("/r") && q >= 0) {
+                      if ((path.startsWith("/r") || path.startsWith("/p")) && q >= 0) {
                           String enc = path.substring(q + 3);
                           int amp = enc.indexOf('&');
                           if (amp >= 0) enc = enc.substring(0, amp);
@@ -4565,10 +4897,27 @@ jobs:
                       }
                       if (upstream == null || !(upstream.startsWith("http://") || upstream.startsWith("https://"))) {
                           sendSimple(client, 400, "Bad Request");
-                          try { client.close(); } catch (Exception ignored) {}
-                          return;
+                          try { client.close(); } catch (Exception ignored) {} return;
                       }
-                      forwardUpstream(client, upstream, rangeHeader);
+                      byte[] postBody = null;
+                      if (isPost) {
+                          int contentLen = 0;
+                          for (java.util.Map.Entry<String, String> e : reqHeaders.entrySet()) {
+                              if (e.getKey().equalsIgnoreCase("Content-Length")) {
+                                  try { contentLen = Integer.parseInt(e.getValue().trim()); } catch (Exception ignored) {}
+                              }
+                          }
+                          if (contentLen > 0 && contentLen < 8 * 1024 * 1024) {
+                              postBody = new byte[contentLen];
+                              int off = 0;
+                              while (off < contentLen) {
+                                  int n = rawIn.read(postBody, off, contentLen - off);
+                                  if (n <= 0) break;
+                                  off += n;
+                              }
+                          }
+                      }
+                      forwardUpstream(client, method, upstream, reqHeaders, postBody);
                       try { client.close(); } catch (Exception ignored) {}
                   } catch (Exception e) {
                       try { client.close(); } catch (Exception ignored) {}
@@ -4579,7 +4928,7 @@ jobs:
                   try {
                       String head = "HTTP/1.1 200 OK\r\n" +
                           "Access-Control-Allow-Origin: *\r\n" +
-                          "Access-Control-Allow-Methods: GET, OPTIONS\r\n" +
+                          "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n" +
                           "Access-Control-Allow-Headers: *\r\n" +
                           "Content-Length: 0\r\n" +
                           "Connection: close\r\n\r\n";
@@ -4604,19 +4953,88 @@ jobs:
                   } catch (Exception ignored) {}
               }
 
-              private void forwardUpstream(Socket client, String upstream, String rangeHeader) {
+              private boolean proxyHasHeader(java.util.Map<String, String> headers, String name) {
+                  for (String k : headers.keySet()) if (k.equalsIgnoreCase(name)) return true;
+                  return false;
+              }
+
+              private void proxyStoreCookies(String host, HttpURLConnection conn) {
+                  try {
+                      java.util.Map<String, java.util.List<String>> fields = conn.getHeaderFields();
+                      if (fields == null) return;
+                      for (java.util.Map.Entry<String, java.util.List<String>> e : fields.entrySet()) {
+                          if (e.getKey() == null || !e.getKey().equalsIgnoreCase("Set-Cookie")) continue;
+                          for (String sc : e.getValue()) {
+                              int semi = sc.indexOf(';');
+                              String nv = (semi >= 0 ? sc.substring(0, semi) : sc).trim();
+                              int eq = nv.indexOf('=');
+                              if (eq <= 0) continue;
+                              String cname = nv.substring(0, eq).trim();
+                              String cval = nv.substring(eq + 1).trim();
+                              synchronized (proxyCookieJar) {
+                                  String ckey = proxyCookieKey(host);
+                                  String prev = proxyCookieJar.get(ckey);
+                                  String merged = cname + "=" + cval;
+                                  if (prev != null && !prev.isEmpty()) {
+                                      String[] cparts = prev.split("; ");
+                                      StringBuilder sb2 = new StringBuilder();
+                                      for (String p : cparts) {
+                                          if (p.startsWith(cname + "=")) continue;
+                                          if (sb2.length() > 0) sb2.append("; ");
+                                          sb2.append(p);
+                                      }
+                                      if (sb2.length() > 0) sb2.append("; ");
+                                      sb2.append(merged);
+                                      merged = sb2.toString();
+                                  }
+                                  proxyCookieJar.put(ckey, merged);
+                              }
+                          }
+                      }
+                  } catch (Exception ignored) {}
+              }
+
+              private void forwardUpstream(Socket client, String method, String upstream,
+                                           java.util.Map<String, String> reqHeaders, byte[] postBody) {
                   HttpURLConnection conn = null;
                   try {
                       URL url = new URL(upstream);
+                      String host = url.getHost().toLowerCase();
+                      boolean isHanime = host.contains("hanime.tv") || host.contains("freeanimehentai");
                       conn = (HttpURLConnection) url.openConnection();
+                      conn.setRequestMethod(method);
                       conn.setConnectTimeout(15000);
                       conn.setReadTimeout(30000);
                       conn.setInstanceFollowRedirects(true);
                       conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36");
-                      conn.setRequestProperty("Referer", "https://flixcloud.cc/");
-                      conn.setRequestProperty("Origin", "https://flixcloud.cc");
-                      if (rangeHeader != null) conn.setRequestProperty("Range", rangeHeader);
+                      for (java.util.Map.Entry<String, String> e : reqHeaders.entrySet()) {
+                          String k = e.getKey();
+                          String lk = k.toLowerCase();
+                          if (lk.equals("host") || lk.equals("content-length") || lk.equals("connection") ||
+                              lk.equals("origin") || lk.equals("referer") || lk.equals("cookie") ||
+                              lk.startsWith("proxy-") || lk.startsWith("sec-")) continue;
+                          try { conn.setRequestProperty(k, e.getValue()); } catch (Exception ignored) {}
+                      }
+                      if (isHanime) {
+                          conn.setRequestProperty("Origin", "https://hanime.tv");
+                          conn.setRequestProperty("Referer", "https://hanime.tv/");
+                      } else {
+                          if (!proxyHasHeader(reqHeaders, "Referer")) conn.setRequestProperty("Referer", "https://flixcloud.cc/");
+                          if (!proxyHasHeader(reqHeaders, "Origin")) conn.setRequestProperty("Origin", "https://flixcloud.cc");
+                      }
+                      String jarCookie;
+                      synchronized (proxyCookieJar) { jarCookie = proxyCookieJar.get(proxyCookieKey(host)); }
+                      if (jarCookie != null && !jarCookie.isEmpty()) conn.setRequestProperty("Cookie", jarCookie);
+                      if (postBody != null && postBody.length > 0) {
+                          conn.setDoOutput(true);
+                          conn.setRequestProperty("Content-Type", "application/json");
+                          OutputStream cos = conn.getOutputStream();
+                          cos.write(postBody);
+                          cos.flush();
+                          cos.close();
+                      }
                       int status = conn.getResponseCode();
+                      proxyStoreCookies(host, conn);
                       String contentType = conn.getContentType();
                       if (contentType == null) contentType = "application/octet-stream";
                       InputStream in;
@@ -4635,6 +5053,9 @@ jobs:
                       head.append("Content-Type: ").append(contentType).append("\r\n");
                       head.append("Access-Control-Allow-Origin: *\r\n");
                       head.append("Access-Control-Allow-Headers: *\r\n");
+                      head.append("Access-Control-Expose-Headers: x-token\r\n");
+                      String xToken = conn.getHeaderField("x-token");
+                      if (xToken != null) head.append("x-token: ").append(xToken).append("\r\n");
                       String contentRange = conn.getHeaderField("Content-Range");
                       if (contentRange != null) head.append("Content-Range: ").append(contentRange).append("\r\n");
                       String acceptRanges = conn.getHeaderField("Accept-Ranges");
