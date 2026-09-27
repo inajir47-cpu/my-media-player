@@ -4475,7 +4475,12 @@ const localRuntime = `<script data-hatch-cvm-bundle="">
     function ohOpenDetail(entry) {
       try {
         var a = entry.anime || {};
-        showDetail({ title: a.title || entry.title, animeId: a.animeId, image: a.image || entry.poster }, 0);
+        // Open online detail page (not local showDetail which has no data for online-only)
+        if (typeof openSearchAnimeDetail === 'function') {
+          openSearchAnimeDetail({ title: a.title || entry.title, animeId: a.animeId, image: a.image || entry.poster });
+        } else {
+          showDetail({ title: a.title || entry.title, animeId: a.animeId, image: a.image || entry.poster }, 0);
+        }
       } catch (e) {}
     }
     function ohSeries() {

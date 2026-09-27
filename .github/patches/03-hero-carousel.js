@@ -28,7 +28,8 @@ html = html.replace(
           var list = ((d.data||{}).Page||{}).media||[];
           return list.slice(0,2).map(function(m){
             var t = (m.title.english||m.title.romaji||'Unknown');
-            return { title:'🆕 '+t, anilistId:m.id, image:(m.coverImage||{}).large||null, year:(m.startDate||{}).year||null, _newlyLaunched:true };
+            var img = (m.coverImage||{}).large||null;
+            return { title:'🆕 '+t, anilistId:m.id, image:img, posterUrl:img, poster:img, year:(m.startDate||{}).year||null, _newlyLaunched:true };
           });
         }).catch(function(){ return []; });
     }
