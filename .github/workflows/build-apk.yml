@@ -4773,7 +4773,15 @@ jobs:
               'use strict';
               var BASE_KEY = '__anime_api_base_v1';
               function apiBase() {
-                try { return (localStorage.getItem(BASE_KEY) || 'http://127.0.0.1:18923').replace(/\\/+$/, ''); }
+                try {
+                  var stored = localStorage.getItem(BASE_KEY);
+                  // Auto-migrate old default (localhost:4000) to the Android proxy (18923)
+                  if (!stored || stored.indexOf('localhost:4000') >= 0 || stored.indexOf('127.0.0.1:4000') >= 0) {
+                    stored = 'http://127.0.0.1:18923';
+                    try { localStorage.setItem(BASE_KEY, stored); } catch(e2) {}
+                  }
+                  return stored.replace(/\\/+$/, '');
+                }
                 catch (e) { return 'http://127.0.0.1:18923'; }
               }
               function setApiBase(v) {
