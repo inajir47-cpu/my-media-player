@@ -3247,11 +3247,15 @@ jobs:
                 return hvWaitSigReady().then(function () {
                   var oldT = window.stime;
                   try { if (window.__hanimeSigHandler) window.__hanimeSigHandler({ detail: {} }); } catch (e) {}
-                  return new Promise(function (resolve) {
+                  return new Promise(function (resolve, reject) {
                     var n = 0;
                     (function poll() {
                       if (window.ssignature && window.stime && window.stime !== oldT) { resolve({ s: window.ssignature, t: window.stime }); return; }
-                      if (++n > 40) { resolve({ s: window.ssignature, t: window.stime }); return; }
+                      if (++n > 40) {
+                        if (window.ssignature && window.stime) resolve({ s: window.ssignature, t: window.stime });
+                        else reject(new Error('Signature generation failed (WASM event handler not working)'));
+                        return;
+                      }
                       setTimeout(poll, 100);
                     })();
                   });
@@ -3323,7 +3327,7 @@ jobs:
                       var xt = null;
                       try { xt = xhr.getResponseHeader('x-token'); } catch (e) {}
                       resolve({ text: xhr.responseText, xtoken: xt });
-                    } else reject(new Error('HTTP ' + xhr.status));
+                    } else reject(new Error('HTTP ' + xhr.status + ' at ' + (url.indexOf('csrf-token') >= 0 ? 'CSRF' : url.indexOf('handshake') >= 0 ? 'handshake' : 'stream')));
                   };
                   xhr.onerror = function () { reject(new Error('Network error')); };
                   xhr.ontimeout = function () { reject(new Error('Request timed out')); };
@@ -3490,7 +3494,7 @@ jobs:
                   apiGet('/api/anime/detail?animeId=' + encodeURIComponent(pick.animeId) + '&enrich=0').then(function (dd) {
                     var eps = (dd && dd.episodes) || [];
                     openAnimeWatchShell(pick.title);
-                    playEpisode(pick, dd.anilistId, ep, eps, { preferDub: true, format: dd.info && dd.info.format });
+                    playEpisode(pick, dd.anilistId || pick.anilistId, ep, eps, { preferDub: true, format: dd.info && dd.info.format });
                   }, function (err) { awToast('Could not load episodes: ' + (err.message || 'network error')); });
                 }, function (err) { awToast('Online search failed: ' + (err.message || 'network error')); });
               }
@@ -3836,10 +3840,10 @@ jobs:
                   detailPage.querySelector('#awdBack').onclick = function () { closeDetailPage(); };
                   var __awdCont = detailPage.querySelector('#awdContinue');
                   if (__awdCont && ohEntry) {
-                    __awdCont.onclick = function () { playEpisode(anime, d.anilistId, ohEntry.ep, eps, { preferDub: true, startAt: ohEntry.positionSeconds, format: info.format }); };
+                    __awdCont.onclick = function () { playEpisode(anime, d.anilistId || anime.anilistId, ohEntry.ep, eps, { preferDub: true, startAt: ohEntry.positionSeconds, format: info.format }); };
                   }
                   Array.prototype.forEach.call(detailPage.querySelectorAll('.awd-ep'), function (btn) {
-                    btn.onclick = function () { playEpisode(anime, d.anilistId, +btn.getAttribute('data-ep'), eps, { preferDub: true, format: info.format }); };
+                    btn.onclick = function () { playEpisode(anime, d.anilistId || anime.anilistId, +btn.getAttribute('data-ep'), eps, { preferDub: true, format: info.format }); };
                   });
                   detailPage.scrollTop = 0;
                 }, function (err) {
@@ -3871,7 +3875,7 @@ jobs:
                     for (i = 0; i < eps.length; i++) if (eps[i].number === want) target = eps[i].number;
                     if (target == null && eps.length) target = eps[0].number;
                     if (target == null) { setStatus(errBox('No episodes found for ' + pick.title + '.')); return; }
-                    playEpisode(pick, dd.anilistId, target, eps, { preferDub: true, format: dd.info && dd.info.format });
+                    playEpisode(pick, dd.anilistId || pick.anilistId, target, eps, { preferDub: true, format: dd.info && dd.info.format });
                   }, function (err) { setStatus(errBox(err.message)); });
                 }, function (err) { setStatus(errBox(err.message)); });
               }
