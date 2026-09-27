@@ -397,8 +397,10 @@ jobs:
               }
               
               // Fetch dubbed anime by genre from AniList
-              async function fetchGenreFeed(genre) {
-                var query = 'query ($genre: String) { Page(page: 1, perPage: 20) { ' +
+              async function fetchGenreFeed(genre, pageNum) {
+                pageNum = pageNum || 1;
+                var query = 'query ($genre: String, $page: Int) { Page(page: $page, perPage: 50) { ' +
+                  'pageInfo { hasNextPage } ' +
                   'media(genre: $genre, type: ANIME, sort: POPULARITY_DESC, isAdult: false) { ' +
                   'id title { english romaji } coverImage { large extraLarge } ' +
                   'averageScore genres format episodes seasonYear } } }';
@@ -406,13 +408,14 @@ jobs:
                   var res = await fetch('https://graphql.anilist.co', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query: query, variables: { genre: genre.anilistGenre } })
+                    body: JSON.stringify({ query: query, variables: { genre: genre.anilistGenre, page: pageNum } })
                   });
                   var data = await res.json();
-                  var items = (data.data && data.data.Page && data.data.Page.media) || [];
+                  var page = (data.data && data.data.Page) || {};
+                  var items = page.media || [];
+                  var hasNext = page.pageInfo && page.pageInfo.hasNextPage;
                   // Filter for likely-dubbed (popular titles tend to have dubs)
-                  // and verify via streaming API for top items
-                  return items.slice(0, 12).map(function(m){
+                  var mapped = items.map(function(m){
                     return {
                       id: m.id,
                       title: m.title.english || m.title.romaji,
@@ -427,7 +430,8 @@ jobs:
                       dubLang: 'EN'
                     };
                   });
-                } catch(e) { return []; }
+                  return { items: mapped, hasNextPage: hasNext };
+                } catch(e) { return { items: [], hasNextPage: false }; }
               }
               
               async function loadDiscoverFeed(forceRefresh) {
@@ -437,12 +441,53 @@ jobs:
                 }
                 var feed = {};
                 for (var i = 0; i < GENRES.length; i++) {
-                  feed[GENRES[i].name] = await fetchGenreFeed(GENRES[i]);
+                  var result = await fetchGenreFeed(GENRES[i], 1);
+                  feed[GENRES[i].name] = result.items || [];
                 }
                 setCache(feed);
                 return feed;
               }
               
+              // Open Discover card in native detail view (with discoverCached flag)
+              function openDiscoverDetail(item) {
+                var kind = (item.format && String(item.format).toUpperCase() === 'MOVIE') ? 'movie' : 'series';
+                // Use openOnlineAsNative which calls addCollection then opens native detail
+                if (window.openOnlineAsNative) {
+                  // Temporarily mark as discover-cached via a flag
+                  window.__discoverOpen = true;
+                  window.openOnlineAsNative({ title: item.title, kind: kind, format: item.format, year: item.year });
+                  setTimeout(function(){ window.__discoverOpen = false; }, 2000);
+                }
+              }
+              // Toggle watchlist heart
+              function toggleWatchlist(title, btnEl) {
+                try {
+                  var dbRaw = localStorage.getItem('media_player_exact_db_v5');
+                  if (!dbRaw) return;
+                  var db = JSON.parse(dbRaw);
+                  var normKey = title.toLowerCase().replace(/[^a-z0-9]/g, '');
+                  var col = db.collections.find(function(c){
+                    return c.title.toLowerCase().replace(/[^a-z0-9]/g, '') === normKey;
+                  });
+                  if (col) {
+                    col.isWatchlist = !col.isWatchlist;
+                    if (col.isWatchlist) col.discoverCached = false;
+                    localStorage.setItem('media_player_exact_db_v5', JSON.stringify(db));
+                    if (btnEl) btnEl.textContent = col.isWatchlist ? '❤️' : '🤍';
+                    // Refresh collections list
+                    if (window.__refreshCollections) window.__refreshCollections();
+                    if (window.awToast) awToast(col.isWatchlist ? 'Added to watchlist ♥' : 'Removed from watchlist');
+                  } else {
+                    // Not in DB yet, add it as watchlisted
+                    if (window.handleAction) {
+                      window.handleAction('addCollection', { title: title, kind: 'series', files: [], isWatchlist: true }).then(function(){
+                        if (btnEl) btnEl.textContent = '❤️';
+                        if (window.awToast) awToast('Added to watchlist ♥');
+                      });
+                    }
+                  }
+                } catch(e) {}
+              }
               function renderDiscover() {
                 // Hide main content, show discover view
                 var main = document.querySelector('main') || document.querySelector('[class*="main"]');
@@ -489,12 +534,14 @@ jobs:
                     '</div>' +
                     '<div class="disc-carousel" style="display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch;">';
                   
-                  items.slice(0, 6).forEach(function(item){
-                    html += '<div class="disc-card" data-title="' + item.title.replace(/"/g, '&quot;') + '" data-id="' + item.id + '" ' +
+                  items.slice(0, 15).forEach(function(item, idx){
+                    var itemJson = encodeURIComponent(JSON.stringify({title: item.title, format: item.format, year: item.year}));
+                    html += '<div class="disc-card" data-idx="' + idx + '" data-genre="' + g.name + '" ' +
                       'style="flex:0 0 140px;cursor:pointer;">' +
                       '<div style="position:relative;">' +
                       '<img src="' + item.poster + '" style="width:140px;height:200px;object-fit:cover;border-radius:8px;" loading="lazy">' +
                       '<span style="position:absolute;top:6px;left:6px;background:#7c3aed;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;">' + item.dubLang + ' DUB</span>' +
+                      '<button class="disc-heart" data-title="' + item.title.replace(/"/g, '&quot;') + '" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.6);border:none;color:#fff;font-size:16px;width:30px;height:30px;border-radius:50%;cursor:pointer;">🤍</button>' +
                       (item.rating ? '<span style="position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;padding:2px 6px;border-radius:4px;">★' + item.rating + '</span>' : '') +
                       '</div>' +
                       '<div style="font-size:12px;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + item.title + '</div>' +
@@ -507,15 +554,30 @@ jobs:
                 
                 container.innerHTML = html;
                 
-                // Wire card clicks to native detail view
+                // Wire card clicks to native detail view (use cached feed data)
+                var currentFeed = null;
+                loadDiscoverFeed(false).then(function(f){ currentFeed = f; });
                 container.querySelectorAll('.disc-card').forEach(function(card){
-                  card.onclick = function(){
-                    var title = card.getAttribute('data-title');
-                    if (window.openOnlineAsNative) {
-                      window.openOnlineAsNative({ title: title, kind: 'series' });
-                    } else if (window.handleAction) {
-                      window.handleAction('addCollection', { title: title, kind: 'series', files: [] });
+                  card.onclick = function(e){
+                    if (e.target.classList.contains('disc-heart')) return;
+                    var idx = parseInt(card.getAttribute('data-idx'), 10);
+                    var genreName = card.getAttribute('data-genre');
+                    var item = null;
+                    if (currentFeed && currentFeed[genreName] && currentFeed[genreName][idx]) {
+                      item = currentFeed[genreName][idx];
+                    } else {
+                      // Fallback: try to find by title
+                      var title = card.querySelector('div:last-child') ? card.textContent : '';
+                      item = { title: title, format: 'TV' };
                     }
+                    openDiscoverDetail(item);
+                  };
+                });
+                // Wire heart buttons
+                container.querySelectorAll('.disc-heart').forEach(function(hb){
+                  hb.onclick = function(e){
+                    e.stopPropagation();
+                    toggleWatchlist(hb.getAttribute('data-title'), hb);
                   };
                 });
                 
@@ -527,32 +589,76 @@ jobs:
                 });
               }
               
+              // View All with infinite scroll pagination
+              var genrePageState = {};
               async function showGenreGrid(genreName, feed) {
                 var disc = document.getElementById('discover-view');
+                var genreDef = GENRES.find(function(g){ return g.name === genreName; });
                 var items = (feed && feed[genreName]) || [];
+                genrePageState = { genre: genreDef, page: 1, hasMore: true, loading: false, allItems: items.slice() };
                 
-                disc.innerHTML = '<div style="padding:16px;">' +
+                disc.innerHTML = '<div style="padding:16px;" id="disc-grid-wrap">' +
                   '<button id="disc-back" style="background:none;border:none;color:#7c3aed;cursor:pointer;font-size:15px;margin-bottom:16px;">‹ Back to Discover</button>' +
                   '<h2 style="margin:0 0 16px 0;">' + genreName + ' - All Dubbed</h2>' +
-                  '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px;">' +
-                  items.map(function(item){
-                    return '<div class="disc-card" data-title="' + item.title.replace(/"/g, '&quot;') + '" style="cursor:pointer;">' +
-                      '<div style="position:relative;">' +
-                      '<img src="' + item.poster + '" style="width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:8px;" loading="lazy">' +
-                      '<span style="position:absolute;top:6px;left:6px;background:#7c3aed;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;">' + item.dubLang + ' DUB</span>' +
-                      '</div>' +
-                      '<div style="font-size:12px;margin-top:6px;">' + item.title + '</div>' +
-                      '</div>';
-                  }).join('') +
-                  '</div></div>';
+                  '<div id="disc-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px;"></div>' +
+                  '<div id="disc-loadmore" style="text-align:center;padding:20px;"><button id="disc-more-btn" style="background:#7c3aed;color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;">Load More</button></div>' +
+                  '</div>';
                 
                 document.getElementById('disc-back').onclick = function(){ renderDiscover(); };
-                disc.querySelectorAll('.disc-card').forEach(function(card){
-                  card.onclick = function(){
-                    var title = card.getAttribute('data-title');
-                    if (window.openOnlineAsNative) window.openOnlineAsNative({ title: title, kind: 'series' });
-                  };
-                });
+                
+                function renderGridItems(newItems) {
+                  var grid = document.getElementById('disc-grid');
+                  newItems.forEach(function(item){
+                    var card = document.createElement('div');
+                    card.className = 'disc-card';
+                    card.setAttribute('data-title', item.title);
+                    card.style.cssText = 'cursor:pointer;';
+                    card.innerHTML = '<div style="position:relative;">' +
+                      '<img src="' + item.poster + '" style="width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:8px;" loading="lazy">' +
+                      '<span style="position:absolute;top:6px;left:6px;background:#7c3aed;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;">' + item.dubLang + ' DUB</span>' +
+                      '<button class="disc-heart" data-title="' + item.title.replace(/"/g, '&quot;') + '" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.6);border:none;color:#fff;font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer;">🤍</button>' +
+                      '</div><div style="font-size:12px;margin-top:6px;">' + item.title + '</div>';
+                    card.onclick = function(e){
+                      if (e.target.classList.contains('disc-heart')) return;
+                      openDiscoverDetail(item);
+                    };
+                    grid.appendChild(card);
+                  });
+                  // Wire hearts
+                  grid.querySelectorAll('.disc-heart').forEach(function(hb){
+                    hb.onclick = function(e){
+                      e.stopPropagation();
+                      toggleWatchlist(hb.getAttribute('data-title'), hb);
+                    };
+                  });
+                }
+                
+                async function loadMore() {
+                  if (genrePageState.loading || !genrePageState.hasMore) return;
+                  genrePageState.loading = true;
+                  var btn = document.getElementById('disc-more-btn');
+                  if (btn) btn.textContent = 'Loading...';
+                  genrePageState.page++;
+                  var result = await fetchGenreFeed(genrePageState.genre, genrePageState.page);
+                  genrePageState.hasMore = result.hasNextPage;
+                  genrePageState.allItems = genrePageState.allItems.concat(result.items);
+                  renderGridItems(result.items);
+                  genrePageState.loading = false;
+                  if (btn) {
+                    if (!genrePageState.hasMore) {
+                      document.getElementById('disc-loadmore').style.display = 'none';
+                    } else {
+                      btn.textContent = 'Load More';
+                    }
+                  }
+                }
+                
+                renderGridItems(genrePageState.allItems);
+                document.getElementById('disc-more-btn').onclick = loadMore;
+                // Infinite scroll
+                disc.onscroll = function(){
+                  if (disc.scrollTop + disc.clientHeight >= disc.scrollHeight - 200) loadMore();
+                };
               }
               
               function hideDiscover() {
@@ -613,6 +719,51 @@ jobs:
               // Run injection periodically (for React re-renders)
               setInterval(injectDiscoverTab, 2000);
               injectDiscoverTab();
+            })();
+            </script>
+            <script>
+            // Heart (watchlist) button for native detail page
+            (function(){
+              function getColIdFromDetail() {
+                // Try to get collection ID from URL hash or detail view
+                var hash = window.location.hash || '';
+                var m = hash.match(/collection\/(\d+)/);
+                if (m) return m[1];
+                return null;
+              }
+              function injectHeart() {
+                var heroActions = document.querySelector('.hero-actions');
+                if (!heroActions || heroActions.querySelector('.wl-heart-btn')) return;
+                var colId = getColIdFromDetail();
+                if (!colId) return;
+                try {
+                  var db = JSON.parse(localStorage.getItem('media_player_exact_db_v5') || '{}');
+                  var col = (db.collections || []).find(function(c){ return String(c.id) === String(colId); });
+                  if (!col) return;
+                  var btn = document.createElement('button');
+                  btn.className = 'wl-heart-btn';
+                  btn.style.cssText = 'background:rgba(255,255,255,.1);border:none;color:#fff;font-size:20px;width:44px;height:44px;border-radius:50%;cursor:pointer;margin-left:8px;';
+                  btn.textContent = col.isWatchlist ? '\u2764\uFE0F' : '\uD83E\uDD0D';
+                  btn.title = col.isWatchlist ? 'Remove from watchlist' : 'Add to watchlist';
+                  btn.onclick = function(e){
+                    e.stopPropagation();
+                    try {
+                      var db2 = JSON.parse(localStorage.getItem('media_player_exact_db_v5') || '{}');
+                      var c2 = (db2.collections || []).find(function(x){ return String(x.id) === String(colId); });
+                      if (c2) {
+                        c2.isWatchlist = !c2.isWatchlist;
+                        if (c2.isWatchlist) c2.discoverCached = false;
+                        localStorage.setItem('media_player_exact_db_v5', JSON.stringify(db2));
+                        btn.textContent = c2.isWatchlist ? '\u2764\uFE0F' : '\uD83E\uDD0D';
+                        btn.title = c2.isWatchlist ? 'Remove from watchlist' : 'Add to watchlist';
+                        if (window.awToast) awToast(c2.isWatchlist ? 'Added to watchlist \u2665' : 'Removed from watchlist');
+                      }
+                    } catch(err) {}
+                  };
+                  heroActions.appendChild(btn);
+                } catch(e) {}
+              }
+              setInterval(injectHeart, 2000);
             })();
             </script></body>`
           );
@@ -2717,6 +2868,13 @@ jobs:
 
               if (action === "listCollections") {
                 var list = db.collections.slice();
+                // Hide Discover-cached items from Home unless hearted or has local files
+                if (!args.includeDiscover) {
+                  list = list.filter(function(c) {
+                    if (c.discoverCached && !c.isWatchlist && (!c.files || c.files.length === 0)) return false;
+                    return true;
+                  });
+                }
                 if (args.kind && args.kind !== "all" && args.kind !== "history") {
                   list = list.filter(function(c) { return c.kind === args.kind; });
                 }
@@ -2917,7 +3075,10 @@ jobs:
                   episodes: episodes,
                   relatedMedia: meta.relatedMedia,
                   files: [],
-                  reviews: meta.reviews
+                  reviews: meta.reviews,
+                  // Watchlist: Discover-opened items hidden from Home unless hearted
+                  isWatchlist: args.isWatchlist !== undefined ? args.isWatchlist : (window.__discoverOpen ? false : true),
+                  discoverCached: window.__discoverOpen ? true : false
                 };
 
                 attachFilesToCollection(newCol, parsedFiles);
