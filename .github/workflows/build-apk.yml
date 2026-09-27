@@ -209,6 +209,67 @@ jobs:
             })();
             </script>
             <script>
+            // AnimeThemes direct trailer fetch (raw .webm, no YouTube errors)
+            window.__trailerCache = window.__trailerCache || {};
+            async function fetchTrailerUrl(anilistId, title) {
+              var cacheKey = anilistId || title;
+              if (!cacheKey) return null;
+              if (window.__trailerCache[cacheKey]) return window.__trailerCache[cacheKey];
+              try {
+                var url = null;
+                // Primary: by AniList ID
+                if (anilistId) {
+                  var apiUrl = 'https://api.animethemes.moe/anime?filter[has]=resources&filter[site]=AniList&filter[external_id]=' + anilistId + '&include=animethemes.animethemeentries.videos';
+                  var res = await fetch(apiUrl);
+                  var data = await res.json();
+                  var anime = (data.anime && data.anime[0]) || null;
+                  if (anime && anime.animethemes) {
+                    for (var i = 0; i < anime.animethemes.length && !url; i++) {
+                      var entries = anime.animethemes[i].animethemeentries || [];
+                      for (var j = 0; j < entries.length && !url; j++) {
+                        var videos = entries[j].videos || [];
+                        for (var k = 0; k < videos.length && !url; k++) {
+                          if (videos[k].link && videos[k].link.indexOf('.webm') > 0) url = videos[k].link;
+                        }
+                      }
+                    }
+                  }
+                }
+                // Fallback: by title search
+                if (!url && title) {
+                  var searchUrl = 'https://api.animethemes.moe/search?q=' + encodeURIComponent(title) + '&fields[search]=anime&include[anime]=animethemes.animethemeentries.videos';
+                  var sres = await fetch(searchUrl);
+                  var sdata = await sres.json();
+                  var sanime = (sdata.search && sdata.search.anime && sdata.search.anime[0]) || null;
+                  if (sanime && sanime.animethemes) {
+                    for (var a = 0; a < sanime.animethemes.length && !url; a++) {
+                      var aentries = sanime.animethemes[a].animethemeentries || [];
+                      for (var b = 0; b < aentries.length && !url; b++) {
+                        var avideos = aentries[b].videos || [];
+                        for (var c = 0; c < avideos.length && !url; c++) {
+                          if (avideos[c].link && avideos[c].link.indexOf('.webm') > 0) url = avideos[c].link;
+                        }
+                      }
+                    }
+                  }
+                }
+                if (url) window.__trailerCache[cacheKey] = url;
+                return url;
+              } catch(e) { return null; }
+            }
+            // Save trailer URL to collection in DB
+            function saveTrailerToCollection(collectionId, trailerUrl) {
+              try {
+                var db = JSON.parse(localStorage.getItem('media_player_exact_db_v5') || '{}');
+                var col = (db.collections || []).find(function(c){ return String(c.id) === String(collectionId); });
+                if (col && trailerUrl) {
+                  col.trailerVideoUrl = trailerUrl;
+                  localStorage.setItem('media_player_exact_db_v5', JSON.stringify(db));
+                }
+              } catch(e) {}
+            }
+            </script>
+            <script>
             // Online video fallback for Hero background preview (when no local file)
             (function(){
               var activeStream = null;
@@ -232,26 +293,50 @@ jobs:
                 // Hide empty placeholder
                 preview.innerHTML = '';
                 preview.style.background = '#000';
-                // Search for anime to get anilistId, then fetch EP1 stream
-                // Use window.dWatch if available (needs anilistId)
-                // For now, try to find anilistId from slide data attributes
                 var anilistId = slide.dataset.anilistId || null;
-                if(!anilistId || !window.dWatch){
-                  // Fallback: search via reanime API
-                  fetch('https://reanime.to/api/v1/search?q='+encodeURIComponent(title)+'&limit=1')
-                    .then(function(r){ return r.json(); })
-                    .then(function(d){
-                      var res = (d.results||[])[0];
-                      if(res && res.anilistId && window.dWatch){
-                        return window.dWatch(res.anilistId, 1).then(function(url){
-                          playPreview(preview, url);
-                        });
-                      }
-                    }).catch(function(){ preview.dataset.onlineActive=''; });
-                } else {
-                  window.dWatch(anilistId, 1).then(function(url){ playPreview(preview, url); })
-                    .catch(function(){ preview.dataset.onlineActive=''; });
-                }
+                // Try AnimeThemes direct trailer first (raw .webm, no YouTube errors)
+                fetchTrailerUrl(anilistId, title).then(function(trailerUrl){
+                  if (trailerUrl) {
+                    playTrailerPreview(preview, trailerUrl);
+                  } else if (anilistId && window.dWatch) {
+                    // Fallback: EP1 stream via dWatch
+                    window.dWatch(anilistId, 1).then(function(url){ playPreview(preview, url); })
+                      .catch(function(){ preview.dataset.onlineActive=''; });
+                  } else if (window.dWatch) {
+                    fetch('https://reanime.to/api/v1/search?q='+encodeURIComponent(title)+'&limit=1')
+                      .then(function(r){ return r.json(); })
+                      .then(function(d){
+                        var res = (d.results||[])[0];
+                        if(res && res.anilistId && window.dWatch){
+                          return window.dWatch(res.anilistId, 1).then(function(url){
+                            playPreview(preview, url);
+                          });
+                        }
+                      }).catch(function(){ preview.dataset.onlineActive=''; });
+                  } else {
+                    preview.dataset.onlineActive='';
+                  }
+                });
+              }
+              // Play AnimeThemes trailer (muted, loop, with unmute toggle)
+              function playTrailerPreview(preview, url){
+                window.playTrailerPreview = playTrailerPreview;
+                if(!url) { preview.dataset.onlineActive=''; return; }
+                var v = document.createElement('video');
+                v.muted = true; v.loop = true; v.playsInline = true; v.autoplay = true;
+                v.style.cssText = 'width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1s ease;';
+                v.src = url;
+                preview.appendChild(v);
+                // Mute/unmute toggle
+                var muteBtn = document.createElement('button');
+                muteBtn.innerHTML = '&#128263;';
+                muteBtn.style.cssText = 'position:absolute;bottom:12px;right:12px;background:rgba(0,0,0,.6);border:none;color:#fff;font-size:18px;width:40px;height:40px;border-radius:50%;cursor:pointer;z-index:10;';
+                muteBtn.onclick = function(e){ e.stopPropagation(); v.muted = !v.muted; muteBtn.innerHTML = v.muted ? '&#128263;' : '&#128266;'; };
+                preview.style.position = 'relative';
+                preview.appendChild(muteBtn);
+                v.play().catch(function(){});
+                v.onplaying = function(){ v.style.opacity='1'; };
+                v.onerror = function(){ preview.dataset.onlineActive=''; };
               }
               function playPreview(preview, url){
                 if(!url) { preview.dataset.onlineActive=''; return; }
@@ -858,9 +943,82 @@ jobs:
                     } catch(err) {}
                   };
                   heroActions.appendChild(btn);
+                  // Add Trailer button if trailerVideoUrl available
+                  injectTrailerBtn(heroActions, col);
+                } catch(e) {}
+              }
+              function injectTrailerBtn(heroActions, col) {
+                if (heroActions.querySelector('.trailer-btn')) return;
+                var trailerUrl = col.trailerVideoUrl;
+                if (!trailerUrl) {
+                  // Try to fetch it
+                  var anilistId = col.anilistId || null;
+                  fetchTrailerUrl(anilistId, col.title).then(function(url){
+                    if (url) {
+                      saveTrailerToCollection(col.id, url);
+                      col.trailerVideoUrl = url;
+                      injectTrailerBtn(heroActions, col);
+                    }
+                  });
+                  return;
+                }
+                var tbtn = document.createElement('button');
+                tbtn.className = 'trailer-btn';
+                tbtn.innerHTML = '&#127916; Trailer';
+                tbtn.style.cssText = 'background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:14px;padding:10px 18px;border-radius:24px;cursor:pointer;margin-left:8px;';
+                tbtn.onclick = function(e){
+                  e.stopPropagation();
+                  playTrailerFull(col.trailerVideoUrl, col.title);
+                };
+                heroActions.appendChild(tbtn);
+              }
+              // Play trailer in fullscreen overlay with sound
+              function playTrailerFull(url, title) {
+                var overlay = document.createElement('div');
+                overlay.style.cssText = 'position:fixed;inset:0;background:#000;z-index:99999;display:flex;flex-direction:column;';
+                overlay.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:rgba(0,0,0,.8);">' +
+                  '<span style="color:#fff;font-size:16px;">&#127916; ' + (title || 'Trailer') + '</span>' +
+                  '<button id="trailer-close" style="background:none;border:none;color:#fff;font-size:24px;cursor:pointer;">&times;</button></div>' +
+                  '<video id="trailer-video" controls autoplay playsinline style="flex:1;width:100%;object-fit:contain;background:#000;" src="' + url + '"></video>';
+                document.body.appendChild(overlay);
+                document.getElementById('trailer-close').onclick = function(){
+                  var v = document.getElementById('trailer-video');
+                  if (v) v.pause();
+                  overlay.remove();
+                };
+              }
+              // Also inject trailer preview in detail page hero background when no local file
+              function injectDetailTrailerBg() {
+                var preview = document.querySelector('.detail-view .local-clip-preview, main .local-clip-preview');
+                if (!preview || preview.querySelector('video') || preview.dataset.trailerActive) return;
+                var emptyMsg = preview.textContent || '';
+                if (emptyMsg.indexOf('No local') < 0 && emptyMsg.indexOf('not connected') < 0 && preview.children.length > 0) return;
+                var colId = getColIdFromDetail();
+                if (!colId) return;
+                try {
+                  var db = JSON.parse(localStorage.getItem('media_player_exact_db_v5') || '{}');
+                  var col = (db.collections || []).find(function(c){ return String(c.id) === String(colId); });
+                  if (!col || (col.files && col.files.length > 0)) return;
+                  if (col.trailerVideoUrl) {
+                    preview.dataset.trailerActive = '1';
+                    preview.innerHTML = '';
+                    playTrailerPreview(preview, col.trailerVideoUrl);
+                  } else {
+                    fetchTrailerUrl(col.anilistId, col.title).then(function(url){
+                      if (url) {
+                        saveTrailerToCollection(col.id, url);
+                        if (!preview.querySelector('video')) {
+                          preview.dataset.trailerActive = '1';
+                          preview.innerHTML = '';
+                          playTrailerPreview(preview, url);
+                        }
+                      }
+                    });
+                  }
                 } catch(e) {}
               }
               setInterval(injectHeart, 2000);
+              setInterval(injectDetailTrailerBg, 3000);
             })();
             </script></body>`
           );
@@ -2645,6 +2803,7 @@ jobs:
                 var rootMedia = j1 && j1.data && j1.data.Media;
 
                 if (rootMedia) {
+                  result.anilistId = rootMedia.id || null;
                   result.posterUrl = (rootMedia.coverImage && (rootMedia.coverImage.extraLarge || rootMedia.coverImage.large)) || result.posterUrl;
                   if (tvmazeRatings == null && rootMedia.averageScore) {
                     result.rating = kind === "movie" ? rootMedia.averageScore : Number((rootMedia.averageScore / 10).toFixed(1));
@@ -2896,6 +3055,19 @@ jobs:
                   }
                 }
               } catch (e) {}
+
+              // Fetch AnimeThemes trailer URL (cached on collection)
+              try {
+                var trailerAnilistId = result.anilistId || null;
+                if (!trailerAnilistId && result.relatedMedia) {
+                  var rm = result.relatedMedia.find(function(x){ return x.anilistId; });
+                  if (rm) trailerAnilistId = rm.anilistId;
+                }
+                if (typeof fetchTrailerUrl === 'function') {
+                  var tUrl = await fetchTrailerUrl(trailerAnilistId, title);
+                  if (tUrl) result.trailerVideoUrl = tUrl;
+                }
+              } catch (te) {}
 
               return result;
             }
@@ -3175,7 +3347,9 @@ jobs:
                   reviews: meta.reviews,
                   // Watchlist: Discover-opened items hidden from Home unless hearted
                   isWatchlist: args.isWatchlist !== undefined ? args.isWatchlist : (window.__discoverOpen ? false : true),
-                  discoverCached: window.__discoverOpen ? true : false
+                  discoverCached: window.__discoverOpen ? true : false,
+                  anilistId: meta.anilistId || null,
+                  trailerVideoUrl: meta.trailerVideoUrl || null
                 };
 
                 attachFilesToCollection(newCol, parsedFiles);
