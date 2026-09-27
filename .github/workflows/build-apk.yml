@@ -34,8 +34,8 @@ jobs:
 
       - name: Fetch hanime signature files
         run: |
-          curl -fsSL -o vendor.js https://raw.githubusercontent.com/varomine/hanime.tv-api/2fc680d9985f96cf310bf8a68fa0e3ddb431cb43/vendor.js
-          curl -fsSL -o signature.wasm https://raw.githubusercontent.com/varomine/hanime.tv-api/2fc680d9985f96cf310bf8a68fa0e3ddb431cb43/signature.wasm
+          curl -fsSL -o vendor.js https://raw.githubusercontent.com/varomine/hanime.tv-api/2fc680d9985f96cf310bf8a68fa0e3ddb431cb43/src/vendor.js
+          curl -fsSL -o signature.wasm https://raw.githubusercontent.com/varomine/hanime.tv-api/2fc680d9985f96cf310bf8a68fa0e3ddb431cb43/src/signature.wasm
           ls -la vendor.js signature.wasm
 
       - name: Build Patched Web App for Live Testing
