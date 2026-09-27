@@ -1472,6 +1472,20 @@ jobs:
             };
 
             window.__handleAndroidBack = function() {
+              // Online player overlay: close it (not the app)
+              var awpOverlay = document.querySelector('.awp-overlay');
+              if (awpOverlay) {
+                if (window.__closeOnlinePlayer) { window.__closeOnlinePlayer(); }
+                else { awpOverlay.remove(); }
+                return true;
+              }
+              // Online detail full-page: close it (not the app)
+              var awdPage = document.querySelector('.awd-page');
+              if (awdPage) {
+                if (window.__closeOnlineDetail) { window.__closeOnlineDetail(); }
+                else { awdPage.remove(); document.body.classList.remove('aw-detail-open'); }
+                return true;
+              }
               var queueClose = document.querySelector('.player-queue .queue-head button');
               if (queueClose) { queueClose.click(); return true; }
 
@@ -3518,6 +3532,7 @@ jobs:
                 destroyPlayer();
                 if (playerOverlay) { playerOverlay.remove(); playerOverlay = null; }
               }
+              window.__closeOnlinePlayer = closePlayerShell;
               function playEpisode(anime, anilistId, ep, episodes, opts) {
                 var b = openPlayerShell();
                 destroyPlayer();
@@ -3585,8 +3600,13 @@ jobs:
               }
               /* Inject online history cards into the History tab */
               var ohObsActive = false;
+              function ohFindGrid() {
+                return document.querySelector('.history-grid-full') ||
+                       document.querySelector('[aria-label="Watch History"] .history-grid') ||
+                       document.querySelector('[aria-label="Watch History"] div[class*="grid"]');
+              }
               function ohInject() {
-                var grid = document.querySelector('.history-grid-full');
+                var grid = ohFindGrid();
                 if (!grid) return;
                 // Remove previously injected cards
                 var olds = grid.querySelectorAll('.continue-card.__oh');
@@ -3622,11 +3642,16 @@ jobs:
               function ohWatch() {
                 if (ohObsActive) return;
                 ohObsActive = true;
-                new MutationObserver(function () {
-                  // Only inject when History tab is visible
-                  var sec = document.querySelector('.continue-section[aria-label="Watch History"]');
+                var tryInject = function () {
+                  var sec = document.querySelector('.continue-section[aria-label="Watch History"]') ||
+                            document.querySelector('[aria-label="Watch History"]');
                   if (sec) ohInject();
-                }).observe(document.body, { childList: true, subtree: true });
+                };
+                new MutationObserver(tryInject).observe(document.body, { childList: true, subtree: true });
+                // Fallback poll: inject every 2s if History tab is visible (observer can miss React renders)
+                setInterval(tryInject, 2000);
+                // Expose for manual trigger
+                window.__refreshOnlineHistory = tryInject;
               }
 
               function audioLabel(audioDefs, lang) {
