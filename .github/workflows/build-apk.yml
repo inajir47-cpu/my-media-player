@@ -130,6 +130,18 @@ jobs:
             '(window.__renderContinueAndHistory ? window.__renderContinueAndHistory({ activeTab: a, setTab: i, searchQuery: e, cwItems: A.data?.items ?? [], collections: R, onPlay: ra, onOpenCollection: o, u: u, v: v, k: k }) : null), a !== "history" && u("div", {\n          className: "rail-stack",'
           );
 
+          // 11b. Merge watched online series/movies INTO the native Series collections / Movies rows
+          html = html.replace(
+            'children: [["series", "Series collections", U], ["movie", "Movies", _], ["music", "Music", ue]]',
+            'children: [["series", "Series collections", window.__onlineCols ? U.concat(window.__onlineCols("series")) : U], ["movie", "Movies", window.__onlineCols ? _.concat(window.__onlineCols("movie")) : _], ["music", "Music", ue]]'
+          );
+
+          // 11c. Route taps on online collection cards to the online detail page
+          html = html.replace(
+            'onOpen: () => o(f.id),',
+            'onOpen: () => { var __fid = String((f && f.id) || ""); if (__fid.indexOf("online:") === 0) { if (window.__openOnlineCol) window.__openOnlineCol(__fid.slice(7)); } else { o(f.id); } },'
+          );
+
           // 12. Expand Hero Carousel items & add Touch-Swipe gestures + One-Tap Tablet Poster Card opening
           html = html.replace(
             'Me = [...R].sort((N, q) => Date.parse(q.createdAt) - Date.parse(N.createdAt)).slice(0, 3),\n    lt = (A.data?.items ?? []).slice(0, 2),',
@@ -685,6 +697,7 @@ jobs:
             .awd-epshead{max-width:1100px;margin:0 auto;padding:0 20px}
             .awd-continue{display:flex;align-items:center;gap:12px;width:calc(100% - 40px);max-width:1060px;margin:6px auto 22px;padding:15px 18px;background:#e8632c;border:0;border-radius:12px;color:#fff;font-size:16px;font-weight:700;cursor:pointer;text-align:left}
             .awd-continue-play{font-size:18px;line-height:1}
+            .awd-epwatch{display:inline-block;margin:6px 10px 10px;font-size:11px;font-weight:700;color:#ffd9a8;background:#3a2a1a;border:1px solid #7a5a34;border-radius:20px;padding:2px 8px}
             .awd-epshead h2{font-size:22px;font-weight:700;margin:0 0 14px;color:#fff}
             .awd-eps{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;max-width:1100px;margin:0 auto;padding:0 20px 40px}
             .awd-ep{position:relative;background:#14161c;border:1px solid #232833;border-radius:10px;overflow:hidden;cursor:pointer;padding:0;text-align:left;color:#fff}
@@ -3241,7 +3254,7 @@ jobs:
                   apiGet('/api/anime/detail?animeId=' + encodeURIComponent(pick.animeId) + '&enrich=0').then(function (dd) {
                     var eps = (dd && dd.episodes) || [];
                     openAnimeWatchShell(pick.title);
-                    playEpisode(pick, dd.anilistId, ep, eps, { preferDub: true });
+                    playEpisode(pick, dd.anilistId, ep, eps, { preferDub: true, format: dd.info && dd.info.format });
                   }, function (err) { awToast('Could not load episodes: ' + (err.message || 'network error')); });
                 }, function (err) { awToast('Online search failed: ' + (err.message || 'network error')); });
               }
@@ -3444,10 +3457,22 @@ jobs:
                         (r.text ? '<div class="awd-review-t">' + esc(r.text) + '</div>' : '') + '</div>';
                     }).join('') + '</div>';
                   }
+                  var ohWatched = {};
+                  try {
+                    var __ohl3 = ohLoad();
+                    for (var __wi = 0; __wi < __ohl3.length; __wi++) {
+                      var __we = __ohl3[__wi];
+                      var __wa = (__we && __we.anime) || {};
+                      if (__wa.animeId && String(__wa.animeId) === String(anime.animeId)) ohWatched[__we.ep] = __we;
+                    }
+                  } catch (e) {}
+                  var ohWatchedCount = Object.keys(ohWatched).length;
                   var epCards = eps.map(function (e) {
                     var n = e.number;
                     var et = emT[n] || e.title || ('Episode ' + n);
                     var pad = n < 10 ? '0' + n : '' + n;
+                    var __w = ohWatched[n];
+                    var __wBadge = __w ? '<span class="awd-epwatch">' + (__w.durationSeconds > 0 && __w.positionSeconds / __w.durationSeconds > 0.9 ? '\\u2713 Watched' : (__w.positionSeconds > 0 ? 'Stopped at ' + fmtClock(__w.positionSeconds) : '\\u25B6 Started')) + '</span>' : '';
                     return '<button type="button" class="awd-ep" data-ep="' + n + '">' +
                       '<span class="awd-epnum">' + pad + '</span>' +
                       '<span class="awd-epglobe" title="Watch online">\\uD83C\\uDF10</span>' +
@@ -3455,16 +3480,11 @@ jobs:
                       '<span class="awd-epplay">\\u25B6</span></span>' +
                       '<span class="awd-eptitle">' + esc(et) + '</span>' +
                       '<span class="awd-epmeta">' + (info.duration ? info.duration + ' min \\u00B7 ' : '') + '\\uD83C\\uDF10 Online \\u00B7 SUB/DUB</span>' +
+                      __wBadge +
                       '</button>';
                   }).join('');
                   var ohEntry = null;
-                  try {
-                    var __ohl = ohLoad();
-                    for (var __oi = 0; __oi < __ohl.length; __oi++) {
-                      var __oe = __ohl[__oi];
-                      if (__oe && __oe.anime && __oe.anime.animeId && String(__oe.anime.animeId) === String(anime.animeId)) { ohEntry = __oe; break; }
-                    }
-                  } catch (e) {}
+                  try { ohEntry = ohFindEntry(anime.animeId, anime.title); } catch (e) {}
                   var ohContHtml = (ohEntry && ohEntry.positionSeconds > 0)
                     ? '<button type="button" class="awd-continue" id="awdContinue"><span class="awd-continue-play">\\u25B6</span><span>Continue EP ' + ohEntry.ep + ' from ' + fmtClock(ohEntry.positionSeconds) + '</span></button>'
                     : '';
@@ -3490,16 +3510,16 @@ jobs:
                     revHtml +
                     '<div class="awd-wosect"><h2>Watch order</h2>' +
                     '<p class="awd-wosub">All episodes in release order. Pick any episode to watch it online.</p></div>' +
-                    '<div class="awd-epshead"><h2>Episodes \\u00B7 ' + eps.length + ' listed</h2></div>' +
+                    '<div class="awd-epshead"><h2>Episodes \\u00B7 ' + eps.length + ' listed' + (ohWatchedCount ? ' \\u00B7 ' + ohWatchedCount + ' watched' : '') + '</h2></div>' +
                     (eps.length ? '<div class="awd-eps">' + epCards + '</div>'
                       : '<div class="awd-status">No episodes found for this title.</div>');
                   detailPage.querySelector('#awdBack').onclick = function () { closeDetailPage(); };
                   var __awdCont = detailPage.querySelector('#awdContinue');
                   if (__awdCont && ohEntry) {
-                    __awdCont.onclick = function () { playEpisode(anime, d.anilistId, ohEntry.ep, eps, { preferDub: true, startAt: ohEntry.positionSeconds }); };
+                    __awdCont.onclick = function () { playEpisode(anime, d.anilistId, ohEntry.ep, eps, { preferDub: true, startAt: ohEntry.positionSeconds, format: info.format }); };
                   }
                   Array.prototype.forEach.call(detailPage.querySelectorAll('.awd-ep'), function (btn) {
-                    btn.onclick = function () { playEpisode(anime, d.anilistId, +btn.getAttribute('data-ep'), eps, { preferDub: true }); };
+                    btn.onclick = function () { playEpisode(anime, d.anilistId, +btn.getAttribute('data-ep'), eps, { preferDub: true, format: info.format }); };
                   });
                   detailPage.scrollTop = 0;
                 }, function (err) {
@@ -3531,7 +3551,7 @@ jobs:
                     for (i = 0; i < eps.length; i++) if (eps[i].number === want) target = eps[i].number;
                     if (target == null && eps.length) target = eps[0].number;
                     if (target == null) { setStatus(errBox('No episodes found for ' + pick.title + '.')); return; }
-                    playEpisode(pick, dd.anilistId, target, eps, { preferDub: true });
+                    playEpisode(pick, dd.anilistId, target, eps, { preferDub: true, format: dd.info && dd.info.format });
                   }, function (err) { setStatus(errBox(err.message)); });
                 }, function (err) { setStatus(errBox(err.message)); });
               }
@@ -3578,7 +3598,7 @@ jobs:
                 catch (e) { return []; }
               }
               function ohSave(h) { try { localStorage.setItem(OH_KEY, JSON.stringify(h.slice(0, 50))); } catch (e) {} }
-              function ohRecord(anime, anilistId, ep, episodes, position, duration) {
+              function ohRecord(anime, anilistId, ep, episodes, position, duration, format) {
                 var h = ohLoad();
                 var id = 'online-' + anilistId + '-' + ep;
                 var epInfo = null;
@@ -3588,6 +3608,7 @@ jobs:
                   title: anime.title || 'Unknown',
                   animeId: anime.animeId,
                   poster: anime.poster || anime.cover || anime.image || null,
+                  kind: (format && /movie/i.test(format)) ? 'movie' : 'series',
                   epTitle: (epInfo && (epInfo.title || epInfo.name)) || ('Episode ' + ep),
                   positionSeconds: Math.floor(position || 0),
                   durationSeconds: Math.floor(duration || 0),
@@ -3695,27 +3716,7 @@ jobs:
                           ] });
                           el = ohAppendChild(v, el, ohSec);
                         }
-                      } else if (props && props.activeTab === 'all') {
-                        var series = ohSeries();
-                        if (series.length) {
-                          var scards = series.map(function (h) { return ohCard(u, v, h); });
-                          var homeSec = v('div', { style: { marginTop: '20px' }, children: [
-                            v('div', { className: 'continue-heading', children: [
-                              v('div', { children: [
-                                u('p', { className: 'eyebrow', children: 'Streamed from the web' }),
-                                u('h2', { children: '\\uD83C\\uDF10 Online series' })
-                              ] }),
-                              u('span', { children: series.length + ' series' })
-                            ] }),
-                            v('div', { className: 'history-grid-full', children: scards })
-                          ] });
-                          if (el && el.props) {
-                            el = ohAppendChild(v, el, homeSec);
-                          } else {
-                            el = v('section', { className: 'continue-section', 'aria-label': 'Online series', children: [homeSec] });
-                          }
-                        }
-                      }
+
                     } catch (e) {}
                     return el;
                   };
@@ -3723,6 +3724,49 @@ jobs:
                   window.__renderContinueAndHistory = wrapped;
                 } catch (e) {}
               }
+              function ohFindEntry(animeId, title) {
+                var h = ohLoad(), fallback = null;
+                var t = (title || '').toLowerCase().trim();
+                for (var i = 0; i < h.length; i++) {
+                  var a = (h[i] && h[i].anime) || {};
+                  if (a.animeId && String(a.animeId) === String(animeId)) return h[i];
+                  if (!fallback && t && ((a.title || h[i].title || '').toLowerCase().trim() === t)) fallback = h[i];
+                }
+                return fallback;
+              }
+              function ohOpenDetailForAnime(animeId, title) {
+                var e = ohFindEntry(animeId, title);
+                if (e) ohOpenDetail(e);
+              }
+              window.__onlineCols = function (kind) {
+                var out = [], seen = {}, h = ohLoad();
+                for (var i = 0; i < h.length; i++) {
+                  var e = h[i], aid = e && e.anime && e.anime.animeId;
+                  if (!aid || seen[aid]) continue;
+                  seen[aid] = true;
+                  if ((e.kind || 'series') !== kind) continue;
+                  out.push({
+                    id: 'online:' + aid,
+                    title: e.title,
+                    kind: kind,
+                    year: null,
+                    seasonCount: null,
+                    posterUrl: e.poster,
+                    metadataStatus: 'complete'
+                  });
+                }
+                return out;
+              };
+              window.__openOnlineCol = function (animeId) {
+                try {
+                  var h = ohLoad(), e = null;
+                  for (var i = 0; i < h.length; i++) {
+                    var a = (h[i] && h[i].anime) || {};
+                    if (String(a.animeId) === String(animeId)) { e = h[i]; break; }
+                  }
+                  if (e) ohOpenDetail(e);
+                } catch (err) {}
+              };
               function ohAppendChild(v, el, child) {
                 var kids = el.props.children;
                 var arr = Array.isArray(kids) ? kids.slice() : (kids ? [kids] : []);
@@ -3862,7 +3906,7 @@ jobs:
                 video.addEventListener('durationchange', function () { durEl.textContent = fmt(video.duration); });
                 var ohId = 'online-' + anilistId + '-' + ep, ohLastSave = 0;
                 // Record to history when playback begins
-                ohRecord(anime, anilistId, ep, episodes, (opts && opts.startAt) || 0, 0);
+                ohRecord(anime, anilistId, ep, episodes, (opts && opts.startAt) || 0, 0, opts && opts.format);
                 video.addEventListener('timeupdate', function () {
                   var d = video.duration || 0, c = video.currentTime || 0;
                   curEl.textContent = fmt(c);
