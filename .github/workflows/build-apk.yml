@@ -1376,6 +1376,45 @@ jobs:
                 opacity: 0.7 !important;
               }
             }
+            /* Hero carousel: fixed height, no random stretching */
+            .recent-carousel, .hero-carousel, .hero-slide,
+            .home-carousel, .home-carousel .carousel-slide {
+              height: 360px !important;
+              max-height: 360px !important;
+              min-height: 360px !important;
+              position: relative !important;
+              overflow: hidden !important;
+            }
+            @media (max-width: 760px) {
+              .recent-carousel, .hero-carousel, .hero-slide,
+              .home-carousel, .home-carousel .carousel-slide {
+                height: 320px !important;
+                max-height: 320px !important;
+                min-height: 320px !important;
+              }
+            }
+            /* Clamp synopsis to 2 lines */
+            .hero-synopsis, .hero-description,
+            .home-carousel .synopsis, .home-carousel [class*="synopsis"],
+            .home-carousel .featured-copy p {
+              display: -webkit-box !important;
+              -webkit-line-clamp: 2 !important;
+              -webkit-box-orient: vertical !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              max-height: 2.8em !important;
+            }
+            /* Background fill for video/backdrop */
+            .home-carousel .local-clip-preview,
+            .home-carousel .local-clip-preview video,
+            .hero-slide .local-clip-preview,
+            .hero-slide video {
+              position: absolute !important;
+              inset: 0 !important;
+              width: 100% !important;
+              height: 100% !important;
+              object-fit: cover !important;
+            }
             /* Injected tab buttons: never show white unless actually active */
             .topbar nav button[data-tab="discover"]:not(.active),
             .topbar nav button[data-tab="ultimate-search"] {
@@ -1707,6 +1746,127 @@ jobs:
             .awp-overlay.awp-mini{inset:auto;left:12px;right:12px;bottom:80px;top:auto;height:220px;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.6);z-index:100001}
             .awp-overlay.awp-mini .awp-top,.awp-overlay.awp-mini .awp-bot{display:none}
             .awp-overlay.awp-mini .awp-video{object-fit:cover}
+            /* Option A: awp-overlay mirrors vlc-player */
+            .awp-overlay .awp-top {
+              display: flex !important;
+              align-items: flex-start !important;
+              justify-content: space-between !important;
+              padding: 16px 20px !important;
+              background: linear-gradient(rgba(0,0,0,.75),rgba(0,0,0,.35) 62%,transparent) !important;
+            }
+            .awp-playing-dot {
+              display: inline-block !important;
+              width: 10px !important;
+              height: 10px !important;
+              border-radius: 50% !important;
+              background: #ff7a12 !important;
+              margin-right: 8px !important;
+              animation: awp-pulse 1.5s ease-in-out infinite !important;
+              vertical-align: middle !important;
+            }
+            @keyframes awp-pulse {
+              0%, 100% { opacity: 1; transform: scale(1); }
+              50% { opacity: 0.5; transform: scale(0.85); }
+            }
+            .awp-status {
+              color: #ff7a12 !important;
+              font-weight: 700 !important;
+              font-size: 12px !important;
+              letter-spacing: 1.5px !important;
+              text-transform: uppercase !important;
+            }
+            .awp-overlay .awp-bot {
+              background: linear-gradient(transparent,rgba(0,0,0,.55) 34%,rgba(0,0,0,.88)) !important;
+              padding: 10px 20px max(18px,env(safe-area-inset-bottom)) !important;
+            }
+            .awp-overlay .awp-playmid {
+              width: 58px !important;
+              height: 58px !important;
+              min-width: 58px !important;
+              border-radius: 50% !important;
+              background: #ff7a12 !important;
+              color: #fff !important;
+              font-size: 22px !important;
+            }
+            .awp-overlay .awp-prog {
+              height: 6px !important;
+              border-radius: 3px !important;
+              background: rgba(255,255,255,0.2) !important;
+            }
+            .awp-overlay .awp-fill {
+              background: linear-gradient(90deg,#ff7a12,#ff9a3c) !important;
+              border-radius: 3px !important;
+            }
+            /* Queue drawer */
+            .awp-queue {
+              position: absolute !important;
+              top: 0 !important;
+              right: 0 !important;
+              bottom: 0 !important;
+              width: min(320px, 85%) !important;
+              background: rgba(12,13,16,.98) !important;
+              backdrop-filter: blur(16px) !important;
+              border-left: 1px solid rgba(255,255,255,.08) !important;
+              z-index: 10 !important;
+              transform: translateX(100%) !important;
+              transition: transform 0.3s ease !important;
+              display: flex !important;
+              flex-direction: column !important;
+            }
+            .awp-queue.open {
+              transform: translateX(0) !important;
+            }
+            .awp-queue-head {
+              display: flex !important;
+              justify-content: space-between !important;
+              align-items: center !important;
+              padding: 16px !important;
+              border-bottom: 1px solid rgba(255,255,255,.08) !important;
+              font-weight: 700 !important;
+            }
+            .awp-queue-list {
+              flex: 1 !important;
+              overflow-y: auto !important;
+              padding: 8px !important;
+            }
+            .awp-queue-item {
+              display: flex !important;
+              align-items: center !important;
+              gap: 12px !important;
+              padding: 10px 12px !important;
+              border-radius: 8px !important;
+              cursor: pointer !important;
+              color: #fff !important;
+              background: transparent !important;
+              border: none !important;
+              width: 100% !important;
+              text-align: left !important;
+              font-size: 14px !important;
+            }
+            .awp-queue-item:active { background: rgba(255,255,255,.08) !important; }
+            .awp-queue-item.current {
+              background: rgba(255,122,18,.15) !important;
+              color: #ff7a12 !important;
+            }
+            /* Gesture feedback */
+            .awp-gesture-fb {
+              position: absolute !important;
+              top: 50% !important;
+              left: 50% !important;
+              transform: translate(-50%,-50%) !important;
+              background: rgba(10,10,12,.82) !important;
+              backdrop-filter: blur(8px) !important;
+              border-radius: 14px !important;
+              border: 1px solid rgba(255,255,255,.10) !important;
+              padding: 16px 24px !important;
+              font-size: 18px !important;
+              color: #fff !important;
+              z-index: 20 !important;
+              pointer-events: none !important;
+              opacity: 0 !important;
+              transition: opacity 0.2s !important;
+            }
+            .awp-gesture-fb.show { opacity: 1 !important; }
             /* VLC-style polish for online player controls */
             .awp-icobtn{background:rgba(255,255,255,.1);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s}
             .awp-icobtn:active{background:rgba(255,255,255,.25)}
@@ -5669,9 +5829,8 @@ jobs:
                 var statusEl = root.querySelector('#awpStatus');
                 function updateStatus() {
                   if (!statusEl) return;
-                  if (video.ended) statusEl.textContent = 'Ended';
-                  else if (video.paused) statusEl.textContent = 'Paused';
-                  else statusEl.textContent = 'Playing';
+                  var label = video.ended ? 'ENDED' : (video.paused ? 'PAUSED' : 'PLAYING');
+                  statusEl.innerHTML = '<span class="awp-playing-dot"></span>' + label;
                 }
                 video.addEventListener('play', updateStatus);
                 video.addEventListener('pause', updateStatus);
@@ -5804,7 +5963,33 @@ jobs:
                 spin.style.display = 'block';
                 try { var pr = video.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (e) {}
                 root.querySelector('#awpBack').onclick = function () { closePlayerShell(); };
-                root.querySelector('#awpEps').onclick = function () { closePlayerShell(); };
+                // Queue drawer: episode list slide-out
+                var queueEl = document.createElement('div');
+                queueEl.className = 'awp-queue';
+                queueEl.innerHTML = '<div class="awp-queue-head"><span>Episodes</span><button type="button" class="awp-icobtn" id="awpQueueClose">\u2715</button></div><div class="awp-queue-list" id="awpQueueList"></div>';
+                root.appendChild(queueEl);
+                function renderQueue() {
+                  var list = queueEl.querySelector('#awpQueueList');
+                  list.innerHTML = '';
+                  (episodes || []).forEach(function(epNum){
+                    var btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'awp-queue-item' + (epNum === ep ? ' current' : '');
+                    btn.innerHTML = '<span>EP ' + epNum + '</span>' + (epNum === ep ? '<span style="margin-left:auto">\u25b6</span>' : '');
+                    btn.onclick = function(){
+                      queueEl.classList.remove('open');
+                      playEpisode(anime, anilistId, epNum, episodes, opts);
+                    };
+                    list.appendChild(btn);
+                  });
+                }
+                renderQueue();
+                queueEl.querySelector('#awpQueueClose').onclick = function(){ queueEl.classList.remove('open'); };
+                root.querySelector('#awpEps').onclick = function (e) {
+                  if (e) e.stopPropagation();
+                  queueEl.classList.toggle('open');
+                  showUI();
+                };
                 root.querySelector('#awpPrev').onclick = function () { if (ep > 1) playEpisode(anime, anilistId, ep - 1, episodes, opts); };
                 root.querySelector('#awpNext').onclick = function () { playEpisode(anime, anilistId, ep + 1, episodes, opts); };
               }
