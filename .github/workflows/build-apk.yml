@@ -2351,6 +2351,7 @@ jobs:
 
               if (action === "listContinueWatching") {
                 var cw = [];
+                var seenCol = {}; // dedup: one card per collection (most recent wins)
                 db.collections.forEach(function(col) {
                   (col.files || []).forEach(function(f) {
                     if ((f.positionSeconds > 0.5) || (f.lastWatchedAt && f.lastWatchedAt > 0) || f.completed) {
@@ -2376,11 +2377,60 @@ jobs:
                         durationSeconds: f.durationSeconds || 0,
                         completed: Boolean(f.completed),
                         lastWatchedAt: f.lastWatchedAt || 1,
-                        progressPercent: pct
+                        progressPercent: pct,
+                        isOnline: false
                       });
                     }
                   });
                 });
+                // Merge online watch history (__online_history_v1)
+                try {
+                  var ohRaw = localStorage.getItem('__online_history_v1');
+                  var ohList = ohRaw ? JSON.parse(ohRaw) : [];
+                  if (Array.isArray(ohList)) {
+                    ohList.forEach(function(h) {
+                      if (!h || !h.lastWatchedAt) return;
+                      // Map to native collection via anilistId->collection or title match
+                      var col = null;
+                      var hKey = normalizeTitleKey(h.title || '');
+                      // Try to find matching collection by title
+                      col = db.collections.find(function(c){ return normalizeTitleKey(c.title) === hKey; });
+                      // If online entry was created via openOnlineAsNative, it should have a collection
+                      var dur2 = h.durationSeconds > 0 ? h.durationSeconds : 1440;
+                      var pct2 = Math.min(99, Math.max(5, ((h.positionSeconds || 0) / dur2) * 100));
+                      cw.push({
+                        collectionId: col ? col.id : ('online:' + (h.animeId || h.anilistId || '')),
+                        collectionTitle: h.title || 'Unknown',
+                        mediaFileId: null,
+                        fileName: null,
+                        displayTitle: h.epTitle || ('Episode ' + (h.ep || '')),
+                        posterUrl: h.poster || (col && col.posterUrl) || null,
+                        seasonNumber: 1,
+                        episodeNumber: h.ep || 1,
+                        contentType: h.kind || 'series',
+                        positionSeconds: h.positionSeconds || 0,
+                        durationSeconds: h.durationSeconds || 0,
+                        completed: false,
+                        lastWatchedAt: h.lastWatchedAt,
+                        progressPercent: pct2,
+                        isOnline: true,
+                        onlineAnilistId: h.anilistId,
+                        onlineAnimeId: h.animeId,
+                        onlineAnime: h.anime,
+                        onlineEpisodes: h.episodes
+                      });
+                    });
+                  }
+                } catch(e) {}
+                // Strict dedup: one card per collectionId, keep most recent lastWatchedAt
+                var deduped = {};
+                cw.forEach(function(item){
+                  var k = String(item.collectionId);
+                  if (!deduped[k] || (item.lastWatchedAt || 0) > (deduped[k].lastWatchedAt || 0)) {
+                    deduped[k] = item;
+                  }
+                });
+                cw = Object.keys(deduped).map(function(k){ return deduped[k]; });
                 cw.sort(function(a, b) {
                   return (b.lastWatchedAt || 0) - (a.lastWatchedAt || 0);
                 });
@@ -4113,9 +4163,17 @@ jobs:
               function closePlayerShell() {
                 destroyPlayer();
                 if (playerOverlay) { playerOverlay.remove(); playerOverlay = null; }
+                // Instant UI refresh: trigger listContinueWatching refetch for Home rail
+                try {
+                  if (window.__refreshContinueWatching) window.__refreshContinueWatching();
+                  // Dispatch event for React query invalidation
+                  window.dispatchEvent(new CustomEvent('aw-continue-refresh'));
+                } catch(e) {}
               }
               window.__closeOnlinePlayer = closePlayerShell;
               function playEpisode(anime, anilistId, ep, episodes, opts) {
+                window.playEpisode = playEpisode; // expose for Continue Watching resume
+                window.autoPlayOnline = autoPlayOnline; // expose for Continue Watching resume
                 if (anime && anime.hanime) { playHanime(anime, opts); return; }
                 var b = openPlayerShell();
                 destroyPlayer();
@@ -4240,6 +4298,28 @@ jobs:
                   if (window.__renderContinueAndHistory.__ohWrapped) return;
                   var orig = window.__renderContinueAndHistory;
                   var wrapped = function (props) {
+                    // Smart resume: intercept onPlay for online items in Continue Watching
+                    if (props && props.onPlay && props.cwItems) {
+                      var origPlay = props.onPlay;
+                      props = Object.assign({}, props, {
+                        onPlay: function(item) {
+                          if (item && item.isOnline) {
+                            // Launch online player directly, resume from positionSeconds
+                            var anime = item.onlineAnime || { title: item.collectionTitle, animeId: item.onlineAnimeId };
+                            var anilistId = item.onlineAnilistId;
+                            var ep = item.episodeNumber || 1;
+                            var eps = item.onlineEpisodes || [];
+                            if (window.playEpisode) {
+                              window.playEpisode(anime, anilistId, ep, eps, { preferDub: true, startAt: item.positionSeconds || 0 });
+                            } else if (window.autoPlayOnline) {
+                              window.autoPlayOnline(item.collectionTitle, ep, item.contentType || 'series');
+                            }
+                            return;
+                          }
+                          return origPlay(item);
+                        }
+                      });
+                    }
                     var el = orig(props);
                     try {
                       var u = props && props.u, v = props && props.v;
