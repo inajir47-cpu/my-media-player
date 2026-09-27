@@ -274,6 +274,7 @@ jobs:
                 return url;
               } catch(e) { return null; }
             }
+            window.fetchTrailerUrl = fetchTrailerUrl;
             // Save trailer URL to collection in DB
             function saveTrailerToCollection(collectionId, trailerUrl) {
               try {
@@ -401,6 +402,49 @@ jobs:
               }
               // Check periodically for empty preview states
               setInterval(tryOnlinePreview, 3000);
+              // Sync trailer preview for ANY container (Home Carousel OR Anime Info Detail Page)
+              function syncContainerTrailer(containerSelector) {
+                var container = document.querySelector(containerSelector);
+                if (!container) return;
+                var preview = container.querySelector('.local-clip-preview');
+                if (!preview) return;
+                var titleEl = container.querySelector('.featured-copy h1, .detail-hero h1, h1');
+                var title = titleEl ? titleEl.textContent.trim() : '';
+                if (!title) return;
+                var nativeLocalVideo = Array.from(preview.querySelectorAll('video')).find(function(vid) {
+                  return !vid.closest('.trailer-preview-layer');
+                });
+                if (nativeLocalVideo && !preview.classList.contains('empty')) {
+                  clearTrailerLayer(preview);
+                  preview.dataset.lastTitle = title;
+                  preview.dataset.onlineActive = '';
+                  return;
+                }
+                if (preview.dataset.lastTitle !== title) {
+                  clearTrailerLayer(preview);
+                  preview.dataset.lastTitle = title;
+                  preview.dataset.onlineActive = '';
+                }
+                if (preview.dataset.onlineActive === '1' || preview.dataset.onlineActive === 'loading' || preview.dataset.onlineActive === 'none') return;
+                preview.dataset.onlineActive = 'loading';
+                var anilistId = (titleEl && titleEl.dataset.anilistId) || null;
+                fetchTrailerUrl(anilistId, title).then(function(trailerUrl) {
+                  var nowTitleEl = container.querySelector('.featured-copy h1, .detail-hero h1, h1');
+                  var nowTitle = nowTitleEl ? nowTitleEl.textContent.trim() : '';
+                  if (nowTitle !== title) return;
+                  if (trailerUrl) {
+                    preview.dataset.onlineActive = '1';
+                    playTrailerPreview(preview, trailerUrl);
+                  } else {
+                    preview.dataset.onlineActive = 'none';
+                  }
+                }).catch(function() { preview.dataset.onlineActive = ''; });
+              }
+              setInterval(function() {
+                syncContainerTrailer('.home-carousel');
+                syncContainerTrailer('main.detail-view');
+                syncContainerTrailer('.detail-hero');
+              }, 1000);
             })();
             </script>
             <script>
@@ -1098,7 +1142,7 @@ jobs:
                 } catch(e) {}
               }
               setInterval(injectHeart, 2000);
-              setInterval(injectDetailTrailerBg, 3000);
+              // (removed: syncContainerTrailer now handles detail page)
             })();
             </script></body>`
           );
@@ -1494,17 +1538,28 @@ jobs:
               }
             }
 
-            /* Hide empty preview placeholder behind carousel & detail titles (all screens) */
-            .home-carousel .local-clip-preview.empty,
+            /* Hide ONLY the empty text message, NOT the .local-clip-preview container itself */
             .home-carousel .clip-empty,
-            .detail-hero .local-clip-preview.empty,
-            .detail-hero .clip-empty {
+            .detail-hero .clip-empty,
+            .detail-view .clip-empty {
               opacity: 0 !important;
               visibility: hidden !important;
               pointer-events: none !important;
+              display: none !important;
+            }
+            /* Keep the preview container visible so the trailer video shows when .empty is set */
+            .home-carousel .local-clip-preview,
+            .home-carousel .local-clip-preview.empty,
+            .detail-hero .local-clip-preview,
+            .detail-hero .local-clip-preview.empty,
+            .detail-view .local-clip-preview,
+            .detail-view .local-clip-preview.empty {
+              opacity: 1 !important;
+              visibility: visible !important;
             }
             .home-carousel .local-clip-preview video,
-            .detail-hero .local-clip-preview video {
+            .detail-hero .local-clip-preview video,
+            .detail-view .local-clip-preview video {
               opacity: 1 !important;
               visibility: visible !important;
             }
