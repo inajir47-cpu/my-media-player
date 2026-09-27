@@ -25,6 +25,7 @@ node patch.js
 | `07-theme-cache.js` | Section 18: Opening theme offline cache (IndexedDB) | ~200 |
 | `08-hindi.js` | Section 19: Hindi/ToonStream integration | ~435 |
 | `09-detail-fade.js` | Sections 20-21: Detail hero black fade | ~20 |
+| `10-language-switch.js` | Language switcher (Hindi ↔ English) in video player | ~80 |
 | `99-footer.js` | Write the patched HTML file | ~4 |
 
 ## Adding a new feature
