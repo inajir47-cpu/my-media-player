@@ -182,26 +182,23 @@ jobs:
               }
               function injectSlides(items){
                 if(!items.length) return;
-                // Find carousel container
-                var car = document.querySelector('.home-carousel, [class*="carousel"]');
-                if(!car) { setTimeout(function(){ injectSlides(items); }, 2000); return; }
-                // Deduplicate: skip if title already in carousel
-                var existing = {};
-                car.querySelectorAll('[class*="title"], [class*="heading"]').forEach(function(el){
-                  existing[el.textContent.trim().toLowerCase()] = 1;
-                });
+                // Don't append raw DOM divs (breaks React grid) - save via handleAction instead
+                // so React renders them natively in the carousel
                 items.forEach(function(item){
-                  var key = String(item.title).toLowerCase();
-                  if(existing[key]) return;
-                  existing[key] = 1;
-                  // Create slide element (simplified - will be styled by existing CSS)
-                  var slide = document.createElement('div');
-                  slide.className = 'carousel-slide newly-launched-online';
-                  slide.innerHTML = '<div class="newly-launched-badge">Newly Launched \u00B7 Online</div>' +
-                    (item.image ? '<img src="'+item.image+'" alt="" />' : '') +
-                    '<div class="slide-title">'+item.title+'</div>';
-                  slide.onclick = function(){ if(window.openOnlineAsNative) window.openOnlineAsNative(item); };
-                  car.appendChild(slide);
+                  try {
+                    if (window.handleAction) {
+                      window.handleAction('addCollection', {
+                        title: item.title,
+                        kind: 'series',
+                        year: item.year || new Date().getFullYear(),
+                        files: [],
+                        discoverCached: true,
+                        isWatchlist: false,
+                        posterUrl: item.image || '',
+                        anilistId: item.anilistId || null
+                      });
+                    }
+                  } catch(e) {}
                 });
               }
               // Wait for app to load, then fetch and inject
@@ -281,19 +278,25 @@ jobs:
                 // Check for empty state (no local video)
                 var emptyMsg = preview.textContent || '';
                 if(emptyMsg.indexOf('No local') < 0 && emptyMsg.indexOf('not connected') < 0 && preview.children.length > 0) return;
-                // Try to get current slide's anime info
-                var slide = document.querySelector('.carousel-slide.active, .home-carousel .active');
-                if(!slide) return;
-                var titleEl = slide.querySelector('.slide-title, [class*="title"]');
-                if(!titleEl) return;
+                // Try to get current slide's anime info from the h1 title
+                var car = document.querySelector('.home-carousel');
+                if (!car) return;
+                var titleEl = car.querySelector('.featured-copy h1, h1');
+                if (!titleEl) return;
                 var title = titleEl.textContent.trim();
-                if(!title) return;
+                if (!title) return;
+                if (preview.dataset.lastTitle !== title) {
+                  preview.dataset.lastTitle = title;
+                  preview.dataset.onlineActive = '';
+                  preview.innerHTML = '';
+                }
+                if (preview.dataset.onlineActive) return;
                 // Mark as attempting to avoid loops
                 preview.dataset.onlineActive = '1';
                 // Hide empty placeholder
                 preview.innerHTML = '';
                 preview.style.background = '#000';
-                var anilistId = slide.dataset.anilistId || null;
+                var anilistId = titleEl.dataset.anilistId || null;
                 // Try AnimeThemes direct trailer first (raw .webm, no YouTube errors)
                 fetchTrailerUrl(anilistId, title).then(function(trailerUrl){
                   if (trailerUrl) {
@@ -369,13 +372,12 @@ jobs:
             (function(){
               function getRelatedMedia() {
                 try {
+                  var colId = window.__getColIdFromDetail ? window.__getColIdFromDetail() : null;
+                  if (!colId) return [];
                   var dbRaw = localStorage.getItem('media_player_exact_db_v5');
                   var db = dbRaw ? JSON.parse(dbRaw) : null;
-                  // Find current collection from URL or active detail
-                  var hash = window.location.hash || '';
-                  var m = hash.match(/collection\/(\d+)/) || hash.match(/(\d+)/);
-                  if (!m || !db) return null;
-                  var col = db.collections.find(function(c){ return String(c.id) === m[1]; });
+                  if (!db) return [];
+                  var col = (db.collections || []).find(function(c){ return String(c.id) === String(colId); });
                   return col ? col.relatedMedia || [] : [];
                 } catch(e) { return []; }
               }
@@ -844,6 +846,7 @@ jobs:
                 };
               }
               
+              window.__hideDiscoverView = hideDiscover;
               function hideDiscover() {
                 document.body.classList.remove('discover-open');
                 var disc = document.getElementById('discover-view');
@@ -934,12 +937,19 @@ jobs:
             // Heart (watchlist) button for native detail page
             (function(){
               function getColIdFromDetail() {
-                // Try to get collection ID from URL hash or detail view
-                var hash = window.location.hash || '';
-                var m = hash.match(/collection\/(\d+)/);
-                if (m) return m[1];
+                // Find collection by detail page h1 title or tracked ID (React doesn't use location.hash)
+                var h1 = document.querySelector('main.detail-view h1, .detail-hero h1');
+                if (!h1) return null;
+                var t = h1.textContent.trim().toLowerCase();
+                try {
+                  var db = JSON.parse(localStorage.getItem('media_player_exact_db_v5') || '{}');
+                  var byTitle = (db.collections || []).find(function(c){ return String(c.title || '').trim().toLowerCase() === t; });
+                  if (byTitle) return String(byTitle.id);
+                  if (window.__currentDetailCollectionId) return String(window.__currentDetailCollectionId);
+                } catch (e) {}
                 return null;
               }
+              window.__getColIdFromDetail = getColIdFromDetail;
               function injectHeart() {
                 var heroActions = document.querySelector('.hero-actions');
                 if (!heroActions || heroActions.querySelector('.wl-heart-btn')) return;
@@ -1284,94 +1294,6 @@ jobs:
                 padding: 8px 10px !important;
               }
             }
-            /* Mobile hero: video background + small poster frame layout */
-            @media (max-width: 760px) {
-              .home-carousel .carousel-slide {
-                position: relative !important;
-                overflow: hidden !important;
-              }
-              .home-carousel .local-clip-preview {
-                position: absolute !important;
-                inset: 0 !important;
-                width: 100% !important;
-                height: 100% !important;
-                z-index: 1 !important;
-              }
-              .home-carousel .local-clip-preview video {
-                width: 100% !important;
-                height: 100% !important;
-                object-fit: cover !important;
-              }
-              /* Dark gradient overlay */
-              .home-carousel .carousel-slide::after {
-                content: '' !important;
-                position: absolute !important;
-                inset: 0 !important;
-                background: linear-gradient(180deg, rgba(10,12,18,0.15) 0%, rgba(10,12,18,0.65) 55%, rgba(10,12,18,0.95) 100%) !important;
-                z-index: 1 !important;
-                pointer-events: none !important;
-              }
-              /* Hide ghost status text in preview */
-              .home-carousel .local-clip-preview .clip-status,
-              .home-carousel .local-clip-preview .no-video-msg,
-              .home-carousel .local-clip-preview span:not(video):not(button) {
-                display: none !important;
-              }
-              /* Foreground content row */
-              .home-carousel .featured-copy {
-                position: relative !important;
-                z-index: 2 !important;
-                display: flex !important;
-                gap: 12px !important;
-                align-items: flex-end !important;
-                padding: 16px !important;
-              }
-              .home-carousel .featured-poster {
-                width: 76px !important;
-                height: 110px !important;
-                border-radius: 10px !important;
-                object-fit: cover !important;
-                flex-shrink: 0 !important;
-                box-shadow: 0 6px 16px rgba(0,0,0,0.6) !important;
-                border: 1px solid rgba(255,255,255,0.15) !important;
-              }
-              .home-carousel .featured-copy .synopsis,
-              .home-carousel .featured-copy [class*="synopsis"] {
-                display: -webkit-box !important;
-                -webkit-line-clamp: 2 !important;
-                -webkit-box-orient: vertical !important;
-                overflow: hidden !important;
-              }
-              /* Footer row: button left, controls right */
-              .home-carousel .carousel-footer {
-                display: flex !important;
-                justify-content: space-between !important;
-                align-items: center !important;
-                width: 100% !important;
-                margin-top: 12px !important;
-                position: relative !important;
-                z-index: 2 !important;
-              }
-              .home-carousel .carousel-controls {
-                position: static !important;
-                margin: 0 !important;
-              }
-              /* Nav tabs horizontal scroll on mobile */
-              .topbar nav {
-                overflow-x: auto !important;
-                white-space: nowrap !important;
-                scrollbar-width: none !important;
-                -webkit-overflow-scrolling: touch !important;
-                flex-shrink: 1 !important;
-                min-width: 0 !important;
-              }
-              .topbar nav::-webkit-scrollbar {
-                display: none !important;
-              }
-              .topbar nav button {
-                flex-shrink: 0 !important;
-              }
-            }
             /* Hero carousel: fixed height for generic hero classes (recent-carousel rail excluded) */
             .hero-carousel, .hero-slide {
               height: 360px !important;
@@ -1387,12 +1309,22 @@ jobs:
                 min-height: 320px !important;
               }
             }
-            /* Desktop & Tablet Hero Carousel: fit title, meta, synopsis, button & poster cleanly */
+            /* Hide "No local video is connected" ghost text on ALL screen sizes */
+            .home-carousel .local-clip-preview.empty .clip-empty,
+            .home-carousel .clip-empty,
+            .detail-hero .local-clip-preview.empty .clip-empty,
+            .detail-hero .clip-empty {
+              display: none !important;
+              opacity: 0 !important;
+              visibility: hidden !important;
+            }
+
+            /* Desktop & Tablet Hero Carousel (Fixed height without cutting off buttons) */
             .home-carousel {
               height: 430px !important;
               min-height: 430px !important;
               max-height: 430px !important;
-              padding: 28px clamp(22px, 5vw, 64px) 54px !important;
+              padding: 28px clamp(22px, 5vw, 64px) 56px !important;
               align-items: center !important;
               overflow: hidden !important;
               position: relative !important;
@@ -1406,7 +1338,7 @@ jobs:
               z-index: 3 !important;
             }
             .home-carousel .featured-copy h1 {
-              font-size: clamp(28px, 4.2vw, 52px) !important;
+              font-size: clamp(28px, 4.2vw, 50px) !important;
               line-height: 1.05 !important;
               max-width: 18ch !important;
               margin: 0 !important;
@@ -1424,7 +1356,7 @@ jobs:
               text-overflow: ellipsis !important;
             }
             .home-carousel .featured-copy > p:not(.eyebrow):not(.featured-meta) {
-              margin: 10px 0 0 !important;
+              margin: 8px 0 0 !important;
               font-size: 14px !important;
               line-height: 1.45 !important;
               display: -webkit-box !important;
@@ -1435,36 +1367,90 @@ jobs:
               max-height: 2.9em !important;
             }
             .home-carousel .featured-copy > div:not(.hero-progress) {
-              margin-top: 16px !important;
+              margin-top: 14px !important;
             }
             .home-carousel .featured-poster {
-              width: min(100%, 220px) !important;
-              max-height: 330px !important;
+              width: min(100%, 210px) !important;
+              max-height: 315px !important;
               aspect-ratio: 2 / 3 !important;
               z-index: 3 !important;
             }
-            /* Clamp synopsis to 2 lines */
-            .hero-synopsis, .hero-description,
-            .home-carousel .synopsis, .home-carousel [class*="synopsis"],
-            .home-carousel .featured-copy p {
-              display: -webkit-box !important;
-              -webkit-line-clamp: 2 !important;
-              -webkit-box-orient: vertical !important;
-              overflow: hidden !important;
-              text-overflow: ellipsis !important;
-              max-height: 2.8em !important;
+
+            /* Mobile Hero Carousel (<= 760px): Video backdrop + small poster frame + non-overlapping controls */
+            @media (max-width: 760px) {
+              .home-carousel {
+                display: grid !important;
+                grid-template-columns: 76px minmax(0, 1fr) !important;
+                grid-template-rows: 1fr auto !important;
+                align-items: end !important;
+                gap: 10px 12px !important;
+                padding: 16px 16px 54px !important;
+                height: 340px !important;
+                min-height: 340px !important;
+                max-height: 340px !important;
+              }
+              .home-carousel .featured-poster {
+                position: relative !important;
+                inset: auto !important;
+                grid-column: 1 !important;
+                grid-row: 2 !important;
+                width: 76px !important;
+                height: 110px !important;
+                opacity: 1 !important;
+                border-radius: 10px !important;
+                overflow: hidden !important;
+                z-index: 3 !important;
+                box-shadow: 0 6px 16px rgba(0,0,0,0.6) !important;
+                border: 1px solid rgba(255,255,255,0.18) !important;
+              }
+              .home-carousel .featured-copy {
+                grid-column: 2 !important;
+                grid-row: 2 !important;
+                display: block !important;
+                padding: 0 !important;
+                z-index: 3 !important;
+                min-width: 0 !important;
+              }
+              .home-carousel .featured-copy h1 {
+                font-size: 22px !important;
+                line-height: 1.1 !important;
+                -webkit-line-clamp: 1 !important;
+              }
+              .home-carousel .featured-meta {
+                margin: 4px 0 !important;
+                font-size: 11.5px !important;
+              }
+              .home-carousel .featured-copy > p:not(.eyebrow):not(.featured-meta) {
+                font-size: 12px !important;
+                line-height: 1.35 !important;
+                -webkit-line-clamp: 2 !important;
+                margin: 4px 0 0 !important;
+              }
+              .home-carousel .featured-copy > div:not(.hero-progress) {
+                margin-top: 8px !important;
+              }
+              .home-carousel .primary-action {
+                min-height: 34px !important;
+                padding: 0 12px !important;
+                font-size: 12px !important;
+                border-radius: 8px !important;
+              }
+              .home-carousel .carousel-controls {
+                position: absolute !important;
+                bottom: 10px !important;
+                right: 14px !important;
+                left: auto !important;
+                justify-content: flex-end !important;
+                gap: 6px !important;
+                z-index: 4 !important;
+              }
+              .home-carousel .carousel-controls > button {
+                width: 30px !important;
+                height: 30px !important;
+                font-size: 18px !important;
+              }
             }
-            /* Background fill for video/backdrop */
-            .home-carousel .local-clip-preview,
-            .home-carousel .local-clip-preview video,
-            .hero-slide .local-clip-preview,
-            .hero-slide video {
-              position: absolute !important;
-              inset: 0 !important;
-              width: 100% !important;
-              height: 100% !important;
-              object-fit: cover !important;
-            }
+
             /* Hide empty preview placeholder behind carousel & detail titles (all screens) */
             .home-carousel .local-clip-preview.empty,
             .home-carousel .clip-empty,
@@ -1495,31 +1481,7 @@ jobs:
               color: var(--bg) !important;
             }
             </style>
-            <script>
-            // Mobile carousel footer: wrap button + controls in flex row
-            (function(){
-              function fixCarouselFooter(){
-                if (window.innerWidth > 760) return;
-                var car = document.querySelector('.home-carousel');
-                if (!car) return;
-                var openBtn = Array.from(car.querySelectorAll('button')).find(function(b){
-                  return /open/i.test(b.textContent);
-                });
-                var controls = car.querySelector('.carousel-controls');
-                if (!openBtn || !controls) return;
-                if (openBtn.parentElement.classList.contains('carousel-footer')) return;
-                var footer = document.createElement('div');
-                footer.className = 'carousel-footer';
-                footer.style.cssText = 'display:flex;justify-content:space-between;align-items:center;width:100%;margin-top:12px;position:relative;z-index:2;';
-                openBtn.parentElement.insertBefore(footer, openBtn);
-                footer.appendChild(openBtn);
-                footer.appendChild(controls);
-              }
-              setInterval(fixCarouselFooter, 2000);
-              window.addEventListener('resize', fixCarouselFooter);
-            })();
-            </script>
-            <style>
+
             .folder-picker-row {
               display: flex;
               flex-wrap: wrap;
@@ -2042,7 +2004,17 @@ jobs:
             .aw-delyes{background:#b3372c;border:1px solid #b3372c;color:#fff;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer}
             .aw-player{display:block;padding:4px 2px}
             .awp{position:fixed;inset:0;background:#000;z-index:100000;user-select:none;-webkit-user-select:none;touch-action:manipulation}
-            .awp-video{position:absolute;inset:0;width:100%;height:100%;background:#000;object-fit:contain}
+            .awp-video {
+              position: absolute !important;
+              inset: 0 !important;
+              width: 100% !important;
+              height: 100% !important;
+              background: #000 !important;
+              object-fit: var(--video-fit, contain) !important;
+              transform: scale(var(--video-zoom, 1)) !important;
+              transform-origin: center center !important;
+              transition: transform 0.15s ease-out, filter 0.12s linear !important;
+            }
             .awp-top{position:absolute;top:0;left:0;right:0;display:flex;align-items:flex-start;justify-content:space-between;padding:14px 14px 40px;background:linear-gradient(180deg,rgba(0,0,0,.75),rgba(0,0,0,0));opacity:0;pointer-events:none;transition:opacity .25s;z-index:3}
             .awp.showui .awp-top{opacity:1;pointer-events:auto}
             .awp-status{font-size:10px;font-weight:800;letter-spacing:.14em;color:#e8632c;text-transform:uppercase;margin:2px 0 2px 4px}
@@ -2528,6 +2500,13 @@ jobs:
             };
 
             window.__renderContinueAndHistory = function(props) {
+              // Capture native opener immediately so Discover works on cold launch
+              window.__nativeOpenCollection = function(id) {
+                window.__currentDetailCollectionId = id;
+                if (window.__hideDiscoverView) window.__hideDiscoverView();
+                props.onOpenCollection(id);
+              };
+              window.__nativeSetTab = props.setTab;
               var activeTab = props.activeTab;
               var setTab = props.setTab;
               var searchQuery = (props.searchQuery || "").trim().toLowerCase();
@@ -2595,6 +2574,15 @@ jobs:
                           role: "button",
                           tabIndex: 0,
                           onClick: function() {
+                            if (entry.isOnline || String(entry.collectionId).indexOf("online:") === 0) {
+                              var anime = entry.onlineAnime || { title: entry.collectionTitle, animeId: entry.onlineAnimeId, image: entry.posterUrl };
+                              if (window.playEpisode && entry.onlineAnilistId && entry.onlineAnimeId) {
+                                window.playEpisode(anime, entry.onlineAnilistId, entry.episodeNumber || 1, entry.onlineEpisodes || [], { preferDub: true, startAt: entry.positionSeconds || 0 });
+                              } else if (window.autoPlayOnline) {
+                                window.autoPlayOnline(entry.collectionTitle, entry.episodeNumber || 1, entry.contentType || "series", { direct: true });
+                              }
+                              return;
+                            }
                             onPlay(
                               entry.fileName,
                               entry.displayTitle,
@@ -2685,6 +2673,15 @@ jobs:
                           role: "button",
                           tabIndex: 0,
                           onClick: function() {
+                            if (entry.isOnline || String(entry.collectionId).indexOf("online:") === 0) {
+                              var anime = entry.onlineAnime || { title: entry.collectionTitle, animeId: entry.onlineAnimeId, image: entry.posterUrl };
+                              if (window.playEpisode && entry.onlineAnilistId && entry.onlineAnimeId) {
+                                window.playEpisode(anime, entry.onlineAnilistId, entry.episodeNumber || 1, entry.onlineEpisodes || [], { preferDub: true, startAt: entry.positionSeconds || 0 });
+                              } else if (window.autoPlayOnline) {
+                                window.autoPlayOnline(entry.collectionTitle, entry.episodeNumber || 1, entry.contentType || "series", { direct: true });
+                              }
+                              return;
+                            }
                             onPlay(
                               entry.fileName,
                               entry.displayTitle,
@@ -5074,21 +5071,81 @@ jobs:
                   '</div></div>' +
                   ohContHtml +
                   '<div class="awd-wosect"><h2>Watch</h2>' +
-                  '<p class="awd-wosub">Single video. Tap play to start streaming.</p></div>' +
-                  '<div class="awd-eps"><button type="button" class="awd-ep" id="hvPlayBtn">' +
-                  '<span class="awd-epnum">\\u25B6</span>' +
-                  '<span class="awd-epthumb">' + (poster ? '<img loading="lazy" src="' + esc(poster) + '" alt="" />' : '') + '<span class="awd-epplay">\\u25B6</span></span>' +
-                  '<span class="awd-eptitle">' + esc(anime.title) + '</span>' +
-                  '<span class="awd-epmeta">\\uD83C\\uDF10 Online \\u00B7 HLS</span>' +
-                  '</button></div>';
+                  '<p class="awd-wosub" id="hvEpCount">Loading episodes...</p></div>' +
+                  '<div class="awd-eps" id="hvEpList"></div>';
                 document.body.appendChild(detailPage);
                 document.body.classList.add('aw-detail-open');
                 detailPage.querySelector('#awdBack').onclick = function () { closeDetailPage(); };
                 var startAt = (ohEntry && ohEntry.positionSeconds) || 0;
-                function go() { playHanime(anime, { startAt: startAt }); }
-                detailPage.querySelector('#hvPlayBtn').onclick = go;
+                function go(a) { playHanime(a || anime, { startAt: startAt }); }
                 var c = detailPage.querySelector('#awdContinue');
-                if (c) c.onclick = go;
+                if (c) c.onclick = function(){ go(); };
+                // Group episodes by base title (strip trailing episode numbers)
+                (function renderHvEps(){
+                  var epList = detailPage.querySelector('#hvEpList');
+                  var epCount = detailPage.querySelector('#hvEpCount');
+                  if (!epList) return;
+                  var baseTitle = String(anime.title || '').replace(/\s*(\d+|OVA\s*\d+|Episode\s*\d+)\s*$/i, '').trim().toLowerCase();
+                  var allEps = [];
+                  try {
+                    if (window.hvGetIndex) {
+                      var idx = window.hvGetIndex();
+                      (idx || []).forEach(function(entry){
+                        var t = String(entry.title || entry.name || '');
+                        var b = t.replace(/\s*(\d+|OVA\s*\d+|Episode\s*\d+)\s*$/i, '').trim().toLowerCase();
+                        if (b === baseTitle || t.toLowerCase() === String(anime.title || '').toLowerCase()) {
+                          allEps.push(entry);
+                        }
+                      });
+                    }
+                  } catch(e) {}
+                  // Fallback: at least show the current anime
+                  if (!allEps.length) allEps = [anime];
+                  // Sort by episode number
+                  allEps.sort(function(a, b){
+                    var na = parseInt(String(a.title || a.name || '').match(/(\d+)\s*$/)?.[1] || '1', 10);
+                    var nb = parseInt(String(b.title || b.name || '').match(/(\d+)\s*$/)?.[1] || '1', 10);
+                    return na - nb;
+                  });
+                  if (epCount) epCount.textContent = 'Episodes \u00B7 ' + allEps.length + ' listed';
+                  allEps.forEach(function(epAnime, i){
+                    var epBtn = document.createElement('button');
+                    epBtn.type = 'button';
+                    epBtn.className = 'awd-ep';
+                    var epPoster = epAnime.image || poster;
+                    epBtn.innerHTML =
+                      '<span class="awd-epnum">\\u25B6</span>' +
+                      '<span class="awd-epthumb">' + (epPoster ? '<img loading="lazy" src="' + esc(epPoster) + '" alt="" />' : '') + '<span class="awd-epplay">\\u25B6</span></span>' +
+                      '<span class="awd-eptitle">' + esc(epAnime.title || epAnime.name || ('Episode ' + (i+1))) + '</span>' +
+                      '<span class="awd-epmeta">\\uD83C\\uDF10 Online \\u00B7 HLS</span>';
+                    epBtn.onclick = function(){ go(epAnime); };
+                    epList.appendChild(epBtn);
+                  });
+                  // Heart watchlist toggle
+                  var heartBtn = document.createElement('button');
+                  heartBtn.type = 'button';
+                  heartBtn.className = 'awd-heart';
+                  heartBtn.innerHTML = '\u2665';
+                  heartBtn.style.cssText = 'position:absolute;top:12px;right:12px;width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.3);color:#fff;font-size:22px;cursor:pointer;z-index:10;';
+                  var isFav = false;
+                  try {
+                    var favs = JSON.parse(localStorage.getItem('hv_favorites') || '[]');
+                    isFav = favs.indexOf(String(anime.animeId || anime.title)) >= 0;
+                  } catch(e) {}
+                  heartBtn.style.color = isFav ? '#ff4757' : '#fff';
+                  heartBtn.onclick = function(){
+                    try {
+                      var key = String(anime.animeId || anime.title);
+                      var favs = JSON.parse(localStorage.getItem('hv_favorites') || '[]');
+                      var idx2 = favs.indexOf(key);
+                      if (idx2 >= 0) { favs.splice(idx2, 1); heartBtn.style.color = '#fff'; }
+                      else { favs.push(key); heartBtn.style.color = '#ff4757'; }
+                      localStorage.setItem('hv_favorites', JSON.stringify(favs));
+                    } catch(e) {}
+                  };
+                  var heroEl = detailPage.querySelector('.awd-hero');
+                  if (heroEl) { heroEl.style.position = 'relative'; heroEl.appendChild(heartBtn); }
+                })();
                 detailPage.scrollTop = 0;
               }
 
@@ -5131,11 +5188,11 @@ jobs:
                 // handleAction is async; it deduplicates via normalizeTitleKey internally
                 handleAction('addCollection', { title: title, kind: kind, year: year, files: [] }).then(function (res) {
                   var col = res && res.collection;
-                  if (col && window.__nativeOpenCollection) {
-                    window.__nativeOpenCollection(col.id);
-                  } else if (col) {
-                    // Fallback: open via custom detail if native opener not captured yet
-                    showDetail(r, 0);
+                  if (col) {
+                    if (window.__hideDiscoverView) window.__hideDiscoverView();
+                    if (typeof Ot !== 'undefined' && Ot.invalidateQueries) Ot.invalidateQueries();
+                    if (window.__nativeOpenCollection) window.__nativeOpenCollection(col.id);
+                    else showDetail(r, 0);
                   }
                 }).catch(function () { showDetail(r, 0); });
               }
@@ -5677,6 +5734,7 @@ jobs:
                     '<button type=\\\"button\\\" class=\\\"awp-big\\\" id=\\\"awpBig\\\" aria-label=\\\"Play or pause\\\">\u25b6</button>' +
                     '<div class=\\\"awp-err\\\" id=\\\"awpErr\\\"></div>' +
                   '</div>' +
+                  '<div class=\\\\\\"awp-gesture-fb\\\\\\" id=\\\\\\"awpGestureFb\\\\\\"></div>' +
                   '<div class=\\\"awp-bot\\\">' +
                     '<div class=\\\"awp-prog\\\" id=\\\"awpProg\\\"><div class=\\\"awp-track\\\"></div><div class=\\\"awp-buf\\\" id=\\\"awpBuf\\\"></div><div class=\\\"awp-fill\\\" id=\\\"awpFill\\\"></div><div class=\\\"awp-knob\\\" id=\\\"awpKnob\\\"></div></div>' +
                     '<div class=\\\"awp-row\\\">' +
@@ -5753,7 +5811,16 @@ jobs:
                   closeSheets();
                   if (!was) el.classList.add('open');
                 }
-                video.addEventListener('click', function () { closeSheets(); toggleUI(); });
+                video.addEventListener('click', function () {
+                  if (playerOverlay && playerOverlay.classList.contains('awp-mini')) {
+                    playerOverlay.classList.remove('awp-mini');
+                    window.__isMiniPlayer = false;
+                    if (window.__enterPlayerImmersive) window.__enterPlayerImmersive(true);
+                    showUI();
+                    return;
+                  }
+                  closeSheets(); toggleUI();
+                });
                 root.addEventListener('pointermove', function () { if (!video.paused) showUI(); });
                 playBtn.onclick = function (e) { if (e) e.stopPropagation(); togglePlay(); };
                 bigBtn.onclick = function (e) { if (e) e.stopPropagation(); togglePlay(); };
@@ -5858,10 +5925,20 @@ jobs:
                 };
                 // Fit/Zoom toggle button (vlc-style)
                 var fitBtn = root.querySelector('#awpFit');
+                // Gesture feedback HUD
+                var gestureFb = root.querySelector('#awpGestureFb');
+                var gestureTimer = null;
+                function showFeedback(msg) {
+                  if (!gestureFb || !msg) return;
+                  gestureFb.textContent = msg;
+                  gestureFb.classList.add('show');
+                  if (gestureTimer) clearTimeout(gestureTimer);
+                  gestureTimer = setTimeout(function(){ gestureFb.classList.remove('show'); }, 1200);
+                }
                 if (fitBtn) fitBtn.onclick = function(e) {
                   if (e) e.stopPropagation();
                   try {
-                    if (window.__cycleVideoFit) window.__cycleVideoFit(video, function(msg){});
+                    if (window.__cycleVideoFit) window.__cycleVideoFit(video, showFeedback);
                     else {
                       // Fallback: toggle object-fit
                       video.style.objectFit = video.style.objectFit === 'cover' ? 'contain' : 'cover';
@@ -5874,7 +5951,7 @@ jobs:
                   var stageEl = root.querySelector('.awp-video');
                   if (stageEl && window.__stageTouchStart) {
                     stageEl.addEventListener('touchstart', function(e){ window.__stageTouchStart(e, video, playerOverlay); }, {passive: true});
-                    stageEl.addEventListener('touchmove', function(e){ window.__stageTouchMove(e, video, playerOverlay, null); }, {passive: true});
+                    stageEl.addEventListener('touchmove', function(e){ window.__stageTouchMove(e, video, playerOverlay, showFeedback); }, {passive: true});
                     stageEl.addEventListener('touchend', function(e){ window.__stageTouchEnd(e, video, playerOverlay, null); }, {passive: true});
                   }
                 } catch(x) {}
@@ -6037,14 +6114,19 @@ jobs:
                 function renderQueue() {
                   var list = queueEl.querySelector('#awpQueueList');
                   list.innerHTML = '';
-                  (episodes || []).forEach(function(epNum){
+                  (episodes || []).forEach(function(epItem, idx){
+                    var epNum = (typeof epItem === 'object' && epItem !== null) ? (epItem.number || (idx + 1)) : epItem;
+                    var epTitle = (typeof epItem === 'object' && epItem !== null && epItem.title) ? epItem.title : ('Episode ' + epNum);
+                    var isCur = Number(epNum) === Number(ep);
                     var btn = document.createElement('button');
                     btn.type = 'button';
-                    btn.className = 'awp-queue-item' + (epNum === ep ? ' current' : '');
-                    btn.innerHTML = '<span>EP ' + epNum + '</span>' + (epNum === ep ? '<span style="margin-left:auto">\u25b6</span>' : '');
+                    btn.className = 'awp-queue-item' + (isCur ? ' current' : '');
+                    btn.innerHTML = '<span style="font-weight:800;min-width:42px;">EP ' + String(epNum).padStart(2, '0') + '</span>' +
+                      '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(epTitle) + '</span>' +
+                      (isCur ? '<span style="margin-left:auto;color:#ff7a12;">\\u25b6</span>' : '');
                     btn.onclick = function(){
                       queueEl.classList.remove('open');
-                      playEpisode(anime, anilistId, epNum, episodes, opts);
+                      playEpisode(anime, anilistId, Number(epNum), episodes, opts);
                     };
                     list.appendChild(btn);
                   });
