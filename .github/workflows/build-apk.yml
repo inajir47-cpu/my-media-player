@@ -288,9 +288,8 @@ jobs:
             }
             </script>
             <script>
-            // Online video fallback for Hero background preview (when no local file)
+            // Online video fallback for Hero Carousel & Detail background preview (when no local file)
             (function(){
-              var activeStream = null;
               function clearTrailerLayer(preview) {
                 if (!preview) return;
                 var layer = preview.querySelector('.trailer-preview-layer');
@@ -300,61 +299,8 @@ jobs:
                   layer.remove();
                 }
               }
-              function tryOnlinePreview(){
-                var car = document.querySelector('.home-carousel');
-                if (!car) return;
-                var preview = car.querySelector('.local-clip-preview');
-                if(!preview) return;
-                var titleEl = car.querySelector('.featured-copy h1, h1');
-                var title = titleEl ? titleEl.textContent.trim() : '';
-                if (!title) return;
-                // 1. Check if a native local video is present (ignore our own trailer layer video)
-                var nativeVideo = Array.from(preview.querySelectorAll('video')).find(function(v){ return !v.closest('.trailer-preview-layer'); });
-                var hasLocalVideo = Boolean(nativeVideo) && !preview.classList.contains('empty');
-                if (hasLocalVideo) {
-                  clearTrailerLayer(preview);
-                  preview.dataset.lastTitle = title;
-                  preview.dataset.onlineActive = '';
-                  return;
-                }
-                // 2. If slide title changed, reset trailer layer and fetch new slide's trailer
-                if (preview.dataset.lastTitle !== title) {
-                  clearTrailerLayer(preview);
-                  preview.dataset.lastTitle = title;
-                  preview.dataset.onlineActive = '';
-                }
-                // 3. Avoid duplicate fetches if trailer is already active or loading for this slide
-                if (preview.dataset.onlineActive === '1' || preview.dataset.onlineActive === 'loading') return;
-                preview.dataset.onlineActive = 'loading';
-                preview.style.background = '#000';
-                var anilistId = titleEl.dataset.anilistId || null;
-                // Try AnimeThemes direct trailer first (raw .webm, no YouTube errors)
-                fetchTrailerUrl(anilistId, title).then(function(trailerUrl){
-                  if (trailerUrl) {
-                    playTrailerPreview(preview, trailerUrl);
-                  } else if (anilistId && window.dWatch) {
-                    // Fallback: EP1 stream via dWatch
-                    window.dWatch(anilistId, 1).then(function(url){ playPreview(preview, url); })
-                      .catch(function(){ preview.dataset.onlineActive=''; });
-                  } else if (window.dWatch) {
-                    fetch('https://reanime.to/api/v1/search?q='+encodeURIComponent(title)+'&limit=1')
-                      .then(function(r){ return r.json(); })
-                      .then(function(d){
-                        var res = (d.results||[])[0];
-                        if(res && res.anilistId && window.dWatch){
-                          return window.dWatch(res.anilistId, 1).then(function(url){
-                            playPreview(preview, url);
-                          });
-                        }
-                      }).catch(function(){ preview.dataset.onlineActive=''; });
-                  } else {
-                    preview.dataset.onlineActive='';
-                  }
-                }).catch(function(){ preview.dataset.onlineActive=''; });
-              }
-              // Play AnimeThemes trailer (muted, loop, with unmute toggle)
+
               function playTrailerPreview(preview, url){
-                window.playTrailerPreview = playTrailerPreview;
                 if (!preview || !url) { if (preview) preview.dataset.onlineActive = ''; return; }
                 clearTrailerLayer(preview);
                 var layer = document.createElement('div');
@@ -375,34 +321,11 @@ jobs:
                 preview.appendChild(layer);
                 v.onloadedmetadata = function() { if (v.duration > 35) { try { v.currentTime = 5; } catch(e) {} } v.play().catch(function(){}); };
                 v.onplaying = function(){ v.style.opacity = '1'; };
-                v.onerror = function(){ clearTrailerLayer(preview); preview.dataset.onlineActive = ''; };
+                v.onerror = function(){ clearTrailerLayer(preview); preview.dataset.onlineActive = 'none'; };
                 v.play().catch(function(){});
               }
-              function playPreview(preview, url){
-                if(!url) { preview.dataset.onlineActive=''; return; }
-                var v = document.createElement('video');
-                v.muted = true; v.loop = true; v.playsInline = true;
-                v.style.cssText = 'width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1s ease;';
-                preview.appendChild(v);
-                if(window.Hls && window.Hls.isSupported() && url.indexOf('.m3u8')>=0){
-                  var hls = new window.Hls();
-                  hls.loadSource(url); hls.attachMedia(v);
-                  hls.on(window.Hls.Events.MANIFEST_PARSED, function(){ v.play().catch(function(){}); });
-                } else {
-                  v.src = url;
-                  v.play().catch(function(){});
-                }
-                v.onplaying = function(){ v.style.opacity='1'; };
-                // Play 30s preview then fade
-                setTimeout(function(){
-                  v.style.opacity='0';
-                  setTimeout(function(){ v.pause(); preview.dataset.onlineActive=''; }, 1000);
-                }, 30000);
-                activeStream = v;
-              }
-              // Check periodically for empty preview states
-              setInterval(tryOnlinePreview, 3000);
-              // Sync trailer preview for ANY container (Home Carousel OR Anime Info Detail Page)
+              window.playTrailerPreview = playTrailerPreview;
+
               function syncContainerTrailer(containerSelector) {
                 var container = document.querySelector(containerSelector);
                 if (!container) return;
@@ -438,11 +361,11 @@ jobs:
                   } else {
                     preview.dataset.onlineActive = 'none';
                   }
-                }).catch(function() { preview.dataset.onlineActive = ''; });
+                }).catch(function() { preview.dataset.onlineActive = 'none'; });
               }
+
               setInterval(function() {
                 syncContainerTrailer('.home-carousel');
-                syncContainerTrailer('main.detail-view');
                 syncContainerTrailer('.detail-hero');
               }, 1000);
             })();
@@ -1663,6 +1586,14 @@ jobs:
               visibility: hidden !important;
               pointer-events: none !important;
               display: none !important;
+            }
+            /* Hide "Connect for preview" placeholder children inside .local-clip-preview when no local video exists */
+            .home-carousel .local-clip-preview.empty > *:not(.trailer-preview-layer):not(video),
+            .detail-hero .local-clip-preview.empty > *:not(.trailer-preview-layer):not(video),
+            .detail-view .local-clip-preview.empty > *:not(.trailer-preview-layer):not(video) {
+              display: none !important;
+              opacity: 0 !important;
+              visibility: hidden !important;
             }
             /* Keep the preview container visible so the trailer video shows when .empty is set */
             .home-carousel .local-clip-preview,
@@ -3990,9 +3921,9 @@ jobs:
                 var colA = db.collections.find(function(c) { return Number(c.id) === Number(args.collectionId); });
                 // Prioritize args.title (full Movie/OVA title) over parent series title
                 var cleanTitle = (args.title && String(args.title).trim()) ? String(args.title).trim() : (colA ? colA.title : "");
-                var epNum = 0;
-                var mEp = String(args.itemKey || "").match(/episode-\\d+-(\\d+)/);
-                if (mEp) epNum = parseInt(mEp[1], 10);
+                var epNum = 1;
+                var mEp = String(args.itemKey || "").match(/episode-\\d+-(\\d+)/i) || String(args.itemKey || "").match(/(\\d+)$/);
+                if (mEp) epNum = parseInt(mEp[1], 10) || 1;
                 // Detect content type from itemKey: related-ova-*, related-movie-*, or movie
                 var cType = "series";
                 var ik = String(args.itemKey || "").toLowerCase();
@@ -5324,14 +5255,14 @@ jobs:
                   var epList = detailPage.querySelector('#hvEpList');
                   var epCount = detailPage.querySelector('#hvEpCount');
                   if (!epList) return;
-                  var baseTitle = String(anime.title || '').replace(/\s*(\d+|OVA\s*\d+|Episode\s*\d+)\s*$/i, '').trim().toLowerCase();
+                  var baseTitle = String(anime.title || '').replace(/\\s*(\\d+|OVA\\s*\\d+|Episode\\s*\\d+)\\s*$/i, '').trim().toLowerCase();
                   var allEps = [];
                   try {
                     if (window.hvGetIndex) {
                       var idx = window.hvGetIndex();
                       (idx || []).forEach(function(entry){
                         var t = String(entry.title || entry.name || '');
-                        var b = t.replace(/\s*(\d+|OVA\s*\d+|Episode\s*\d+)\s*$/i, '').trim().toLowerCase();
+                        var b = t.replace(/\\s*(\\d+|OVA\\s*\\d+|Episode\\s*\\d+)\\s*$/i, '').trim().toLowerCase();
                         if (b === baseTitle || t.toLowerCase() === String(anime.title || '').toLowerCase()) {
                           allEps.push(entry);
                         }
@@ -5342,8 +5273,8 @@ jobs:
                   if (!allEps.length) allEps = [anime];
                   // Sort by episode number
                   allEps.sort(function(a, b){
-                    var na = parseInt(String(a.title || a.name || '').match(/(\d+)\s*$/)?.[1] || '1', 10);
-                    var nb = parseInt(String(b.title || b.name || '').match(/(\d+)\s*$/)?.[1] || '1', 10);
+                    var na = parseInt(String(a.title || a.name || '').match(/(\\d+)\\s*$/)?.[1] || '1', 10);
+                    var nb = parseInt(String(b.title || b.name || '').match(/(\\d+)\\s*$/)?.[1] || '1', 10);
                     return na - nb;
                   });
                   if (epCount) epCount.textContent = 'Episodes \u00B7 ' + allEps.length + ' listed';
@@ -5583,30 +5514,36 @@ jobs:
                   if (window.awToast) awToast('Searching for \u201C' + title + '\u201D\u2026');
                 }
                 // Smart search: try full title, then fallback to simplified variants
+                function notifyFail(msg) {
+                  if (directMode) {
+                    if (window.awToast) awToast(msg);
+                    openAnimeWatch(title, ep || 1);
+                  } else {
+                    setStatus(errBox(msg));
+                  }
+                }
                 function searchWithFallback(titles, idx) {
                   if (idx >= titles.length) {
-                    setStatus(errBox('No anime found for \\u201C' + title + '\\u201D.'));
+                    notifyFail('No anime found for \\u201C' + title + '\\u201D.');
                     return;
                   }
                   var qt = titles[idx];
                   apiGet('/api/anime/search?q=' + encodeURIComponent(qt)).then(function (d) {
                     var res = (d && d.results) || [];
                     if (!res.length && idx + 1 < titles.length) {
-                      setStatus('<span class="spinner"></span>Trying \\u201C' + esc(titles[idx+1]) + '\\u201D\\u2026');
+                      if (!directMode) setStatus('<span class="spinner"></span>Trying \\u201C' + esc(titles[idx+1]) + '\\u201D\\u2026');
                       searchWithFallback(titles, idx + 1);
                       return;
                     }
                     lastResults = res; lastQuery = qt;
-                    if (!res.length) { setStatus(errBox('No anime found for \\u201C' + title + '\\u201D.')); return; }
+                    if (!res.length) { notifyFail('No anime found for \\u201C' + title + '\\u201D.'); return; }
                     handleSearchResults(res, qt);
-                  }, function (err) { setStatus(errBox(err.message)); });
+                  }, function (err) { notifyFail(err.message || 'Search failed'); });
                 }
                 function buildFallbackTitles(t) {
                   var out = [t];
-                  // Strip punctuation-heavy subtitles: "KONOSUBA -God's blessing...: Choker!" -> "KONOSUBA Choker"
-                  var simple = t.replace(/[-–—:;!?'".()[\]]/g, ' ').replace(/\\s+/g, ' ').trim();
+                  var simple = t.replace(/[-–—:;!?'".()\\[\\]]/g, ' ').replace(/\\s+/g, ' ').trim();
                   if (simple && simple !== t) out.push(simple);
-                  // Try "Series OVA" / "Series Movie" pattern
                   var m = t.match(/^(.+?)\\s+[-–—]\\s*(.+)$/);
                   if (m) {
                     var series = m[1].trim(), sub = m[2].trim();
@@ -5869,30 +5806,7 @@ jobs:
                         }
                       });
                     }
-                    var el = orig(props);
-                    try {
-                      var u = props && props.u, v = props && props.v;
-                      if (props && props.activeTab === 'history' && el && el.props) {
-                        var list = ohLoad();
-                        var q = (props.searchQuery || '').trim().toLowerCase();
-                        if (q) list = list.filter(function (h) { return ((h.title || '') + ' ' + (h.epTitle || '')).toLowerCase().indexOf(q) !== -1; });
-                        if (list.length) {
-                          var cards = list.map(function (h) { return ohCard(u, v, h); });
-                          var ohSec = v('div', { style: { marginTop: '20px' }, children: [
-                            v('div', { className: 'continue-heading', children: [
-                              v('div', { children: [
-                                u('p', { className: 'eyebrow', children: 'Streamed from the web' }),
-                                u('h2', { children: '\\uD83C\\uDF10 Online history' })
-                              ] }),
-                              u('span', { children: list.length + (list.length === 1 ? ' online watch' : ' online watches') })
-                            ] }),
-                            v('div', { className: 'history-grid-full', children: cards })
-                          ] });
-                          el = ohAppendChild(v, el, ohSec);
-                        }
-                      }
-                    } catch (e) {}
-                    return el;
+                    return orig(props);
                   };
                   wrapped.__ohWrapped = true;
                   window.__renderContinueAndHistory = wrapped;
@@ -5985,9 +5899,9 @@ jobs:
                       '<button type=\\\"button\\\" class=\\\"awp-btn\\\" id=\\\"awpEps\\\" aria-label=\\\"Episode list\\\">\u2630</button>' +
                       '<span class=\\\"awp-time\\\"><span id=\\\"awpCur\\\">0:00</span> <span class=\\\"dim\\\">/ <span id=\\\"awpDur\\\">0:00</span></span></span>' +
                       '<span class=\\\"awp-flex\\\"></span>' +
-                      '<span class=\\\"awp-vol\\\"><button type=\\\"button\\\" class=\\\"awp-btn\\\" id=\\\"awpMute\\\" aria-label=\\\"Mute\\\">\U0001f50a</button><input type=\\\"range\\\" id=\\\"awpVol\\\" min=\\\"0\\\" max=\\\"1\\\" step=\\\"0.05\\\" value=\\\"1\\\" aria-label=\\\"Volume\\\"></span>' +
+                      '<span class=\\\"awp-vol\\\"><button type=\\\"button\\\" class=\\\"awp-btn\\\" id=\\\"awpMute\\\" aria-label=\\\"Mute\\\">&#128266;</button><input type=\\\"range\\\" id=\\\"awpVol\\\" min=\\\"0\\\" max=\\\"1\\\" step=\\\"0.05\\\" value=\\\"1\\\" aria-label=\\\"Volume\\\"></span>' +
                       '<button type=\\\"button\\\" class=\\\"awp-btn\\\" id=\\\"awpSub\\\" aria-label=\\\"Subtitles\\\">CC</button>' +
-                      '<button type=\\\"button\\\" class=\\\"awp-btn\\\" id=\\\"awpAud\\\" aria-label=\\\"Audio track\\\">\U0001f3a7</button>' +
+                      '<button type=\\\"button\\\" class=\\\"awp-btn\\\" id=\\\"awpAud\\\" aria-label=\\\"Audio track\\\">&#127911;</button>' +
                       '<button type=\\\"button\\\" class=\\\"awp-btn awp-rate\\\" id=\\\"awpRate\\\" aria-label=\\\"Playback speed\\\">1\u00d7</button>' +
                       '<button type=\\\"button\\\" class=\\\"awp-btn\\\" id=\\\"awpFs\\\" aria-label=\\\"Fullscreen\\\">\u26f6</button>' +
                     '</div>' +
@@ -6200,7 +6114,7 @@ jobs:
                   volSlider.onclick = function (e) { if (e) e.stopPropagation(); };
                 }
                 function updateMuteIcon() {
-                  if (muteBtn) muteBtn.textContent = (video.muted || video.volume === 0) ? '\U0001f507' : '\U0001f50a';
+                  if (muteBtn) muteBtn.textContent = (video.muted || video.volume === 0) ? '🔇' : '🔊';
                 }
                 if (muteBtn) muteBtn.onclick = function (e) {
                   if (e) e.stopPropagation();
