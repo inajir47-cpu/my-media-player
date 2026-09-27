@@ -2941,7 +2941,7 @@ jobs:
                     if (xhr.readyState !== 4 || done) return;
                     done = true; clearTimeout(timer);
                     if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.responseText);
-                    else reject(new Error('HTTP ' + xhr.status));
+                    else reject(new Error('HTTP ' + xhr.status + ' | URL: ' + url.substring(0, 120)));
                   };
                   xhr.onerror = function () { if (!done) { done = true; clearTimeout(timer); reject(new Error('Network error')); } };
                   try {
