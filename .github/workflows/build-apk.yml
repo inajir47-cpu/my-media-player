@@ -1144,6 +1144,112 @@ jobs:
               setInterval(injectHeart, 2000);
               // (removed: syncContainerTrailer now handles detail page)
             })();
+            </script>
+            <script>
+            // Watch Online button for Movies + Episode grid for OVA/Specials on native detail page
+            (function(){
+              function getColFromDetail() {
+                var h1 = document.querySelector('main.detail-view h1, .detail-hero h1');
+                if (!h1) return null;
+                var t = h1.textContent.trim().toLowerCase();
+                try {
+                  var db = JSON.parse(localStorage.getItem('media_player_exact_db_v5') || '{}');
+                  var col = (db.collections || []).find(function(c){ return String(c.title || '').trim().toLowerCase() === t; });
+                  return col || null;
+                } catch(e) { return null; }
+              }
+              function injectWatchOnlineBtn() {
+                var heroActions = document.querySelector('.hero-actions');
+                if (!heroActions || heroActions.querySelector('.wo-online-btn')) return;
+                // Skip if there's already a Play local file button (has local files)
+                var hasLocalPlay = Array.from(heroActions.querySelectorAll('button')).some(function(b){
+                  return /play local|resume/i.test(b.textContent);
+                });
+                if (hasLocalPlay) return;
+                var col = getColFromDetail();
+                if (!col) return;
+                // Only for movies, ova, specials, or any collection without files
+                var btn = document.createElement('button');
+                btn.className = 'wo-online-btn secondary-action';
+                btn.innerHTML = '&#127760; Watch online';
+                btn.style.cssText = 'background:#7c3aed;border:1px solid #7c3aed;color:#fff;font-size:14px;padding:10px 18px;border-radius:8px;cursor:pointer;margin-left:8px;font-weight:600;';
+                btn.onclick = function(e){
+                  e.stopPropagation();
+                  var cType = 'series';
+                  if (col.kind === 'movie') cType = 'movie';
+                  else if (col.contentType === 'ova') cType = 'ova';
+                  else if (col.contentType === 'special') cType = 'special';
+                  if (window.autoPlayOnline) {
+                    window.autoPlayOnline(col.title, 1, cType, {direct:true});
+                  } else if (window.__autoPlayOnline) {
+                    window.__autoPlayOnline(col.title, 1, cType, {direct:true});
+                  }
+                };
+                heroActions.appendChild(btn);
+              }
+              function injectOvaEpGrid() {
+                var col = getColFromDetail();
+                if (!col) return;
+                // Only for OVA/Special collections
+                if (col.contentType !== 'ova' && col.contentType !== 'special' && col.kind !== 'ova') return;
+                var detailView = document.querySelector('main.detail-view');
+                if (!detailView || detailView.querySelector('.wo-ova-grid')) return;
+                // Get episode count from relatedMedia or AniList
+                var epCount = col.episodeCount || 0;
+                var episodes = col.episodes || [];
+                // Try to find from relatedMedia if not on col directly
+                if (!epCount && col.relatedMedia) {
+                  var rm = col.relatedMedia.find(function(r){
+                    return r.title && col.title && r.title.toLowerCase() === col.title.toLowerCase();
+                  });
+                  if (rm) { epCount = rm.episodeCount || 0; episodes = rm.episodes || []; }
+                }
+                if (!epCount && !episodes.length) return;
+                var grid = document.createElement('div');
+                grid.className = 'wo-ova-grid';
+                grid.style.cssText = 'margin:16px;padding:16px;background:#14161c;border-radius:12px;';
+                var html = '<div style="font-weight:700;font-size:16px;margin-bottom:4px;color:#fff;">Episodes &middot; ' + (episodes.length || epCount) + ' listed</div>';
+                html += '<div style="font-size:12px;color:#888;margin-bottom:12px;">Tap an episode to play local file or watch online</div>';
+                html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;">';
+                var eps = episodes.length ? episodes : Array.from({length: epCount}, function(_, i){ return {number: i+1, title: 'Episode ' + (i+1)}; });
+                eps.forEach(function(ep){
+                  var epNum = ep.number || ep.episode || 0;
+                  var epTitle = ep.title || ('Episode ' + epNum);
+                  // Check if local file exists for this episode
+                  var hasLocal = col.files && col.files.some(function(f){
+                    return f.episodeNumber === epNum || f.displayTitle.indexOf('E' + epNum) >= 0;
+                  });
+                  html += '<div class="wo-ova-card" data-ep="' + epNum + '" style="background:#1a1d24;border:1px solid #2a2e38;border-radius:8px;padding:12px;cursor:pointer;">' +
+                    '<div style="font-weight:600;color:#fff;">EP ' + String(epNum).padStart(2, '0') + '</div>' +
+                    '<div style="font-size:12px;color:#aaa;margin:4px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + epTitle.replace(/</g, '&lt;') + '</div>' +
+                    '<div style="font-size:11px;margin-top:8px;">' +
+                    (hasLocal ? '<span style="color:#4ade80;">&#9654; Play local</span> ' : '') +
+                    '<span style="color:#7c3aed;">&#127760; Watch online</span>' +
+                    '</div></div>';
+                });
+                html += '</div>';
+                grid.innerHTML = html;
+                // Insert after hero actions or at top of detail
+                var heroActions = detailView.querySelector('.hero-actions');
+                if (heroActions && heroActions.parentNode) {
+                  heroActions.parentNode.insertBefore(grid, heroActions.nextSibling);
+                } else {
+                  detailView.appendChild(grid);
+                }
+                // Wire click handlers
+                grid.querySelectorAll('.wo-ova-card').forEach(function(card){
+                  card.onclick = function(){
+                    var epNum = parseInt(card.getAttribute('data-ep'), 10);
+                    if (window.autoPlayOnline) window.autoPlayOnline(col.title, epNum, col.contentType || 'ova', {direct:true});
+                  };
+                });
+              }
+              setInterval(function(){
+                injectWatchOnlineBtn();
+                injectOvaEpGrid();
+              }, 2000);
+              window.addEventListener('hashchange', function(){ setTimeout(function(){ injectWatchOnlineBtn(); injectOvaEpGrid(); }, 500); });
+            })();
             </script></body>`
           );
 
