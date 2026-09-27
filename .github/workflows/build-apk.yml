@@ -1160,7 +1160,7 @@ jobs:
               }
               function injectWatchOnlineBtn() {
                 var heroActions = document.querySelector('.hero-actions');
-                if (!heroActions || heroActions.querySelector('.wo-online-btn')) return;
+                if (!heroActions || heroActions.querySelector('.wo-online-btn, .wo-online-btn2')) return;
                 // Skip if there's already a Play local file button (has local files)
                 var hasLocalPlay = Array.from(heroActions.querySelectorAll('button')).some(function(b){
                   return /play local|resume/i.test(b.textContent);
@@ -1168,12 +1168,23 @@ jobs:
                 if (hasLocalPlay) return;
                 var col = getColFromDetail();
                 if (!col) return;
-                // Only for movies, ova, specials, or any collection without files
-                var btn = document.createElement('button');
-                btn.className = 'wo-online-btn secondary-action';
-                btn.innerHTML = '&#127760; Watch online';
-                btn.style.cssText = 'background:#7c3aed;border:1px solid #7c3aed;color:#fff;font-size:14px;padding:10px 18px;border-radius:8px;cursor:pointer;margin-left:8px;font-weight:600;';
-                btn.onclick = function(e){
+                // Add native-style buttons like episode cards: Connect local file + Watch online
+                // "Connect local file" button (native secondary-action style)
+                var connectBtn = document.createElement('button');
+                connectBtn.className = 'wo-online-btn secondary-action';
+                connectBtn.innerHTML = '&#128193; Connect local file';
+                connectBtn.onclick = function(e){
+                  e.stopPropagation();
+                  // Trigger the native file picker
+                  var fileInput = document.querySelector('input[type="file"].sr-only');
+                  if (fileInput) fileInput.click();
+                };
+                heroActions.appendChild(connectBtn);
+                // "Watch online" button (native secondary-action style, like related media)
+                var watchBtn = document.createElement('button');
+                watchBtn.className = 'wo-online-btn2 secondary-action';
+                watchBtn.innerHTML = '&#127760; Watch online';
+                watchBtn.onclick = function(e){
                   e.stopPropagation();
                   var cType = 'series';
                   if (col.kind === 'movie') cType = 'movie';
@@ -1185,7 +1196,7 @@ jobs:
                     window.__autoPlayOnline(col.title, 1, cType, {direct:true});
                   }
                 };
-                heroActions.appendChild(btn);
+                heroActions.appendChild(watchBtn);
               }
               function injectOvaEpGrid() {
                 var col = getColFromDetail();
