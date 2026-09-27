@@ -667,6 +667,15 @@ jobs:
             .aw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:10px}
             .aw-card{background:#0f1116;border:1px solid #2a2e38;border-radius:10px;padding:0;overflow:hidden;cursor:pointer;text-align:left;color:#fff}
             .aw-card img{width:100%;aspect-ratio:3/4;object-fit:cover;display:block}
+            .aw-online{padding:20px 24px 34px;max-width:1150px;margin:0 auto}
+            .aw-online.aw-unified{padding:4px 24px 34px}
+            .aw-online.aw-unified .aw-oserver{display:none}
+            .aw-ohead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:4px 0 12px}
+            .aw-ohead .aw-ot{font-size:17px;font-weight:800;color:var(--text,#e8ecf3)}
+            .aw-ohead .aw-osub{font-size:12.5px;color:var(--dim,#9aa3b2)}
+            .aw-oserver{display:flex;gap:8px;align-items:center;margin:0 0 12px;font-size:12.5px;color:var(--dim,#9aa3b2);flex-wrap:wrap}
+            .aw-ostatus{color:var(--dim,#9aa3b2);padding:20px 4px;font-size:14px;display:flex;align-items:center;gap:10px}
+            .aw-unified .aw-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px}
             .aw-noimg{aspect-ratio:3/4;display:flex;align-items:center;justify-content:center;font-size:30px;background:#1c1f26}
             .aw-card-t{font-size:12px;padding:8px 8px 2px;font-weight:600;line-height:1.3}
             .aw-badges{display:flex;gap:6px;padding:6px 8px 10px}
@@ -693,60 +702,47 @@ jobs:
             .aw-delcancel{background:#23262e;border:1px solid #2e3440;color:#fff;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer}
             .aw-delyes{background:#b3372c;border:1px solid #b3372c;color:#fff;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer}
             .aw-player{display:block;padding:4px 2px}
-            .awp{position:relative;background:#000;border-radius:14px;overflow:hidden;aspect-ratio:16/9;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+            .awp{position:fixed;inset:0;background:#000;z-index:100000;user-select:none;-webkit-user-select:none;touch-action:manipulation}
             .awp-video{position:absolute;inset:0;width:100%;height:100%;background:#000;object-fit:contain}
-            .awp-top{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:10px;padding:12px 12px 30px;background:linear-gradient(180deg,rgba(0,0,0,.72),rgba(0,0,0,0));opacity:0;pointer-events:none;transition:opacity .25s;z-index:3}
+            .awp-top{position:absolute;top:0;left:0;right:0;display:flex;align-items:flex-start;justify-content:space-between;padding:14px 14px 40px;background:linear-gradient(180deg,rgba(0,0,0,.75),rgba(0,0,0,0));opacity:0;pointer-events:none;transition:opacity .25s;z-index:3}
             .awp.showui .awp-top{opacity:1;pointer-events:auto}
-            .awp-tbtn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.16);color:#fff;border-radius:999px;padding:7px 13px;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap}
-            .awp-tbtn:disabled{opacity:.35;cursor:default}
-            .awp-title{flex:1;min-width:0;font-size:13.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 6px rgba(0,0,0,.6)}
-            .awp-topnav{display:flex;gap:8px}
+            .awp-status{font-size:10px;font-weight:800;letter-spacing:.14em;color:#e8632c;text-transform:uppercase;margin:2px 0 2px 4px}
+            .awp-title{font-size:17px;font-weight:800;color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.7);margin-left:4px;max-width:60vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+            .awp-topicons{display:flex;gap:10px}
+            .awp-icobtn{width:42px;height:42px;border-radius:50%;border:0;background:rgba(40,44,52,.72);color:#fff;font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+            .awp-icobtn:active{transform:scale(.92)}
             .awp-center{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:2;pointer-events:none}
-            .awp-big{pointer-events:auto;width:78px;height:78px;border-radius:50%;border:0;background:rgba(232,99,44,.96);color:#fff;font-size:30px;line-height:1;cursor:pointer;box-shadow:0 8px 30px rgba(232,99,44,.45);display:flex;align-items:center;justify-content:center;padding:0 0 4px 6px}
+            .awp-big{pointer-events:auto;width:84px;height:84px;border-radius:50%;border:0;background:rgba(232,99,44,.96);color:#fff;font-size:32px;line-height:1;cursor:pointer;box-shadow:0 10px 34px rgba(232,99,44,.5);display:flex;align-items:center;justify-content:center;padding:0 0 4px 6px}
             .awp-big:active{transform:scale(.94)}
-            .awp-spin{display:none;width:54px;height:54px;border-radius:50%;border:4px solid rgba(255,255,255,.22);border-top-color:#e8632c;animation:awpspin .9s linear infinite}
+            .awp-spin{display:none;width:56px;height:56px;border-radius:50%;border:4px solid rgba(255,255,255,.22);border-top-color:#e8632c;animation:awpspin .9s linear infinite}
             @keyframes awpspin{to{transform:rotate(360deg)}}
-            .awp-err{display:none;position:absolute;bottom:88px;left:16px;right:16px;text-align:center;color:#ffb3b3;font-size:13px;background:rgba(0,0,0,.66);padding:10px 14px;border-radius:10px;pointer-events:auto}
-            .awp-bot{position:absolute;left:0;right:0;bottom:0;padding:30px 12px 10px;background:linear-gradient(0deg,rgba(0,0,0,.8),rgba(0,0,0,0));opacity:0;pointer-events:none;transition:opacity .25s;z-index:3}
+            .awp-err{display:none;position:absolute;bottom:110px;left:16px;right:16px;text-align:center;color:#ffb3b3;font-size:13px;background:rgba(0,0,0,.66);padding:10px 14px;border-radius:10px;pointer-events:auto;z-index:5}
+            .awp-bot{position:absolute;left:0;right:0;bottom:0;padding:40px 10px 12px;background:linear-gradient(0deg,rgba(0,0,0,.85),rgba(0,0,0,0));opacity:0;pointer-events:none;transition:opacity .25s;z-index:3}
             .awp.showui .awp-bot{opacity:1;pointer-events:auto}
-            .awp-prog{position:relative;height:24px;cursor:pointer;touch-action:none}
-            .awp-track{position:absolute;left:0;right:0;top:10px;height:4px;border-radius:2px;background:rgba(255,255,255,.28)}
-            .awp-buf{position:absolute;left:0;top:10px;height:4px;border-radius:2px;background:rgba(255,255,255,.4);width:0}
-            .awp-fill{position:absolute;left:0;top:10px;height:4px;border-radius:2px;background:#e8632c;width:0;box-shadow:0 0 8px rgba(232,99,44,.7)}
-            .awp-knob{position:absolute;left:0;top:12px;width:13px;height:13px;margin-left:-6.5px;border-radius:50%;background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.55)}
-            .awp-row{display:flex;align-items:center;gap:2px;margin-top:2px}
-            .awp-btn{background:none;border:0;color:#fff;font-size:17px;min-width:42px;height:42px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0 8px}
-            .awp-btn:active{background:rgba(255,255,255,.14)}
-            .awp-sk{position:relative;font-size:20px;line-height:1}
+            .awp-prog{position:relative;height:26px;cursor:pointer;touch-action:none;margin:0 6px}
+            .awp-track{position:absolute;left:0;right:0;top:11px;height:4px;border-radius:2px;background:rgba(255,255,255,.28)}
+            .awp-buf{position:absolute;left:0;top:11px;height:4px;border-radius:2px;background:rgba(255,255,255,.4);width:0}
+            .awp-fill{position:absolute;left:0;top:11px;height:4px;border-radius:2px;background:#e8632c;width:0;box-shadow:0 0 8px rgba(232,99,44,.7)}
+            .awp-knob{position:absolute;left:0;top:13px;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.55)}
+            .awp-row{display:flex;align-items:center;gap:0;margin-top:4px}
+            .awp-btn{background:none;border:0;color:#fff;font-size:18px;min-width:44px;height:48px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0 6px;opacity:.92}
+            .awp-btn:active{opacity:1;transform:scale(.94)}
+            .awp-btn.dim{opacity:.45}
+            .awp-playmid{width:58px;height:58px;min-width:58px;border-radius:50%;background:#e8632c;font-size:22px;margin:0 4px;box-shadow:0 6px 22px rgba(232,99,44,.5)}
+            .awp-sk{position:relative;font-size:22px;line-height:1}
             .awp-sk i{position:absolute;left:50%;top:50%;transform:translate(-50%,-40%);font-style:normal;font-size:8px;font-weight:800}
-            .awp-rate{font-size:13px;font-weight:800}
-            .awp-time{font-size:12px;color:#ececec;font-variant-numeric:tabular-nums;margin-left:8px;white-space:nowrap}
+            .awp-time{font-size:12px;color:#fff;font-variant-numeric:tabular-nums;margin:0 8px;white-space:nowrap}
+            .awp-time .dim{color:rgba(255,255,255,.55)}
             .awp-flex{flex:1}
-            .awp-sheet{position:absolute;right:10px;bottom:72px;min-width:210px;max-width:80%;max-height:62%;overflow:auto;background:rgba(18,20,25,.97);border:1px solid rgba(255,255,255,.12);border-radius:12px;z-index:4;display:none;box-shadow:0 12px 40px rgba(0,0,0,.5);padding:4px}
+            .awp-vol{display:flex;align-items:center;gap:2px;margin-right:2px}
+            .awp-vol input[type=range]{width:70px;accent-color:#e8632c;cursor:pointer}
+            .awp-rate{font-size:13px;font-weight:800}
+            .awp-sheet{position:absolute;right:10px;bottom:86px;min-width:220px;max-width:82%;max-height:60%;overflow:auto;background:rgba(18,20,25,.97);border:1px solid rgba(255,255,255,.12);border-radius:12px;z-index:4;display:none;box-shadow:0 12px 40px rgba(0,0,0,.5);padding:4px}
             .awp-sheet.open{display:block}
             .awp-sh{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#9aa3b2;padding:10px 12px 4px}
             .awp-sheet button{display:block;width:100%;text-align:left;background:none;border:0;color:#fff;font-size:13.5px;padding:10px 12px;border-radius:8px;cursor:pointer}
             .awp-sheet button.on{color:#ff8a3d;font-weight:700;background:rgba(232,99,44,.12)}
             .awp-none{font-size:12.5px;color:#9aa3b2;padding:10px 12px}
-            .aw-online{padding:20px 24px 34px;max-width:1150px;margin:0 auto}
-            .aw-ohead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:4px 0 10px}
-            .aw-ohead .aw-ot{font-size:17px;font-weight:800;color:var(--text,#111)}
-            .aw-ohead .aw-osub{font-size:12.5px;color:var(--dim,#9aa3b2)}
-            .aw-oserver{display:flex;gap:8px;align-items:center;margin:0 0 12px;font-size:12.5px;color:var(--dim,#9aa3b2);flex-wrap:wrap}
-            .aw-oserver input{background:var(--surface,#0f1319);border:1px solid var(--border,#2a3140);color:var(--text,#e8ecf3);border-radius:8px;padding:7px 10px;font-size:12.5px;width:min(280px,60vw)}
-            .aw-oserver button{background:var(--text,#2a3140);border:0;color:var(--bg,#fff);border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:700;cursor:pointer}
-            .aw-ostatus{color:var(--dim,#9aa3b2);padding:20px 4px;font-size:14px;display:flex;align-items:center;gap:10px}
-            .aw-choo{position:fixed;inset:0;z-index:100001;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;padding:20px}
-            .aw-choo-box{background:#161a22;border:1px solid #2a3140;border-radius:14px;max-width:430px;width:100%;padding:20px}
-            .aw-choo-t{font-size:16px;font-weight:800;margin:0 0 4px;color:#fff}
-            .aw-choo-s{font-size:13px;color:#9aa3b2;margin:0 0 14px}
-            .aw-choo-btn{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:#20262f;border:1px solid #2a3140;color:#fff;border-radius:10px;padding:13px 14px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px}
-            .aw-choo-btn small{display:block;font-weight:400;color:#9aa3b2;font-size:12px;margin-top:3px}
-            .aw-choo-btn .em{font-size:22px}
-            .aw-choo-btn.online{background:#e8632c;border-color:#e8632c}
-            .aw-choo-btn.online small{color:#ffe1d1}
-            .aw-choo-x{display:block;width:100%;background:transparent;border:0;color:#9aa3b2;font-size:13.5px;padding:8px;cursor:pointer}
-            .aw-toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:100002;background:#1c212b;border:1px solid #2a3140;color:#fff;border-radius:10px;padding:11px 16px;font-size:13.5px;max-width:min(480px,90vw);box-shadow:0 8px 24px rgba(0,0,0,.5)}
             button.episode-online.__aw-busy{opacity:.55}
             .aw-link{background:none;border:0;color:#ff9a5c;font-size:12px;cursor:pointer;text-decoration:underline;padding:0}
             .aw-dback{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
@@ -3452,6 +3448,97 @@ jobs:
                   });
               }
 
+              /* ---- v8: online watch history (shows in History tab) ---- */
+              var OH_KEY = '__online_history_v1';
+              function ohLoad() {
+                try { var r = JSON.parse(localStorage.getItem(OH_KEY) || '[]'); return Array.isArray(r) ? r : []; }
+                catch (e) { return []; }
+              }
+              function ohSave(h) { try { localStorage.setItem(OH_KEY, JSON.stringify(h.slice(0, 50))); } catch (e) {} }
+              function ohRecord(anime, anilistId, ep, episodes, position, duration) {
+                var h = ohLoad();
+                var id = 'online-' + anilistId + '-' + ep;
+                var epInfo = null;
+                if (episodes) { for (var i = 0; i < episodes.length; i++) { if (episodes[i] && episodes[i].number == ep) { epInfo = episodes[i]; break; } } }
+                var entry = {
+                  id: id, anilistId: anilistId, ep: ep,
+                  title: anime.title || 'Unknown',
+                  animeId: anime.animeId,
+                  poster: anime.poster || anime.cover || null,
+                  epTitle: (epInfo && (epInfo.title || epInfo.name)) || ('Episode ' + ep),
+                  positionSeconds: Math.floor(position || 0),
+                  durationSeconds: Math.floor(duration || 0),
+                  lastWatchedAt: Date.now(),
+                  anime: { title: anime.title, animeId: anime.animeId, poster: anime.poster || anime.cover || null },
+                  episodes: episodes || []
+                };
+                h = h.filter(function (x) { return x.id !== id; });
+                h.unshift(entry);
+                ohSave(h);
+              }
+              function ohTouch(id, position, duration) {
+                var h = ohLoad(), found = false;
+                for (var i = 0; i < h.length; i++) {
+                  if (h[i].id === id) {
+                    h[i].positionSeconds = Math.floor(position || 0);
+                    if (duration) h[i].durationSeconds = Math.floor(duration);
+                    h[i].lastWatchedAt = Date.now();
+                    found = true; break;
+                  }
+                }
+                if (found) ohSave(h);
+              }
+              function fmtClock(s) {
+                s = Math.max(0, Math.floor(s || 0));
+                var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
+                return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(ss).padStart(2, '0');
+              }
+              /* Inject online history cards into the History tab */
+              var ohObsActive = false;
+              function ohInject() {
+                var grid = document.querySelector('.history-grid-full');
+                if (!grid) return;
+                // Remove previously injected cards
+                var olds = grid.querySelectorAll('.continue-card.__oh');
+                for (var i = 0; i < olds.length; i++) olds[i].remove();
+                var h = ohLoad();
+                if (!h.length) return;
+                h.forEach(function (entry) {
+                  var card = document.createElement('div');
+                  card.className = 'continue-card __oh';
+                  card.setAttribute('role', 'button');
+                  card.tabIndex = 0;
+                  var pct = entry.durationSeconds > 0 ? Math.max(4, Math.min(100, entry.positionSeconds / entry.durationSeconds * 100)) : 4;
+                  var timeLabel = 'Stopped at ' + fmtClock(entry.positionSeconds) + (entry.durationSeconds > 0 ? ' / ' + fmtClock(entry.durationSeconds) : '');
+                  var badge = 'EP ' + entry.ep;
+                  card.innerHTML =
+                    '<div class="continue-art">' +
+                      (entry.poster ? '<img src="' + esc(entry.poster) + '" alt="" loading="lazy">' : '') +
+                      '<span class="continue-badge">' + esc(badge) + '</span>' +
+                      '<span class="continue-badge" style="left:8px;right:auto;background:#e8632c;">\U0001f310 Online</span>' +
+                      '<span class="continue-time-pill">' + esc(timeLabel) + '</span>' +
+                      '<span class="continue-play">\u25b6</span>' +
+                      '<span class="continue-progress"><i style="width:' + pct + '%"></i></span>' +
+                    '</div>' +
+                    '<div class="continue-copy"><strong>' + esc(entry.title) + ' \u00b7 ' + esc(badge) + '</strong>' +
+                    '<small>' + esc(entry.epTitle) + '</small></div>';
+                  card.onclick = function () {
+                    playEpisode(entry.anime, entry.anilistId, entry.ep, entry.episodes, { startAt: entry.positionSeconds });
+                  };
+                  card.onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); card.onclick(); } };
+                  grid.insertBefore(card, grid.firstChild);
+                });
+              }
+              function ohWatch() {
+                if (ohObsActive) return;
+                ohObsActive = true;
+                new MutationObserver(function () {
+                  // Only inject when History tab is visible
+                  var sec = document.querySelector('.continue-section[aria-label="Watch History"]');
+                  if (sec) ohInject();
+                }).observe(document.body, { childList: true, subtree: true });
+              }
+
               function audioLabel(audioDefs, lang) {
                 var q = String(lang || '').toLowerCase();
                 for (var i = 0; i < audioDefs.length; i++) {
@@ -3470,37 +3557,42 @@ jobs:
                 if (!b) return;
                 var base = apiBase();
                 destroyPlayer();
-                b.innerHTML = '<div class=\"awp showui\" id=\"awp\">' +
-                  '<video class=\"awp-video\" playsinline crossorigin=\"anonymous\" preload=\"auto\"></video>' +
-                  '<div class=\"awp-top\">' +
-                    '<button type=\"button\" class=\"awp-tbtn\" id=\"awpBack\">‹ Episodes</button>' +
-                    '<div class=\"awp-title\">' + esc(anime.title) + ' · EP ' + ep + '</div>' +
-                    '<div class=\"awp-topnav\">' +
-                      '<button type=\"button\" class=\"awp-tbtn\" id=\"awpPrev\"' + (ep <= 1 ? ' disabled' : '') + '>‹ Prev</button>' +
-                      '<button type=\"button\" class=\"awp-tbtn\" id=\"awpNext\">Next ›</button>' +
+                b.innerHTML = '<div class=\\\"awp showui\\\" id=\\\"awp\\\">' +
+                  '<video class=\\\"awp-video\\\" playsinline crossorigin=\\\"anonymous\\\" preload=\\\"auto\\\"></video>' +
+                  '<div class=\\\"awp-top\\\">' +
+                    '<div><div class=\\\"awp-status\\\" id=\\\"awpStatus\\\">Loading</div>' +
+                    '<div class=\\\"awp-title\\\">' + esc(anime.title) + ' \u00b7 EP ' + ep + '</div></div>' +
+                    '<div class=\\\"awp-topicons\\\">' +
+                      '<button type=\\\"button\\\" class=\\\"awp-icobtn\\\" id=\\\"awpBack\\\" aria-label=\\\"Back to episodes\\\">\u2304</button>' +
+                      '<button type=\\\"button\\\" class=\\\"awp-icobtn\\\" id=\\\"awpFs2\\\" aria-label=\\\"Fullscreen\\\">\u26f6</button>' +
+                      '<button type=\\\"button\\\" class=\\\"awp-icobtn\\\" id=\\\"awpPip\\\" aria-label=\\\"Picture in picture\\\">\u25a3</button>' +
+                      '<button type=\\\"button\\\" class=\\\"awp-icobtn\\\" id=\\\"awpClose\\\" aria-label=\\\"Close player\\\">\u2715</button>' +
                     '</div>' +
                   '</div>' +
-                  '<div class=\"awp-center\">' +
-                    '<div class=\"awp-spin\" id=\"awpSpin\"></div>' +
-                    '<button type=\"button\" class=\"awp-big\" id=\"awpBig\" aria-label=\"Play or pause\">▶</button>' +
-                    '<div class=\"awp-err\" id=\"awpErr\"></div>' +
+                  '<div class=\\\"awp-center\\\">' +
+                    '<div class=\\\"awp-spin\\\" id=\\\"awpSpin\\\"></div>' +
+                    '<button type=\\\"button\\\" class=\\\"awp-big\\\" id=\\\"awpBig\\\" aria-label=\\\"Play or pause\\\">\u25b6</button>' +
+                    '<div class=\\\"awp-err\\\" id=\\\"awpErr\\\"></div>' +
                   '</div>' +
-                  '<div class=\"awp-bot\">' +
-                    '<div class=\"awp-prog\" id=\"awpProg\"><div class=\"awp-track\"></div><div class=\"awp-buf\" id=\"awpBuf\"></div><div class=\"awp-fill\" id=\"awpFill\"></div><div class=\"awp-knob\" id=\"awpKnob\"></div></div>' +
-                    '<div class=\"awp-row\">' +
-                      '<button type=\"button\" class=\"awp-btn\" id=\"awpPlay\" aria-label=\"Play or pause\">⏸</button>' +
-                      '<button type=\"button\" class=\"awp-btn\" id=\"awpRw\" aria-label=\"Back 10 seconds\"><span class=\"awp-sk\">↺<i>10</i></span></button>' +
-                      '<button type=\"button\" class=\"awp-btn\" id=\"awpFf\" aria-label=\"Forward 10 seconds\"><span class=\"awp-sk\">↻<i>10</i></span></button>' +
-                      '<span class=\"awp-time\"><span id=\"awpCur\">0:00</span> / <span id=\"awpDur\">0:00</span></span>' +
-                      '<span class=\"awp-flex\"></span>' +
-                      '<button type=\"button\" class=\"awp-btn\" id=\"awpAud\" aria-label=\"Audio track\">🎧</button>' +
-                      '<button type=\"button\" class=\"awp-btn\" id=\"awpSub\" aria-label=\"Subtitles\">CC</button>' +
-                      '<button type=\"button\" class=\"awp-btn awp-rate\" id=\"awpRate\" aria-label=\"Playback speed\">1×</button>' +
-                      '<button type=\"button\" class=\"awp-btn\" id=\"awpFs\" aria-label=\"Fullscreen\">⛶</button>' +
+                  '<div class=\\\"awp-bot\\\">' +
+                    '<div class=\\\"awp-prog\\\" id=\\\"awpProg\\\"><div class=\\\"awp-track\\\"></div><div class=\\\"awp-buf\\\" id=\\\"awpBuf\\\"></div><div class=\\\"awp-fill\\\" id=\\\"awpFill\\\"></div><div class=\\\"awp-knob\\\" id=\\\"awpKnob\\\"></div></div>' +
+                    '<div class=\\\"awp-row\\\">' +
+                      '<button type=\\\"button\\\" class=\\\"awp-btn\\\" id=\\\"awpPrev\\\" aria-label=\\\"Previous episode\\\"' + (ep <= 1 ? ' disabled' : '') + '>\u23ee</button>' +
+                      '<button type=\\\"button\\\" class=\\\"awp-btn\\\" id=\\\"awpRw\\\" aria-label=\\\"Back 10 seconds\\\"><span class=\\\"awp-sk\\\">\u21ba<i>10</i></span></button>' +
+                      '<button type=\\\"button\\\" class=\\\"awp-btn awp-playmid\\\" id=\\\"awpPlay\\\" aria-label=\\\"Play or pause\\\">\u23f8</button>' +
+                      '<button type=\\\"button\\\" class=\\\"awp-btn\\\" id=\\\"awpFf\\\" aria-label=\\\"Forward 10 seconds\\\"><span class=\\\"awp-sk\\\">\u21bb<i>10</i></span></button>' +
+                      '<button type=\\\"button\\\" class=\\\"awp-btn\\\" id=\\\"awpNext\\\" aria-label=\\\"Next episode\\\">\u23ed</button>' +
+                      '<span class=\\\"awp-time\\\"><span id=\\\"awpCur\\\">0:00</span> <span class=\\\"dim\\\">/ <span id=\\\"awpDur\\\">0:00</span></span></span>' +
+                      '<span class=\\\"awp-flex\\\"></span>' +
+                      '<span class=\\\"awp-vol\\\"><button type=\\\"button\\\" class=\\\"awp-btn\\\" id=\\\"awpMute\\\" aria-label=\\\"Mute\\\">\U0001f50a</button><input type=\\\"range\\\" id=\\\"awpVol\\\" min=\\\"0\\\" max=\\\"1\\\" step=\\\"0.05\\\" value=\\\"1\\\" aria-label=\\\"Volume\\\"></span>' +
+                      '<button type=\\\"button\\\" class=\\\"awp-btn\\\" id=\\\"awpSub\\\" aria-label=\\\"Subtitles\\\">CC</button>' +
+                      '<button type=\\\"button\\\" class=\\\"awp-btn\\\" id=\\\"awpAud\\\" aria-label=\\\"Audio track\\\">\U0001f3a7</button>' +
+                      '<button type=\\\"button\\\" class=\\\"awp-btn awp-rate\\\" id=\\\"awpRate\\\" aria-label=\\\"Playback speed\\\">1\u00d7</button>' +
+                      '<button type=\\\"button\\\" class=\\\"awp-btn\\\" id=\\\"awpFs\\\" aria-label=\\\"Fullscreen\\\">\u26f6</button>' +
                     '</div>' +
                   '</div>' +
-                  '<div class=\"awp-sheet\" id=\"awpAudSheet\"><div class=\"awp-sh\">Audio</div><div id=\"awpAudList\"></div></div>' +
-                  '<div class=\"awp-sheet\" id=\"awpSubSheet\"><div class=\"awp-sh\">Subtitles</div><div id=\"awpSubList\"></div></div>' +
+                  '<div class=\\\"awp-sheet\\\" id=\\\"awpAudSheet\\\"><div class=\\\"awp-sh\\\">Audio</div><div id=\\\"awpAudList\\\"></div></div>' +
+                  '<div class=\\\"awp-sheet\\\" id=\\\"awpSubSheet\\\"><div class=\\\"awp-sh\\\">Subtitles</div><div id=\\\"awpSubList\\\"></div></div>' +
                 '</div>';
                 var root = b.querySelector('#awp');
                 var video = root.querySelector('.awp-video');
@@ -3566,8 +3658,17 @@ jobs:
                 video.addEventListener('waiting', function () { spin.style.display = 'block'; });
                 video.addEventListener('playing', function () { spin.style.display = 'none'; });
                 video.addEventListener('canplay', function () { spin.style.display = 'none'; });
-                video.addEventListener('loadedmetadata', function () { durEl.textContent = fmt(video.duration); });
+                video.addEventListener('loadedmetadata', function () {
+                  durEl.textContent = fmt(video.duration);
+                  // Resume from history position
+                  if (opts && opts.startAt > 0) {
+                    try { video.currentTime = Math.min(opts.startAt, (video.duration || opts.startAt) - 2); } catch (e) {}
+                  }
+                });
                 video.addEventListener('durationchange', function () { durEl.textContent = fmt(video.duration); });
+                var ohId = 'online-' + anilistId + '-' + ep, ohLastSave = 0;
+                // Record to history when playback begins
+                ohRecord(anime, anilistId, ep, episodes, (opts && opts.startAt) || 0, 0);
                 video.addEventListener('timeupdate', function () {
                   var d = video.duration || 0, c = video.currentTime || 0;
                   curEl.textContent = fmt(c);
@@ -3575,7 +3676,11 @@ jobs:
                   var p = d ? Math.min(100, c / d * 100) : 0;
                   fill.style.width = p + '%';
                   knob.style.left = p + '%';
+                  // Throttled history update (every 15s)
+                  var now = Date.now();
+                  if (now - ohLastSave > 15000 && c > 0) { ohLastSave = now; ohTouch(ohId, c, d); }
                 });
+                video.addEventListener('pause', function () { ohTouch(ohId, video.currentTime || 0, video.duration || 0); });
                 video.addEventListener('progress', function () {
                   try {
                     var d = video.duration || 0;
@@ -3614,13 +3719,48 @@ jobs:
                   rateBtn.textContent = rates[ri] + '×';
                   showUI();
                 };
-                root.querySelector('#awpFs').onclick = function (e) {
+                function toggleFs(e) {
                   if (e) e.stopPropagation();
                   if (document.fullscreenElement) { if (document.exitFullscreen) document.exitFullscreen(); }
                   else if (root.requestFullscreen) { root.requestFullscreen(); }
                   else if (video.webkitEnterFullscreen) { try { video.webkitEnterFullscreen(); } catch (x) {} }
                   showUI();
+                }
+                root.querySelector('#awpFs').onclick = toggleFs;
+                root.querySelector('#awpFs2').onclick = toggleFs;
+                root.querySelector('#awpClose').onclick = function () { destroyPlayer(); showDetail(anime, ep); };
+                root.querySelector('#awpPip').onclick = function (e) {
+                  if (e) e.stopPropagation();
+                  try {
+                    if (document.pictureInPictureElement) { document.exitPictureInPicture(); }
+                    else if (video.requestPictureInPicture) { video.requestPictureInPicture(); }
+                  } catch (x) {}
+                  showUI();
                 };
+                var volSlider = root.querySelector('#awpVol'), muteBtn = root.querySelector('#awpMute');
+                if (volSlider) {
+                  volSlider.oninput = function () { video.volume = parseFloat(volSlider.value); video.muted = false; updateMuteIcon(); };
+                  volSlider.onclick = function (e) { if (e) e.stopPropagation(); };
+                }
+                function updateMuteIcon() {
+                  if (muteBtn) muteBtn.textContent = (video.muted || video.volume === 0) ? '\U0001f507' : '\U0001f50a';
+                }
+                if (muteBtn) muteBtn.onclick = function (e) {
+                  if (e) e.stopPropagation();
+                  video.muted = !video.muted;
+                  if (volSlider) volSlider.value = video.muted ? 0 : video.volume;
+                  updateMuteIcon(); showUI();
+                };
+                var statusEl = root.querySelector('#awpStatus');
+                function updateStatus() {
+                  if (!statusEl) return;
+                  if (video.ended) statusEl.textContent = 'Ended';
+                  else if (video.paused) statusEl.textContent = 'Paused';
+                  else statusEl.textContent = 'Playing';
+                }
+                video.addEventListener('play', updateStatus);
+                video.addEventListener('pause', updateStatus);
+                video.addEventListener('ended', updateStatus);
                 var audSheet = root.querySelector('#awpAudSheet'), subSheet = root.querySelector('#awpSubSheet');
                 root.querySelector('#awpAud').onclick = function (e) { if (e) e.stopPropagation(); toggleSheet(audSheet); showUI(); };
                 root.querySelector('#awpSub').onclick = function (e) { if (e) e.stopPropagation(); buildSubs(); toggleSheet(subSheet); showUI(); };
@@ -3753,12 +3893,13 @@ jobs:
                 root.querySelector('#awpNext').onclick = function () { playEpisode(anime, anilistId, ep + 1, episodes, opts); };
               }
               hookDefaultSearch();
+              ohWatch();
 
               /* ---- v3: integrated default-search hook ---- */
               var lastOnlineQ = '', onlineTimer = null, moActive = false;
               function appSearchInput() { return document.querySelector('input[aria-label="Search library"]'); }
               function onlineSection() { return document.querySelector('main.library-main .aw-online'); }
-              function clearOnlineSection() { var s = onlineSection(); if (s) s.remove(); }
+              function clearOnlineSection() { var s = onlineSection(); if (s) s.remove(); restoreEmpty(); }
               function hookDefaultSearch() {
                 var inp = appSearchInput();
                 if (!inp) { setTimeout(hookDefaultSearch, 800); return; }
@@ -3806,31 +3947,41 @@ jobs:
                 var inp = appSearchInput();
                 if (!inp) return;
                 var q = (inp.value || '').trim();
-                if (q.length < 3) { clearOnlineSection(); lastOnlineQ = ''; return; }
+                if (q.length < 3) { clearOnlineSection(); lastOnlineQ = ''; restoreEmpty(); return; }
                 var main = document.querySelector('main.library-main');
                 if (!main) return;
                 var empty = main.querySelector('.empty-library');
-                if (!empty) { clearOnlineSection(); lastOnlineQ = ''; return; }
+                if (!empty) { clearOnlineSection(); lastOnlineQ = ''; restoreEmpty(); return; }
                 if (!force && q === lastOnlineQ && onlineSection()) return;
                 lastOnlineQ = q;
                 clearOnlineSection();
+                // Unified: hide the "Nothing matches" empty state, show online results in its place
+                empty.style.display = 'none';
+                empty.__awHidden = true;
                 var sec = document.createElement('section');
-                sec.className = 'aw-online';
-                sec.innerHTML = '<div class="aw-ohead"><span class="aw-ot">\\u{1F310} Online</span>' +
-                  '<span class="aw-osub">not in your library &mdash; full details, rating &amp; episodes</span></div>' +
+                sec.className = 'aw-online aw-unified';
+                sec.innerHTML = '<div class="aw-ohead"><span class="aw-ot">\\u{1F310} Online results</span>' +
+                  '<span class="aw-osub">for &ldquo;' + esc(q) + '&rdquo; &mdash; not in your library</span></div>' +
                   serverRowHtml() +
                   '<div class="aw-ostatus"><span class="spinner"></span>Searching online for &ldquo;' + esc(q) + '&rdquo;&hellip;</div>';
-                empty.parentNode.insertBefore(sec, empty.nextSibling);
+                empty.parentNode.insertBefore(sec, empty);
                 wireServerRow(sec);
                 apiGet('/api/anime/search?q=' + encodeURIComponent(q)).then(function (d) {
                   var res = (d && d.results) || [];
                   if (!document.body.contains(sec)) return;
                   if (res.length) renderOnlineCards(sec, res, q);
-                  else sec.querySelector('.aw-ostatus').innerHTML = 'No online results for &ldquo;' + esc(q) + '&rdquo;.';
+                  else {
+                    // No online results either: restore the empty state with a note
+                    sec.querySelector('.aw-ostatus').innerHTML = 'No online results for &ldquo;' + esc(q) + '&rdquo;.';
+                  }
                 }, function (err) {
                   if (!document.body.contains(sec)) return;
                   sec.querySelector('.aw-ostatus').innerHTML = errBox(err.message || 'network error');
                 });
+              }
+              function restoreEmpty() {
+                var e = document.querySelector('main.library-main .empty-library');
+                if (e && e.__awHidden) { e.style.display = ''; e.__awHidden = false; }
               }
               function renderOnlineCards(sec, res, q) {
                 sec.innerHTML = '<div class="aw-ohead"><span class="aw-ot">\\u{1F310} Online</span>' +
