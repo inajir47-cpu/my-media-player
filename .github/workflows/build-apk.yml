@@ -683,6 +683,8 @@ jobs:
             .awd-wosect h2{font-size:28px;font-weight:700;margin:0 0 6px;color:#fff}
             .awd-wosub{font-size:13px;color:#9aa1b0;margin:0 0 18px}
             .awd-epshead{max-width:1100px;margin:0 auto;padding:0 20px}
+            .awd-continue{display:flex;align-items:center;gap:12px;width:calc(100% - 40px);max-width:1060px;margin:6px auto 22px;padding:15px 18px;background:#e8632c;border:0;border-radius:12px;color:#fff;font-size:16px;font-weight:700;cursor:pointer;text-align:left}
+            .awd-continue-play{font-size:18px;line-height:1}
             .awd-epshead h2{font-size:22px;font-weight:700;margin:0 0 14px;color:#fff}
             .awd-eps{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;max-width:1100px;margin:0 auto;padding:0 20px 40px}
             .awd-ep{position:relative;background:#14161c;border:1px solid #232833;border-radius:10px;overflow:hidden;cursor:pointer;padding:0;text-align:left;color:#fff}
@@ -3455,6 +3457,17 @@ jobs:
                       '<span class="awd-epmeta">' + (info.duration ? info.duration + ' min \\u00B7 ' : '') + '\\uD83C\\uDF10 Online \\u00B7 SUB/DUB</span>' +
                       '</button>';
                   }).join('');
+                  var ohEntry = null;
+                  try {
+                    var __ohl = ohLoad();
+                    for (var __oi = 0; __oi < __ohl.length; __oi++) {
+                      var __oe = __ohl[__oi];
+                      if (__oe && __oe.anime && __oe.anime.animeId && String(__oe.anime.animeId) === String(anime.animeId)) { ohEntry = __oe; break; }
+                    }
+                  } catch (e) {}
+                  var ohContHtml = (ohEntry && ohEntry.positionSeconds > 0)
+                    ? '<button type="button" class="awd-continue" id="awdContinue"><span class="awd-continue-play">\\u25B6</span><span>Continue EP ' + ohEntry.ep + ' from ' + fmtClock(ohEntry.positionSeconds) + '</span></button>'
+                    : '';
                   detailPage.innerHTML =
                     '<div class="awd-top"><button type="button" class="awd-back" id="awdBack">\\u2039 Library</button></div>' +
                     (banner ? '<div class="awd-banner"><img src="' + esc(banner) + '" alt="" /></div>' : '') +
@@ -3473,6 +3486,7 @@ jobs:
                     ((info.hasDub || anime.hasDub) ? '<span class="aw-badge dub">DUB' + (info.dubbed ? ' ' + info.dubbed + ' EP' : '') + '</span>' : '') +
                     '</div>' +
                     '</div></div>' +
+                    ohContHtml +
                     revHtml +
                     '<div class="awd-wosect"><h2>Watch order</h2>' +
                     '<p class="awd-wosub">All episodes in release order. Pick any episode to watch it online.</p></div>' +
@@ -3480,6 +3494,10 @@ jobs:
                     (eps.length ? '<div class="awd-eps">' + epCards + '</div>'
                       : '<div class="awd-status">No episodes found for this title.</div>');
                   detailPage.querySelector('#awdBack').onclick = function () { closeDetailPage(); };
+                  var __awdCont = detailPage.querySelector('#awdContinue');
+                  if (__awdCont && ohEntry) {
+                    __awdCont.onclick = function () { playEpisode(anime, d.anilistId, ohEntry.ep, eps, { preferDub: true, startAt: ohEntry.positionSeconds }); };
+                  }
                   Array.prototype.forEach.call(detailPage.querySelectorAll('.awd-ep'), function (btn) {
                     btn.onclick = function () { playEpisode(anime, d.anilistId, +btn.getAttribute('data-ep'), eps, { preferDub: true }); };
                   });
@@ -3569,12 +3587,12 @@ jobs:
                   id: id, anilistId: anilistId, ep: ep,
                   title: anime.title || 'Unknown',
                   animeId: anime.animeId,
-                  poster: anime.poster || anime.cover || null,
+                  poster: anime.poster || anime.cover || anime.image || null,
                   epTitle: (epInfo && (epInfo.title || epInfo.name)) || ('Episode ' + ep),
                   positionSeconds: Math.floor(position || 0),
                   durationSeconds: Math.floor(duration || 0),
                   lastWatchedAt: Date.now(),
-                  anime: { title: anime.title, animeId: anime.animeId, poster: anime.poster || anime.cover || null },
+                  anime: { title: anime.title, animeId: anime.animeId, poster: anime.poster || anime.cover || anime.image || null, image: anime.image || anime.poster || anime.cover || null },
                   episodes: episodes || []
                 };
                 h = h.filter(function (x) { return x.id !== id; });
@@ -3601,8 +3619,21 @@ jobs:
               /* ---- v9: online history as native React elements (no DOM injection) ----
                  Wraps window.__renderContinueAndHistory so online watches render as real
                  React cards inside the History tab. No DOM hacking -> no render loops. */
-              function ohResume(entry) {
-                try { playEpisode(entry.anime, entry.anilistId, entry.ep, entry.episodes || [], { startAt: entry.positionSeconds || 0, preferDub: true }); } catch (e) {}
+              function ohOpenDetail(entry) {
+                try {
+                  var a = entry.anime || {};
+                  showDetail({ title: a.title || entry.title, animeId: a.animeId, image: a.image || entry.poster }, 0);
+                } catch (e) {}
+              }
+              function ohSeries() {
+                var seen = {}, out = [], h = ohLoad();
+                for (var i = 0; i < h.length; i++) {
+                  var aid = h[i] && h[i].anime && h[i].anime.animeId;
+                  if (!aid || seen[aid]) continue;
+                  seen[aid] = true;
+                  out.push(h[i]);
+                }
+                return out;
               }
               function ohCard(u, v, entry) {
                 var pct = entry.durationSeconds > 0 ? Math.max(4, Math.min(100, entry.positionSeconds / entry.durationSeconds * 100)) : 4;
@@ -3614,7 +3645,7 @@ jobs:
                   className: 'continue-card',
                   role: 'button',
                   tabIndex: 0,
-                  onClick: function () { ohResume(entry); },
+                  onClick: function () { ohOpenDetail(entry); },
                   children: [
                     v('div', {
                       className: 'continue-art',
@@ -3645,30 +3676,44 @@ jobs:
                   var wrapped = function (props) {
                     var el = orig(props);
                     try {
+                      var u = props && props.u, v = props && props.v;
                       if (props && props.activeTab === 'history' && el && el.props) {
                         var list = ohLoad();
                         var q = (props.searchQuery || '').trim().toLowerCase();
                         if (q) list = list.filter(function (h) { return ((h.title || '') + ' ' + (h.epTitle || '')).toLowerCase().indexOf(q) !== -1; });
                         if (list.length) {
-                          var u = props.u, v = props.v;
                           var cards = list.map(function (h) { return ohCard(u, v, h); });
                           var ohSec = v('div', { style: { marginTop: '20px' }, children: [
                             v('div', { className: 'continue-heading', children: [
                               v('div', { children: [
                                 u('p', { className: 'eyebrow', children: 'Streamed from the web' }),
-                                u('h2', { children: '\uD83C\uDF10 Online history' })
+                                u('h2', { children: '\\uD83C\\uDF10 Online history' })
                               ] }),
                               u('span', { children: list.length + (list.length === 1 ? ' online watch' : ' online watches') })
                             ] }),
                             v('div', { className: 'history-grid-full', children: cards })
                           ] });
-                          var kids = el.props.children;
-                          var arr = Array.isArray(kids) ? kids.slice() : (kids ? [kids] : []);
-                          arr.push(ohSec);
-                          var np = {};
-                          for (var kk in el.props) np[kk] = el.props[kk];
-                          np.children = arr;
-                          el = v(el.type, np);
+                          el = ohAppendChild(v, el, ohSec);
+                        }
+                      } else if (props && props.activeTab === 'all') {
+                        var series = ohSeries();
+                        if (series.length) {
+                          var scards = series.map(function (h) { return ohCard(u, v, h); });
+                          var homeSec = v('div', { style: { marginTop: '20px' }, children: [
+                            v('div', { className: 'continue-heading', children: [
+                              v('div', { children: [
+                                u('p', { className: 'eyebrow', children: 'Streamed from the web' }),
+                                u('h2', { children: '\\uD83C\\uDF10 Online series' })
+                              ] }),
+                              u('span', { children: series.length + ' series' })
+                            ] }),
+                            v('div', { className: 'history-grid-full', children: scards })
+                          ] });
+                          if (el && el.props) {
+                            el = ohAppendChild(v, el, homeSec);
+                          } else {
+                            el = v('section', { className: 'continue-section', 'aria-label': 'Online series', children: [homeSec] });
+                          }
                         }
                       }
                     } catch (e) {}
@@ -3677,6 +3722,15 @@ jobs:
                   wrapped.__ohWrapped = true;
                   window.__renderContinueAndHistory = wrapped;
                 } catch (e) {}
+              }
+              function ohAppendChild(v, el, child) {
+                var kids = el.props.children;
+                var arr = Array.isArray(kids) ? kids.slice() : (kids ? [kids] : []);
+                arr.push(child);
+                var np = {};
+                for (var kk in el.props) np[kk] = el.props[kk];
+                np.children = arr;
+                return v(el.type, np);
               }
               function audioLabel(audioDefs, lang) {
                 var q = String(lang || '').toLowerCase();
@@ -3721,6 +3775,7 @@ jobs:
                       '<button type=\\\"button\\\" class=\\\"awp-btn awp-playmid\\\" id=\\\"awpPlay\\\" aria-label=\\\"Play or pause\\\">\u23f8</button>' +
                       '<button type=\\\"button\\\" class=\\\"awp-btn\\\" id=\\\"awpFf\\\" aria-label=\\\"Forward 10 seconds\\\"><span class=\\\"awp-sk\\\">\u21bb<i>10</i></span></button>' +
                       '<button type=\\\"button\\\" class=\\\"awp-btn\\\" id=\\\"awpNext\\\" aria-label=\\\"Next episode\\\">\u23ed</button>' +
+                      '<button type=\\\"button\\\" class=\\\"awp-btn\\\" id=\\\"awpEps\\\" aria-label=\\\"Episode list\\\">\u2630</button>' +
                       '<span class=\\\"awp-time\\\"><span id=\\\"awpCur\\\">0:00</span> <span class=\\\"dim\\\">/ <span id=\\\"awpDur\\\">0:00</span></span></span>' +
                       '<span class=\\\"awp-flex\\\"></span>' +
                       '<span class=\\\"awp-vol\\\"><button type=\\\"button\\\" class=\\\"awp-btn\\\" id=\\\"awpMute\\\" aria-label=\\\"Mute\\\">\U0001f50a</button><input type=\\\"range\\\" id=\\\"awpVol\\\" min=\\\"0\\\" max=\\\"1\\\" step=\\\"0.05\\\" value=\\\"1\\\" aria-label=\\\"Volume\\\"></span>' +
@@ -4028,6 +4083,7 @@ jobs:
                 spin.style.display = 'block';
                 try { var pr = video.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (e) {}
                 root.querySelector('#awpBack').onclick = function () { closePlayerShell(); };
+                root.querySelector('#awpEps').onclick = function () { closePlayerShell(); };
                 root.querySelector('#awpPrev').onclick = function () { if (ep > 1) playEpisode(anime, anilistId, ep - 1, episodes, opts); };
                 root.querySelector('#awpNext').onclick = function () { playEpisode(anime, anilistId, ep + 1, episodes, opts); };
               }
