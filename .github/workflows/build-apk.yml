@@ -5032,8 +5032,8 @@ jobs:
                           conn.setRequestProperty("Origin", "https://hanime.tv");
                           conn.setRequestProperty("Referer", "https://hanime.tv/");
                       } else {
-                          if (!proxyHasHeader(reqHeaders, "Referer")) conn.setRequestProperty("Referer", "https://flixcloud.cc/");
-                          if (!proxyHasHeader(reqHeaders, "Origin")) conn.setRequestProperty("Origin", "https://flixcloud.cc");
+                          conn.setRequestProperty("Referer", "https://flixcloud.cc/");
+                          conn.setRequestProperty("Origin", "https://flixcloud.cc");
                       }
                       String jarCookie;
                       synchronized (proxyCookieJar) { jarCookie = proxyCookieJar.get(proxyCookieKey(host)); }
