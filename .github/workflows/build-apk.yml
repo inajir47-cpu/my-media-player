@@ -4735,6 +4735,9 @@ jobs:
                 if (title) searchAnime(title, initialEp || 0);
                 else setStatus('Type an anime name above and hit Search.');
               }
+              // Expose immediately so Discover triple-tap works on cold launch
+              window.openAnimeWatch = openAnimeWatch;
+              window.openAnimeWatchShell = openAnimeWatchShell;
 
               function searchAnime(q, initialEp) {
                 setStatus('<span class="spinner"></span>Searching\\u2026');
