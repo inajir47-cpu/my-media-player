@@ -947,7 +947,12 @@ jobs:
               "window.addEventListener=function(t,l,o){if(t==='e'){try{window.__hanimeSigHandler=l}catch(e){}}return origAEL(t,l,o)};" +
               "if(!window.WebAssembly||!window.WebAssembly.compile){hvFail('no WebAssembly');return}" +
               "window.WebAssembly.compile(bytes).then(function(mod){" +
-              "try{window.wasmModule=mod;var s=document.createElement('script');s.textContent=window.__hanimeVendorSrc||'';" +
+              "try{window.wasmModule=mod;" +
+              "window.Module=window.Module||{};" +
+              "window.Module.instantiateWasm=function(info,cb){" +
+              "window.WebAssembly.instantiate(window.wasmModule,info).then(function(inst){cb(inst,window.wasmModule);}," +
+              "function(e){hvFail('instantiate: '+(e&&e.message||e))});return{}};" +
+              "var s=document.createElement('script');s.textContent=window.__hanimeVendorSrc||'';" +
               "(document.head||document.documentElement).appendChild(s);window.__hanimeSigReady=true;" +
               "}catch(e){hvFail('vendor: '+(e&&e.message||e))}},function(err){hvFail('compile: '+(err&&err.message||err))});" +
               "}catch(e){hvFail(e&&e.message||e)}})();";
@@ -3336,8 +3341,12 @@ jobs:
                     try { csrf = JSON.parse(r1.text).csrf_token; } catch (e) {}
                     if (!csrf) throw new Error('CSRF handshake failed');
                     return hvEncryptToken({ timestamp_unix: Math.floor(Date.now() / 1000), directive: 'htv_player_handshake', slug: slug }).then(function (tok) {
-                      hs['X-CSRF-Token'] = csrf;
-                      return hvProxyXhr('POST', HV_HANDSHAKE_URL, hs, JSON.stringify({ token: tok }));
+                      return hvFreshSignature().then(function (sig2) {
+                        hs['X-Signature'] = sig2.s;
+                        hs['X-Time'] = String(sig2.t);
+                        hs['X-CSRF-Token'] = csrf;
+                        return hvProxyXhr('POST', HV_HANDSHAKE_URL, hs, JSON.stringify({ token: tok }));
+                      });
                     });
                   });
                 }).then(function (r2) {
@@ -5034,6 +5043,10 @@ jobs:
                           cos.close();
                       }
                       int status = conn.getResponseCode();
+                      if (status < 100) {
+                          sendSimple(client, 502, "Bad Gateway");
+                          return;
+                      }
                       proxyStoreCookies(host, conn);
                       String contentType = conn.getContentType();
                       if (contentType == null) contentType = "application/octet-stream";
@@ -5060,6 +5073,8 @@ jobs:
                       if (contentRange != null) head.append("Content-Range: ").append(contentRange).append("\r\n");
                       String acceptRanges = conn.getHeaderField("Accept-Ranges");
                       if (acceptRanges != null) head.append("Accept-Ranges: ").append(acceptRanges).append("\r\n");
+                      String contentEncoding = conn.getHeaderField("Content-Encoding");
+                      if (contentEncoding != null) head.append("Content-Encoding: ").append(contentEncoding).append("\r\n");
                       head.append("Transfer-Encoding: chunked\r\n");
                       head.append("Connection: close\r\n\r\n");
                       out.write(head.toString().getBytes("UTF-8"));
