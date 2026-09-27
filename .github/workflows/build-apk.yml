@@ -209,11 +209,31 @@ jobs:
             // AnimeThemes direct trailer fetch (raw .webm, no YouTube errors)
             window.__trailerCache = window.__trailerCache || {};
             async function fetchTrailerUrl(anilistId, title) {
-              var cacheKey = anilistId || title;
-              if (!cacheKey) return null;
+              var cacheKey = String(anilistId || '') + ':' + String(title || '').toLowerCase().trim();
+              if (!anilistId && !title) return null;
               if (window.__trailerCache[cacheKey]) return window.__trailerCache[cacheKey];
               try {
                 var url = null;
+                // Look up saved trailer or anilistId from local DB first
+                if (title) {
+                  try {
+                    var db = JSON.parse(localStorage.getItem('media_player_exact_db_v5') || '{}');
+                    var norm = title.toLowerCase().trim();
+                    var matchCol = (db.collections || []).find(function(c){ return String(c.title || '').toLowerCase().trim() === norm; });
+                    if (matchCol) {
+                      if (matchCol.trailerVideoUrl) { window.__trailerCache[cacheKey] = matchCol.trailerVideoUrl; return matchCol.trailerVideoUrl; }
+                      if (!anilistId && matchCol.anilistId) anilistId = matchCol.anilistId;
+                    }
+                  } catch(e) {}
+                }
+                // If anilistId is still missing, resolve it via AniList GraphQL
+                if (!anilistId && title) {
+                  try {
+                    var gRes = await fetch('https://graphql.anilist.co', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: 'query ($s: String) { Media(search: $s, type: ANIME, sort: [SEARCH_MATCH, POPULARITY_DESC]) { id } }', variables: { s: title } }) });
+                    var gData = await gRes.json();
+                    if (gData && gData.data && gData.data.Media && gData.data.Media.id) { anilistId = gData.data.Media.id; }
+                  } catch(e) {}
+                }
                 // Primary: by AniList ID
                 if (anilistId) {
                   var apiUrl = 'https://api.animethemes.moe/anime?filter[has]=resources&filter[site]=AniList&filter[external_id]=' + anilistId + '&include=animethemes.animethemeentries.videos';
@@ -270,31 +290,41 @@ jobs:
             // Online video fallback for Hero background preview (when no local file)
             (function(){
               var activeStream = null;
+              function clearTrailerLayer(preview) {
+                if (!preview) return;
+                var layer = preview.querySelector('.trailer-preview-layer');
+                if (layer) {
+                  var vid = layer.querySelector('video');
+                  if (vid) { try { vid.pause(); vid.removeAttribute('src'); vid.load(); } catch(e){} }
+                  layer.remove();
+                }
+              }
               function tryOnlinePreview(){
-                var preview = document.querySelector('.local-clip-preview');
-                if(!preview) return;
-                // Check if already has a video playing or online preview active
-                if(preview.querySelector('video') || preview.dataset.onlineActive) return;
-                // Check for empty state (no local video)
-                var emptyMsg = preview.textContent || '';
-                if(emptyMsg.indexOf('No local') < 0 && emptyMsg.indexOf('not connected') < 0 && preview.children.length > 0) return;
-                // Try to get current slide's anime info from the h1 title
                 var car = document.querySelector('.home-carousel');
                 if (!car) return;
+                var preview = car.querySelector('.local-clip-preview');
+                if(!preview) return;
                 var titleEl = car.querySelector('.featured-copy h1, h1');
-                if (!titleEl) return;
-                var title = titleEl.textContent.trim();
+                var title = titleEl ? titleEl.textContent.trim() : '';
                 if (!title) return;
-                if (preview.dataset.lastTitle !== title) {
+                // 1. Check if a native local video is present (ignore our own trailer layer video)
+                var nativeVideo = Array.from(preview.querySelectorAll('video')).find(function(v){ return !v.closest('.trailer-preview-layer'); });
+                var hasLocalVideo = Boolean(nativeVideo) && !preview.classList.contains('empty');
+                if (hasLocalVideo) {
+                  clearTrailerLayer(preview);
                   preview.dataset.lastTitle = title;
                   preview.dataset.onlineActive = '';
-                  preview.innerHTML = '';
+                  return;
                 }
-                if (preview.dataset.onlineActive) return;
-                // Mark as attempting to avoid loops
-                preview.dataset.onlineActive = '1';
-                // Hide empty placeholder
-                preview.innerHTML = '';
+                // 2. If slide title changed, reset trailer layer and fetch new slide's trailer
+                if (preview.dataset.lastTitle !== title) {
+                  clearTrailerLayer(preview);
+                  preview.dataset.lastTitle = title;
+                  preview.dataset.onlineActive = '';
+                }
+                // 3. Avoid duplicate fetches if trailer is already active or loading for this slide
+                if (preview.dataset.onlineActive === '1' || preview.dataset.onlineActive === 'loading') return;
+                preview.dataset.onlineActive = 'loading';
                 preview.style.background = '#000';
                 var anilistId = titleEl.dataset.anilistId || null;
                 // Try AnimeThemes direct trailer first (raw .webm, no YouTube errors)
@@ -324,22 +354,28 @@ jobs:
               // Play AnimeThemes trailer (muted, loop, with unmute toggle)
               function playTrailerPreview(preview, url){
                 window.playTrailerPreview = playTrailerPreview;
-                if(!url) { preview.dataset.onlineActive=''; return; }
+                if (!preview || !url) { if (preview) preview.dataset.onlineActive = ''; return; }
+                clearTrailerLayer(preview);
+                var layer = document.createElement('div');
+                layer.className = 'trailer-preview-layer';
+                layer.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;z-index:2;background:#000;overflow:hidden;';
                 var v = document.createElement('video');
                 v.muted = true; v.loop = true; v.playsInline = true; v.autoplay = true;
-                v.style.cssText = 'width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1s ease;';
+                v.style.cssText = 'width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 0.8s ease;pointer-events:none;';
                 v.src = url;
-                preview.appendChild(v);
-                // Mute/unmute toggle
+                layer.appendChild(v);
                 var muteBtn = document.createElement('button');
+                muteBtn.type = 'button';
                 muteBtn.innerHTML = '&#128263;';
-                muteBtn.style.cssText = 'position:absolute;bottom:12px;right:12px;background:rgba(0,0,0,.6);border:none;color:#fff;font-size:18px;width:40px;height:40px;border-radius:50%;cursor:pointer;z-index:10;';
+                muteBtn.style.cssText = 'position:absolute;top:14px;right:14px;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:16px;width:36px;height:36px;border-radius:50%;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;';
                 muteBtn.onclick = function(e){ e.stopPropagation(); v.muted = !v.muted; muteBtn.innerHTML = v.muted ? '&#128263;' : '&#128266;'; };
+                layer.appendChild(muteBtn);
                 preview.style.position = 'relative';
-                preview.appendChild(muteBtn);
+                preview.appendChild(layer);
+                v.onloadedmetadata = function() { if (v.duration > 35) { try { v.currentTime = 5; } catch(e) {} } v.play().catch(function(){}); };
+                v.onplaying = function(){ v.style.opacity = '1'; };
+                v.onerror = function(){ clearTrailerLayer(preview); preview.dataset.onlineActive = ''; };
                 v.play().catch(function(){});
-                v.onplaying = function(){ v.style.opacity='1'; };
-                v.onerror = function(){ preview.dataset.onlineActive=''; };
               }
               function playPreview(preview, url){
                 if(!url) { preview.dataset.onlineActive=''; return; }
@@ -1487,8 +1523,6 @@ jobs:
               background: var(--text) !important;
               color: var(--bg) !important;
             }
-            </style>
-
             .folder-picker-row {
               display: flex;
               flex-wrap: wrap;
@@ -1576,9 +1610,8 @@ jobs:
               box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35) !important;
               border: 0 !important;
             }
-            .continue-art {
-              aspect-ratio: 16 / 9 !important;
-            }
+            .continue-art { position: relative !important; width: 100% !important; aspect-ratio: 16 / 9 !important; max-height: 118px !important; overflow: hidden !important; background: #0d0f14 !important; }
+            .continue-art img { width: 100% !important; height: 100% !important; object-fit: cover !important; display: block !important; }
             .continue-badge {
               position: absolute;
               top: 10px;
@@ -1619,16 +1652,12 @@ jobs:
               padding: 2px 0;
               text-align: left;
             }
-            .history-grid-full {
-              display: grid !important;
-              grid-template-columns: repeat(auto-fill, minmax(160px, 200px)) !important;
-              gap: 16px !important;
-              padding-bottom: 36px !important;
-              justify-content: start !important;
-            }
-            .history-grid-full .continue-card {
-              max-width: 200px !important;
-            }
+            .history-grid-full { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(155px, 195px)) !important; gap: 14px !important; padding-bottom: 36px !important; justify-content: start !important; align-items: start !important; }
+            .history-grid-full .continue-card { width: 100% !important; max-width: 195px !important; }
+            .history-grid-full .continue-copy { padding: 8px 10px !important; }
+            .history-grid-full .continue-copy strong { display: block !important; font-size: 12.5px !important; line-height: 1.25 !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+            .history-grid-full .continue-copy small { display: block !important; font-size: 11px !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; margin-top: 2px !important; }
+            @media (max-width: 600px) { .history-grid-full { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; } .history-grid-full .continue-card { max-width: none !important; } .history-grid-full .continue-art { max-height: 100px !important; } }
             .episode-grid {
               grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)) !important;
               gap: 16px !important;
@@ -3790,7 +3819,7 @@ jobs:
                 // Prioritize args.title (full Movie/OVA title) over parent series title
                 var cleanTitle = (args.title && String(args.title).trim()) ? String(args.title).trim() : (colA ? colA.title : "");
                 var epNum = 0;
-                var mEp = String(args.itemKey || "").match(/episode-\d+-(\d+)/);
+                var mEp = String(args.itemKey || "").match(/episode-\\d+-(\\d+)/);
                 if (mEp) epNum = parseInt(mEp[1], 10);
                 // Detect content type from itemKey: related-ova-*, related-movie-*, or movie
                 var cType = "series";
@@ -4339,14 +4368,16 @@ jobs:
                 });
               }
               function dmGetText(url, timeoutMs, viaProxy) {
-                var target = (viaProxy && dmIsApp()) ? dmProxyUrl(url) : url;
-                return dxhr(target, timeoutMs || 25000);
+                if (viaProxy && dmIsApp()) {
+                  return dxhr(dmProxyUrl(url), timeoutMs || 25000).catch(function() { return dxhr(url, timeoutMs || 25000); });
+                }
+                return dxhr(url, timeoutMs || 25000);
               }
 
               /* ---------- reanime API ---------- */
               var REANIME = 'https://reanime.to';
               function dSearch(q) {
-                return dmGetText(REANIME + '/api/v1/search?' + 'q=' + encodeURIComponent(q) + '&limit=12', 20000, false).then(function (t) {
+                return dmGetText(REANIME + '/api/v1/search?' + 'q=' + encodeURIComponent(q) + '&limit=12', 20000, true).then(function (t) {
                   var d = JSON.parse(t), items = d.results || [];
                   var results = (Array.isArray(items) ? items : []).map(function (a) {
                     return {
@@ -4373,12 +4404,12 @@ jobs:
               function dDetail(slug) {
                 var detailUrl = REANIME + '/api/v1/anime/' + encodeURIComponent(slug);
                 var epsUrl = REANIME + '/api/v1/anime/' + encodeURIComponent(slug) + '/episodes?limit=2000';
-                return dmGetText(detailUrl, 25000, false).then(function (t) {
+                return dmGetText(detailUrl, 25000, true).then(function (t) {
                   var d = JSON.parse(t);
                   var detail = (d && (d.data || d.anime)) || d;
                   var info = dmExtractAnimeInfo(detail);
                   var anilistId = (detail && typeof detail.anilist_id === 'number') ? detail.anilist_id : null;
-                  return dmGetText(epsUrl, 25000, false).then(function (et) {
+                  return dmGetText(epsUrl, 25000, true).then(function (et) {
                     var ed = null;
                     try { ed = JSON.parse(et); } catch (e) {}
                     var list = (ed && ed.data) || [];
@@ -4800,9 +4831,15 @@ jobs:
                 }
                 function setBackendMode(b) { try { localStorage.setItem('__anime_backend_mode_v1', b ? '1' : '0'); } catch (e) {} }
                 function useDirect() {
-                  var m = backendMode();
-                  if (m === true) return false;
-                  if (m === false) return true;
+                  var base = apiBase();
+                  // Port 18923 is the built-in Android stream proxy, not a PC backend
+                  if (!base || base.indexOf('127.0.0.1:18923') >= 0 || base.indexOf('localhost:18923') >= 0) {
+                    return directCapable();
+                  }
+                  try {
+                    var v = localStorage.getItem('__anime_backend_mode_v1');
+                    if (v === '1') return false;
+                  } catch (e) {}
                   return directCapable();
                 }
                 function viaDirect() {
@@ -4905,16 +4942,27 @@ jobs:
               }, true);
               document.addEventListener('click', function (e) {
                 var t = e.target;
-                var a = t && t.closest ? t.closest('.online-provider-list a[href^="#anime-watch:"]') : null;
+                var a = t && t.closest ? t.closest('a[href^="#anime-watch:"], a[href^="#anime-search:"]') : null;
                 if (!a) return;
                 e.preventDefault();
                 e.stopPropagation();
-                var rest = a.getAttribute('href').slice('#anime-watch:'.length);
+                var href = a.getAttribute('href') || '';
+                // Close the native online-modal sheet if open
+                var closeBtn = document.querySelector('.online-modal .modal-close, .sheet-backdrop .icon-button');
+                if (closeBtn) { try { closeBtn.click(); } catch(err) {} }
+                if (href.indexOf('#anime-search:') === 0) {
+                  var sRest = href.slice('#anime-search:'.length).split(':');
+                  var sEp = parseInt(sRest.pop(), 10) || 1;
+                  var sTitle = decodeURIComponent(sRest.join(':'));
+                  openAnimeWatch(sTitle, sEp);
+                  return;
+                }
+                var rest = href.slice('#anime-watch:'.length);
                 var parts = rest.split(':');
-                var cType = parts.length > 2 ? parts.pop() : 'series'; // last part is contentType
-                var ep = parseInt(parts.pop(), 10) || 0; // second-to-last is ep
+                var cType = parts.length > 2 ? parts.pop() : 'series';
+                var ep = parseInt(parts.pop(), 10) || 1;
                 var title = decodeURIComponent(parts.join(':'));
-                autoPlayOnline(title, ep, cType, {direct:true});
+                autoPlayOnline(title, ep, cType, { direct: true });
               }, true);
               // Delete confirmation: the library detail view deletes immediately
               // on tap — ask first.
@@ -5384,10 +5432,10 @@ jobs:
                 function buildFallbackTitles(t) {
                   var out = [t];
                   // Strip punctuation-heavy subtitles: "KONOSUBA -God's blessing...: Choker!" -> "KONOSUBA Choker"
-                  var simple = t.replace(/[-–—:;!?'".()[\]]/g, ' ').replace(/\s+/g, ' ').trim();
+                  var simple = t.replace(/[-–—:;!?'".()[\]]/g, ' ').replace(/\\s+/g, ' ').trim();
                   if (simple && simple !== t) out.push(simple);
                   // Try "Series OVA" / "Series Movie" pattern
-                  var m = t.match(/^(.+?)\s+[-–—]\s*(.+)$/);
+                  var m = t.match(/^(.+?)\\s+[-–—]\\s*(.+)$/);
                   if (m) {
                     var series = m[1].trim(), sub = m[2].trim();
                     if (cType === 'ova' || cType === 'special') {
