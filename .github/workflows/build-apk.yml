@@ -5011,7 +5011,7 @@ jobs:
                           String k = e.getKey();
                           String lk = k.toLowerCase();
                           if (lk.equals("host") || lk.equals("content-length") || lk.equals("connection") ||
-                              lk.equals("origin") || lk.equals("referer") || lk.equals("cookie") ||
+                              lk.equals("origin") || lk.equals("referer") || lk.equals("cookie") || lk.equals("accept-encoding") ||
                               lk.startsWith("proxy-") || lk.startsWith("sec-")) continue;
                           try { conn.setRequestProperty(k, e.getValue()); } catch (Exception ignored) {}
                       }
