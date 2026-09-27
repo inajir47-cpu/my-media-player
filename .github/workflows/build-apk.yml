@@ -848,6 +848,7 @@ jobs:
                 var main = document.querySelector('main') || document.querySelector('[class*="main"]');
                 if (disc) disc.style.display = 'none';
                 if (main) main.style.display = '';
+                if (window.__discBtn) window.__discBtn.classList.remove('active');
               }
               
               // Inject Discover tab after Home
@@ -861,8 +862,8 @@ jobs:
                 var discBtn = document.createElement('button');
                 discBtn.textContent = 'Discover';
                 discBtn.setAttribute('data-tab', 'discover');
-                discBtn.className = buttons[0].className;
-                discBtn.style.cssText = buttons[0].style.cssText;
+                // Copy class but NOT inline styles (avoids hardcoded white active bg)
+                discBtn.className = buttons[0].className.replace(/\bactive\b/g, '').trim();
                 
                 var tapCount = 0, tapTimer = null;
                 discBtn.onclick = function(){
@@ -893,9 +894,13 @@ jobs:
                 
                 // Hide discover when other tabs clicked
                 buttons.forEach(function(btn){
-                  var origClick = btn.onclick;
-                  btn.addEventListener('click', function(){ hideDiscover(); });
+                  btn.addEventListener('click', function(){
+                    discBtn.classList.remove('active');
+                    hideDiscover();
+                  });
                 });
+                // Store ref for hideDiscover to clear
+                window.__discBtn = discBtn;
               }
               
               // Run injection periodically (for React re-renders)
@@ -1257,6 +1262,126 @@ jobs:
                 padding: 8px 10px !important;
               }
             }
+            /* Mobile hero: video background + small poster frame layout */
+            @media (max-width: 760px) {
+              .home-carousel .carousel-slide {
+                position: relative !important;
+                overflow: hidden !important;
+              }
+              .home-carousel .local-clip-preview {
+                position: absolute !important;
+                inset: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+                z-index: 1 !important;
+              }
+              .home-carousel .local-clip-preview video {
+                width: 100% !important;
+                height: 100% !important;
+                object-fit: cover !important;
+              }
+              /* Dark gradient overlay */
+              .home-carousel .carousel-slide::after {
+                content: '' !important;
+                position: absolute !important;
+                inset: 0 !important;
+                background: linear-gradient(180deg, rgba(10,12,18,0.15) 0%, rgba(10,12,18,0.65) 55%, rgba(10,12,18,0.95) 100%) !important;
+                z-index: 1 !important;
+                pointer-events: none !important;
+              }
+              /* Hide ghost status text in preview */
+              .home-carousel .local-clip-preview .clip-status,
+              .home-carousel .local-clip-preview .no-video-msg,
+              .home-carousel .local-clip-preview span:not(video):not(button) {
+                display: none !important;
+              }
+              /* Foreground content row */
+              .home-carousel .featured-copy {
+                position: relative !important;
+                z-index: 2 !important;
+                display: flex !important;
+                gap: 12px !important;
+                align-items: flex-end !important;
+                padding: 16px !important;
+              }
+              .home-carousel .featured-poster {
+                width: 76px !important;
+                height: 110px !important;
+                border-radius: 10px !important;
+                object-fit: cover !important;
+                flex-shrink: 0 !important;
+                box-shadow: 0 6px 16px rgba(0,0,0,0.6) !important;
+                border: 1px solid rgba(255,255,255,0.15) !important;
+              }
+              .home-carousel .featured-copy .synopsis,
+              .home-carousel .featured-copy [class*="synopsis"] {
+                display: -webkit-box !important;
+                -webkit-line-clamp: 2 !important;
+                -webkit-box-orient: vertical !important;
+                overflow: hidden !important;
+              }
+              /* Footer row: button left, controls right */
+              .home-carousel .carousel-footer {
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: center !important;
+                width: 100% !important;
+                margin-top: 12px !important;
+                position: relative !important;
+                z-index: 2 !important;
+              }
+              .home-carousel .carousel-controls {
+                position: static !important;
+                margin: 0 !important;
+              }
+              /* Nav tabs horizontal scroll on mobile */
+              .topbar nav {
+                overflow-x: auto !important;
+                white-space: nowrap !important;
+                scrollbar-width: none !important;
+                -webkit-overflow-scrolling: touch !important;
+                flex-shrink: 1 !important;
+                min-width: 0 !important;
+              }
+              .topbar nav::-webkit-scrollbar {
+                display: none !important;
+              }
+              .topbar nav button {
+                flex-shrink: 0 !important;
+              }
+              /* Discover button: transparent when inactive */
+              .topbar nav button[data-tab="discover"]:not(.active) {
+                background: transparent !important;
+                color: inherit !important;
+                opacity: 0.7 !important;
+              }
+            }
+            </style>
+            <script>
+            // Mobile carousel footer: wrap button + controls in flex row
+            (function(){
+              function fixCarouselFooter(){
+                if (window.innerWidth > 760) return;
+                var car = document.querySelector('.home-carousel');
+                if (!car) return;
+                var openBtn = Array.from(car.querySelectorAll('button')).find(function(b){
+                  return /open/i.test(b.textContent);
+                });
+                var controls = car.querySelector('.carousel-controls');
+                if (!openBtn || !controls) return;
+                if (openBtn.parentElement.classList.contains('carousel-footer')) return;
+                var footer = document.createElement('div');
+                footer.className = 'carousel-footer';
+                footer.style.cssText = 'display:flex;justify-content:space-between;align-items:center;width:100%;margin-top:12px;position:relative;z-index:2;';
+                openBtn.parentElement.insertBefore(footer, openBtn);
+                footer.appendChild(openBtn);
+                footer.appendChild(controls);
+              }
+              setInterval(fixCarouselFooter, 2000);
+              window.addEventListener('resize', fixCarouselFooter);
+            })();
+            </script>
+            <style>
             .folder-picker-row {
               display: flex;
               flex-wrap: wrap;
