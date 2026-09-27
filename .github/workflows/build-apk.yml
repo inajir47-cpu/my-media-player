@@ -352,7 +352,7 @@ jobs:
                         btn.onclick = function(){
                           var epNum = parseInt(btn.getAttribute('data-ep'), 10);
                           var t = btn.getAttribute('data-title');
-                          if (window.autoPlayOnline) window.autoPlayOnline(t, epNum, 'ova');
+                          if (window.autoPlayOnline) window.autoPlayOnline(t, epNum, 'ova', {direct:true});
                         };
                       });
                     }
@@ -576,11 +576,24 @@ jobs:
                 discBtn.className = buttons[0].className;
                 discBtn.style.cssText = buttons[0].style.cssText;
                 
+                var tapCount = 0, tapTimer = null;
                 discBtn.onclick = function(){
-                  // Deactivate other tabs
-                  nav.querySelectorAll('button').forEach(function(b){ b.classList.remove('active'); });
-                  discBtn.classList.add('active');
-                  renderDiscover();
+                  tapCount++;
+                  if (tapTimer) clearTimeout(tapTimer);
+                  tapTimer = setTimeout(function(){
+                    if (tapCount >= 3) {
+                      // Secret: 3 rapid taps opens the anime search popup
+                      tapCount = 0;
+                      if (window.openAnimeWatch) window.openAnimeWatch("");
+                      else if (typeof openAnimeWatch === 'function') openAnimeWatch("");
+                      return;
+                    }
+                    // Normal: 1 tap opens Discover view
+                    tapCount = 0;
+                    nav.querySelectorAll('button').forEach(function(b){ b.classList.remove('active'); });
+                    discBtn.classList.add('active');
+                    renderDiscover();
+                  }, 800);
                 };
                 
                 // Insert after Home (first button)
@@ -4032,7 +4045,6 @@ jobs:
                   if (!pick) { awToast('No online match for ' + title + ' season ' + season); return; }
                   apiGet('/api/anime/detail?animeId=' + encodeURIComponent(pick.animeId) + '&enrich=0').then(function (dd) {
                     var eps = (dd && dd.episodes) || [];
-                    openAnimeWatchShell(pick.title);
                     playEpisode(pick, dd.anilistId || pick.anilistId, ep, eps, { preferDub: true, format: dd.info && dd.info.format });
                   }, function (err) { awToast('Could not load episodes: ' + (err.message || 'network error')); });
                 }, function (err) { awToast('Online search failed: ' + (err.message || 'network error')); });
@@ -4068,7 +4080,7 @@ jobs:
                 var cType = parts.length > 2 ? parts.pop() : 'series'; // last part is contentType
                 var ep = parseInt(parts.pop(), 10) || 0; // second-to-last is ep
                 var title = decodeURIComponent(parts.join(':'));
-                autoPlayOnline(title, ep, cType);
+                autoPlayOnline(title, ep, cType, {direct:true});
               }, true);
               // Delete confirmation: the library detail view deletes immediately
               // on tap — ask first.
@@ -4414,12 +4426,44 @@ jobs:
                 });
               }
 
-              function autoPlayOnline(title, ep, cType) {
+              // Simple native OVA episode picker (not .aw-modal) for direct mode
+              function showDirectOvaPicker(pick, anilistId, eps) {
+                var overlay = document.createElement('div');
+                overlay.style.cssText = 'position:fixed;inset:0;z-index:100002;background:rgba(0,0,0,.9);display:flex;flex-direction:column;padding:20px;overflow-y:auto;';
+                overlay.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
+                  '<h3 style="margin:0;color:#fff;">' + esc(pick.title) + '</h3>' +
+                  '<button id="dova-close" style="background:none;border:none;color:#fff;font-size:24px;cursor:pointer;">\u2715</button></div>' +
+                  '<p style="color:#aaa;margin:0 0 12px 0;">Select episode (' + eps.length + ' episodes)</p>' +
+                  '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px;">' +
+                  eps.map(function(e){
+                    return '<button class="dova-ep" data-ep="' + e.number + '" style="background:#1a1d24;border:1px solid #2a2e38;color:#fff;padding:16px;border-radius:8px;cursor:pointer;">' +
+                      '<div style="font-weight:600;">EP ' + e.number + '</div>' +
+                      (e.title ? '<div style="font-size:11px;opacity:.6;margin-top:4px;">' + esc(e.title) + '</div>' : '') +
+                      '</button>';
+                  }).join('') + '</div>';
+                document.body.appendChild(overlay);
+                overlay.querySelector('#dova-close').onclick = function(){ document.body.removeChild(overlay); };
+                overlay.querySelectorAll('.dova-ep').forEach(function(btn){
+                  btn.onclick = function(){
+                    var epNum = parseInt(btn.getAttribute('data-ep'), 10);
+                    document.body.removeChild(overlay);
+                    playEpisode(pick, anilistId, epNum, eps, { preferDub: true });
+                  };
+                });
+              }
+              function autoPlayOnline(title, ep, cType, opts) {
                 cType = cType || 'series';
-                openAnimeWatchShell(title);
-                var qi = overlay.querySelector('#awQ');
-                if (qi) qi.value = title || '';
-                setStatus('<span class="spinner"></span>Searching for \\u201C' + esc(title) + '\\u201D\\u2026');
+                opts = opts || {};
+                var directMode = opts.direct === true; // Skip modal, play directly
+                if (!directMode) {
+                  openAnimeWatchShell(title);
+                  var qi = overlay.querySelector('#awQ');
+                  if (qi) qi.value = title || '';
+                  setStatus('<span class="spinner"></span>Searching for \\u201C' + esc(title) + '\\u201D\\u2026');
+                } else {
+                  // Direct mode: show toast instead of modal
+                  if (window.awToast) awToast('Searching for \u201C' + title + '\u201D\u2026');
+                }
                 // Smart search: try full title, then fallback to simplified variants
                 function searchWithFallback(titles, idx) {
                   if (idx >= titles.length) {
@@ -4460,6 +4504,27 @@ jobs:
                 }
                 function handleSearchResults(res, qt) {
                   var pick = res[0];
+                  // Direct mode: skip modal UI, resolve and play directly
+                  if (directMode) {
+                    apiGet('/api/anime/detail?animeId=' + encodeURIComponent(pick.animeId) + '&enrich=0').then(function (dd) {
+                      var eps = (dd && dd.episodes) || [];
+                      if (!eps.length) { if (window.awToast) awToast('No episodes found'); return; }
+                      if (cType === 'ova' || cType === 'special') {
+                        // Show native episode picker (simple overlay, not .aw-modal)
+                        showDirectOvaPicker(pick, dd.anilistId || pick.anilistId, eps);
+                      } else {
+                        var want = ep || 1, target = null;
+                        for (var i = 0; i < eps.length; i++) if (eps[i].number === want) target = eps[i].number;
+                        if (target == null && eps.length) target = eps[0].number;
+                        if (cType === 'movie' && res.length > 1) {
+                          // Multiple movie matches: play first, user can use secret menu for others
+                          if (window.awToast) awToast('Multiple matches, playing first');
+                        }
+                        playEpisode(pick, dd.anilistId || pick.anilistId, target, eps, { preferDub: true, format: dd.info && dd.info.format });
+                      }
+                    }, function (err) { if (window.awToast) awToast('Failed: ' + (err.message || 'network error')); });
+                    return;
+                  }
                   var b = body();
                   if (!b) return;
                   // For OVAs/Specials: show episode selector instead of auto-playing
@@ -4539,6 +4604,7 @@ jobs:
               function playEpisode(anime, anilistId, ep, episodes, opts) {
                 window.playEpisode = playEpisode; // expose for Continue Watching resume
                 window.autoPlayOnline = autoPlayOnline; // expose for Continue Watching resume
+                window.openAnimeWatch = openAnimeWatch; // expose for Discover 3-tap secret menu
                 if (anime && anime.hanime) { playHanime(anime, opts); return; }
                 var b = openPlayerShell();
                 destroyPlayer();
@@ -4677,7 +4743,7 @@ jobs:
                             if (window.playEpisode) {
                               window.playEpisode(anime, anilistId, ep, eps, { preferDub: true, startAt: item.positionSeconds || 0 });
                             } else if (window.autoPlayOnline) {
-                              window.autoPlayOnline(item.collectionTitle, ep, item.contentType || 'series');
+                              window.autoPlayOnline(item.collectionTitle, ep, item.contentType || 'series', {direct:true});
                             }
                             return;
                           }
