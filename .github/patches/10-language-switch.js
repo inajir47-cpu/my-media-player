@@ -6,7 +6,7 @@ const langSwitchJs = `
 (function() {
 // --- Styles for language picker (matches app theme) ---
 var __langCss = document.createElement('style');
-__langCss.textContent = '.aw-lang-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px}' +
+__langCss.textContent = '.aw-lang-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100002;display:flex;align-items:center;justify-content:center;padding:20px}' +
 '.aw-lang-box{background:#171b23;border:1px solid #2e3440;border-radius:14px;max-width:380px;width:100%;padding:20px}' +
 '.aw-lang-title{font-size:16px;font-weight:800;margin-bottom:8px;color:#fff}' +
 '.aw-lang-msg{font-size:13px;color:#b8b3aa;line-height:1.55;margin-bottom:18px}' +
@@ -61,42 +61,44 @@ setInterval(function() {
   } catch(e) {}
 }, 500);
 
-// --- Part 2: Intercept playEpisode to show language choice ---
-var __origPlayEpisode = null;
-var __playEpisodeWrapped = false;
-setInterval(function() {
-  try {
-    if (!__playEpisodeWrapped && window.playEpisode && window.playEpisode !== window.__wrappedPlayEpisode) {
-      __origPlayEpisode = window.playEpisode;
-      window.__wrappedPlayEpisode = function(anime, anilistId, ep, episodes, opts) {
-        if (opts && opts.__langChosen) {
-          return __origPlayEpisode(anime, anilistId, ep, episodes, opts);
-        }
-        var title = (anime && anime.title) || 'this anime';
-        window.__langPicker(title, ep, function(choice) {
-          if (choice === 'en') {
-            opts = opts || {};
-            opts.__langChosen = true;
-            __origPlayEpisode(anime, anilistId, ep, episodes, opts);
-          } else if (choice === 'hi') {
-            var cleanTitle = String(title).replace(/\\s*\\(hindi\\)\\s*/gi, '').trim();
-            if (typeof apiGet === 'function') {
-              apiGet('/api/anime/hsearch?q=' + encodeURIComponent(cleanTitle)).then(function(d) {
-                var results = (d && d.results) || [];
-                var hi = results[0];
-                if (!hi) { alert('No Hindi version found'); return; }
-                var hindiAnime = { animeId: hi.animeId, anilistId: hi.anilistId, title: hi.title, hindi: true, hindiSlug: hi.hindiSlug, hindiType: hi.hindiType };
-                window.__playHindiEpisode(hindiAnime, ep, 0);
-              });
-            }
-          }
+// --- Part 2: Intercept episode card clicks to show language choice ---
+// (Episode cards call local playEpisode, not window.playEpisode, so we intercept clicks)
+document.addEventListener('click', function(e){
+  var epBtn = e.target.closest('.awd-ep');
+  if (!epBtn) return;
+  // Don't intercept if already handled by our picker
+  if (epBtn.dataset.langHandled) return;
+  e.preventDefault();
+  e.stopPropagation();
+  e.stopImmediatePropagation();
+  var epNum = parseInt(epBtn.getAttribute('data-ep'), 10) || 1;
+  // Try to get title from the card
+  var titleEl = epBtn.querySelector('.awd-eptitle');
+  var cardTitle = titleEl ? titleEl.textContent.trim() : '';
+  // Get the anime title from the detail page
+  var detailTitleEl = document.querySelector('.awd-title');
+  var animeTitle = detailTitleEl ? detailTitleEl.textContent.trim() : cardTitle;
+  if (!animeTitle) return;
+  window.__langPicker(animeTitle, epNum, function(choice){
+    if (choice === 'en') {
+      // Trigger the original click by temporarily marking as handled
+      epBtn.dataset.langHandled = '1';
+      epBtn.click();
+      delete epBtn.dataset.langHandled;
+    } else if (choice === 'hi') {
+      var cleanTitle = String(animeTitle).replace(/\s*\(hindi\)\s*/gi, '').trim();
+      if (typeof apiGet === 'function') {
+        apiGet('/api/anime/hsearch?q=' + encodeURIComponent(cleanTitle)).then(function(d){
+          var results = (d && d.results) || [];
+          var hi = results[0];
+          if (!hi) { alert('No Hindi version found'); return; }
+          var hindiAnime = { animeId: hi.animeId, anilistId: hi.anilistId, title: hi.title, hindi: true, hindiSlug: hi.hindiSlug, hindiType: hi.hindiType };
+          window.__playHindiEpisode(hindiAnime, epNum, 0);
         });
-      };
-      window.playEpisode = window.__wrappedPlayEpisode;
-      __playEpisodeWrapped = true;
+      }
     }
-  } catch(e) {}
-}, 500);
+  });
+}, true);
 
 // --- Part 3: Switch language from player ---
 window.__switchLangInPlayer = function() {
@@ -122,8 +124,8 @@ window.__switchLangInPlayer = function() {
           if (!results[i].hindi) { en = results[i]; break; }
         }
         if (!en) { alert('No English version found'); return; }
-        if (__origPlayEpisode) {
-          __origPlayEpisode(en, en.anilistId, ep, [], { startAt: pos, __langChosen: true });
+        if (window.playEpisode) {
+          window.playEpisode(en, en.anilistId, ep, [], { startAt: pos });
         }
       });
     } else if (choice === 'hi') {

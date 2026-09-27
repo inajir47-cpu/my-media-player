@@ -2,7 +2,7 @@
 // 12. Hero Carousel 4+2+2 rule: 4 Recently Added + 2 Recently Watched (+ 2 Newly Launched injected separately)
 html = html.replace(
   'Me = [...R].sort((N, q) => Date.parse(q.createdAt) - Date.parse(N.createdAt)).slice(0, 3),\n    lt = (A.data?.items ?? []).slice(0, 2),',
-  'Me = [...R].sort((N, q) => Date.parse(q.createdAt) - Date.parse(N.createdAt)).slice(0, 4),\n    lt = (function(){ var local=(A.data?.items ?? []).slice(); try{ var oh=JSON.parse(localStorage.getItem("__online_history_v1")||"[]"); var seen={}; local.forEach(function(x){ if(x&&x.collectionId) seen[String(x.collectionId)]=1; }); oh.forEach(function(o){ var k="online:"+(o.animeId||""); if(o&&o.animeId&&!seen[k]){ seen[k]=1; local.push({ collectionId:k, collectionTitle:o.title, displayTitle:(o.title||"")+" E"+(o.ep||""), lastWatchedAt:o.lastWatchedAt||0, posterUrl:o.poster||null }); } }); }catch(e){} local.sort(function(a,b){ return (b.lastWatchedAt||0)-(a.lastWatchedAt||0); }); return local; })().slice(0, 2),'
+  'Me = [...R].sort((N, q) => Date.parse(q.createdAt) - Date.parse(N.createdAt)).slice(0, 4).concat((window.__newlyLaunched||[]).slice(0,2)),\n    lt = (function(){ var local=(A.data?.items ?? []).slice(); try{ var oh=JSON.parse(localStorage.getItem("__online_history_v1")||"[]"); var seen={}; local.forEach(function(x){ if(x&&x.collectionId) seen[String(x.collectionId)]=1; }); oh.forEach(function(o){ var k="online:"+(o.animeId||""); if(o&&o.animeId&&!seen[k]){ seen[k]=1; local.push({ collectionId:k, collectionTitle:o.title, displayTitle:(o.title||"")+" E"+(o.ep||""), lastWatchedAt:o.lastWatchedAt||0, posterUrl:o.poster||null }); } }); }catch(e){} local.sort(function(a,b){ return (b.lastWatchedAt||0)-(a.lastWatchedAt||0); }); return local; })().slice(0, 2),'
 );
 
 html = html.replace(
@@ -15,7 +15,7 @@ html = html.replace(
   'onClick: () => { l(); },'
 );
 
-// 12b. Inject 2 Newly Launched Online anime into Hero Carousel (2+2+2 rule)
+// 12b. Inject 2 Newly Launched Online anime into Hero Carousel (4+2+2 rule)
 html = html.replace(
   '</body>',
   `<script>
@@ -52,8 +52,17 @@ html = html.replace(
         } catch(e) {}
       });
     }
-    // Wait for app to load, then fetch and inject
-    setTimeout(function(){ fetchNewlyLaunched().then(injectSlides); }, 5000);
+    // Fetch immediately and retry - store in window for carousel to pick up
+    window.__newlyLaunched = [];
+    function doFetch(){
+      fetchNewlyLaunched().then(function(items){
+        window.__newlyLaunched = items;
+        injectSlides(items);
+      });
+    }
+    doFetch();
+    // Retry after 3s in case handleAction wasn't ready
+    setTimeout(doFetch, 3000);
   })();
   </script>
   <script>
@@ -150,9 +159,10 @@ html = html.replace(
         var vid = layer.querySelector('video');
         if (vid) {
           try {
-            // Save current position before removing
-            if (vid.src && vid.currentTime > 0) {
-              __trailerPositions[vid.src] = vid.currentTime;
+            // Save current position before removing (use data attribute for consistent key)
+            var urlKey = vid.getAttribute('data-trailer-url') || vid.src;
+            if (urlKey && vid.currentTime > 0) {
+              __trailerPositions[urlKey] = vid.currentTime;
             }
             vid.pause(); vid.removeAttribute('src'); vid.load();
           } catch(e){}
@@ -171,6 +181,7 @@ html = html.replace(
       v.muted = true; v.loop = true; v.playsInline = true; v.autoplay = true;
       v.style.cssText = 'width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 0.8s ease;pointer-events:none;';
       v.src = url;
+      v.setAttribute('data-trailer-url', url); // Store original URL for position restore
       layer.appendChild(v);
       var muteBtn = document.createElement('button');
       muteBtn.type = 'button';
