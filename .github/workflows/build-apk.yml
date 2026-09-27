@@ -312,7 +312,15 @@ jobs:
                 muteBtn.style.cssText = 'position:absolute;top:14px;right:14px;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:16px;width:36px;height:36px;border-radius:50%;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;';
                 muteBtn.onclick = function(e){ e.stopPropagation(); v.muted = !v.muted; muteBtn.innerHTML = v.muted ? '&#128263;' : '&#128266;'; };
                 layer.appendChild(muteBtn);
-                preview.style.position = 'relative';
+                // Keep the app's own absolute fill (inset:0); only make the
+                // preview a positioned box when it is static, so the absolute
+                // trailer layer (inset:0) actually fills the hero instead of
+                // collapsing to zero height.
+                try {
+                  if (window.getComputedStyle(preview).position === 'static') {
+                    preview.style.position = 'relative';
+                  }
+                } catch (e) {}
                 preview.appendChild(layer);
                 v.onloadedmetadata = function() { if (v.duration > 35) { try { v.currentTime = 5; } catch(e) {} } v.play().catch(function(){}); };
                 v.onplaying = function(){ v.style.opacity = '1'; };
@@ -451,401 +459,41 @@ jobs:
             })();
             </script>
             <script>
-            // Discover Tab - Dubbed Anime by Genre with 48h cache
+            // Ultimate Search tab - opens the anime search popup directly
             (function(){
-              var CACHE_KEY = '__discover_feed_cache_v1';
-              var CACHE_TTL = 48 * 60 * 60 * 1000; // 48 hours
-              
-              var GENRES = [
-                { name: 'Isekai', query: 'Isekai', anilistGenre: null, anilistTag: 'Isekai' },
-                { name: 'Romance', query: 'Romance', anilistGenre: 'Romance', anilistTag: null },
-                { name: 'Action', query: 'Action', anilistGenre: 'Action', anilistTag: null },
-                { name: 'Comedy', query: 'Comedy', anilistGenre: 'Comedy', anilistTag: null },
-                { name: 'Fantasy', query: 'Fantasy', anilistGenre: 'Fantasy', anilistTag: null },
-                { name: 'Adventure & Sci-Fi', query: 'Adventure', anilistGenre: 'Adventure', anilistTag: null }
-              ];
-              
-              function getCache() {
-                try {
-                  var raw = localStorage.getItem(CACHE_KEY);
-                  if (!raw) return null;
-                  var data = JSON.parse(raw);
-                  if (Date.now() - data.fetchedAt > CACHE_TTL) return null;
-                  return data;
-                } catch(e) { return null; }
-              }
-              
-              function setCache(feed) {
-                try {
-                  localStorage.setItem(CACHE_KEY, JSON.stringify({ fetchedAt: Date.now(), feed: feed }));
-                } catch(e) {}
-              }
-              
-              // Fetch dubbed anime by genre from AniList
-              async function fetchGenreFeed(genre, pageNum) {
-                pageNum = pageNum || 1;
-                var isTag = !!genre.anilistTag;
-                var query = isTag
-                  ? 'query ($tag: String, $page: Int) { Page(page: $page, perPage: 50) { ' +
-                    'pageInfo { hasNextPage } ' +
-                    'media(tag: $tag, type: ANIME, sort: POPULARITY_DESC, isAdult: false) { ' +
-                    'id title { english romaji } coverImage { large extraLarge } ' +
-                    'averageScore genres format episodes seasonYear } } }'
-                  : 'query ($genre: String, $page: Int) { Page(page: $page, perPage: 50) { ' +
-                    'pageInfo { hasNextPage } ' +
-                    'media(genre: $genre, type: ANIME, sort: POPULARITY_DESC, isAdult: false) { ' +
-                    'id title { english romaji } coverImage { large extraLarge } ' +
-                    'averageScore genres format episodes seasonYear } } }';
-                try {
-                  var res = await fetch('https://graphql.anilist.co', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query: query, variables: isTag ? { tag: genre.anilistTag, page: pageNum } : { genre: genre.anilistGenre, page: pageNum } })
-                  });
-                  var data = await res.json();
-                  var page = (data.data && data.data.Page) || {};
-                  var items = page.media || [];
-                  var hasNext = page.pageInfo && page.pageInfo.hasNextPage;
-                  // Filter for likely-dubbed (popular titles tend to have dubs)
-                  var mapped = items.map(function(m){
-                    return {
-                      id: m.id,
-                      title: m.title.english || m.title.romaji,
-                      poster: (m.coverImage && (m.coverImage.extraLarge || m.coverImage.large)) || '',
-                      rating: m.averageScore ? (m.averageScore/10).toFixed(1) : null,
-                      genres: m.genres || [],
-                      format: m.format,
-                      episodes: m.episodes,
-                      year: m.seasonYear,
-                      // Dub badges - will be verified via streaming API
-                      hasDub: true, // Assume popular titles have dubs
-                      dubLang: 'EN'
-                    };
-                  });
-                  return { items: mapped, hasNextPage: hasNext };
-                } catch(e) { return { items: [], hasNextPage: false }; }
-              }
-              
-              async function loadDiscoverFeed(forceRefresh) {
-                if (!forceRefresh) {
-                  var cached = getCache();
-                  if (cached) return cached.feed;
-                }
-                var feed = {};
-                for (var i = 0; i < GENRES.length; i++) {
-                  var result = await fetchGenreFeed(GENRES[i], 1);
-                  feed[GENRES[i].name] = result.items || [];
-                }
-                setCache(feed);
-                return feed;
-              }
-              
-              // Open Discover card in native detail view (with discoverCached flag)
-              function openDiscoverDetail(item) {
-                var kind = (item.format && String(item.format).toUpperCase() === 'MOVIE') ? 'movie' : 'series';
-                // Use openOnlineAsNative which calls addCollection then opens native detail
-                if (window.openOnlineAsNative) {
-                  // Temporarily mark as discover-cached via a flag
-                  window.__discoverOpen = true;
-                  window.openOnlineAsNative({ title: item.title, kind: kind, format: item.format, year: item.year });
-                  setTimeout(function(){ window.__discoverOpen = false; }, 2000);
-                }
-              }
-              // Toggle watchlist heart
-              function toggleWatchlist(title, btnEl) {
-                try {
-                  var dbRaw = localStorage.getItem('media_player_exact_db_v5');
-                  if (!dbRaw) return;
-                  var db = JSON.parse(dbRaw);
-                  var normKey = title.toLowerCase().replace(/[^a-z0-9]/g, '');
-                  var col = db.collections.find(function(c){
-                    return c.title.toLowerCase().replace(/[^a-z0-9]/g, '') === normKey;
-                  });
-                  if (col) {
-                    col.isWatchlist = !col.isWatchlist;
-                    if (col.isWatchlist) col.discoverCached = false;
-                    localStorage.setItem('media_player_exact_db_v5', JSON.stringify(db));
-                    if (btnEl) btnEl.textContent = col.isWatchlist ? '❤️' : '🤍';
-                    // Refresh collections list
-                    if (window.__refreshCollections) window.__refreshCollections();
-                    if (window.awToast) awToast(col.isWatchlist ? 'Added to watchlist ♥' : 'Removed from watchlist');
-                  } else {
-                    // Not in DB yet, add it as watchlisted
-                    if (window.handleAction) {
-                      window.handleAction('addCollection', { title: title, kind: 'series', files: [], isWatchlist: true }).then(function(){
-                        if (btnEl) btnEl.textContent = '❤️';
-                        if (window.awToast) awToast('Added to watchlist ♥');
-                      });
-                    }
-                  }
-                } catch(e) {}
-              }
-              function renderDiscover() {
-                // Hide main content, show discover view
-                document.body.classList.add('discover-open');
-                var main = document.querySelector('main') || document.querySelector('[class*="main"]');
-                if (!main) return;
-                
-                // Create discover container
-                var disc = document.getElementById('discover-view');
-                if (!disc) {
-                  disc = document.createElement('div');
-                  disc.id = 'discover-view';
-                  disc.style.cssText = 'padding:16px;overflow-y:auto;height:100%;';
-                  main.parentNode.insertBefore(disc, main);
-                }
-                main.style.display = 'none';
-                disc.style.display = 'block';
-                
-                disc.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
-                  '<h2 style="margin:0;font-size:20px;">Discover Dubbed Anime</h2>' +
-                  '<button id="disc-refresh" style="background:#7c3aed;color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">↻ Refresh</button>' +
-                  '</div><div id="disc-genres"><p>Loading dubbed anime...</p></div>';
-                
-                document.getElementById('disc-refresh').onclick = function() {
-                  localStorage.removeItem(CACHE_KEY);
-                  renderDiscoverFeed(true);
-                };
-                
-                renderDiscoverFeed(false);
-              }
-              
-              async function renderDiscoverFeed(force) {
-                var container = document.getElementById('disc-genres');
-                if (!container) return;
-                var feed = await loadDiscoverFeed(force);
-                
-                var html = '';
-                GENRES.forEach(function(g){
-                  var items = feed[g.name] || [];
-                  if (!items.length) return;
-                  
-                  html += '<div class="disc-genre" style="margin-bottom:24px;">' +
-                    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
-                    '<h3 style="margin:0;font-size:16px;">' + g.name + '</h3>' +
-                    '<button class="disc-viewall" data-genre="' + g.name + '" style="background:none;border:none;color:#7c3aed;cursor:pointer;font-size:14px;">View All ›</button>' +
-                    '</div>' +
-                    '<div class="disc-carousel" style="display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch;">';
-                  
-                  items.slice(0, 15).forEach(function(item, idx){
-                    html += '<div class="disc-card" data-idx="' + idx + '" data-genre="' + g.name + '" ' +
-                      'style="flex:0 0 156px;width:156px;max-width:156px;cursor:pointer;overflow:hidden;">' +
-                      '<div style="position:relative;width:156px;aspect-ratio:2/3;overflow:hidden;border-radius:8px;">' +
-                      '<img src="' + item.poster + '" style="width:100%;height:100%;object-fit:cover;display:block;" loading="lazy">' +
-                      '<span style="position:absolute;top:6px;left:6px;background:#7c3aed;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;z-index:2;">' + item.dubLang + ' DUB</span>' +
-                      '<button class="disc-heart" data-title="' + item.title.replace(/"/g, '&quot;') + '" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.6);border:none;color:#fff;font-size:16px;width:30px;height:30px;border-radius:50%;cursor:pointer;z-index:2;">🤍</button>' +
-                      (item.rating ? '<span style="position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;padding:2px 6px;border-radius:4px;z-index:2;">★' + item.rating + '</span>' : '') +
-                      '</div>' +
-                      '<div style="font-size:12px;margin-top:6px;line-height:1.3;height:2.6em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;text-overflow:ellipsis;word-break:break-word;">' + item.title + '</div>' +
-                      '<div style="font-size:11px;opacity:.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (item.year || '') + ' · ' + (item.format || '') + '</div>' +
-                      '</div>';
-                  });
-                  
-                  html += '</div></div>';
-                });
-                
-                container.innerHTML = html;
-                
-                
-                // Wire card clicks: store feed on window for reliable access
-                window.__discoverFeed = feed;
-                container.querySelectorAll('.disc-card').forEach(function(card){
-                  card.onclick = function(e){
-                    if (e.target.classList.contains('disc-heart') || e.target.closest('.disc-heart')) return;
-                    var idx = parseInt(card.getAttribute('data-idx'), 10);
-                    var genreName = card.getAttribute('data-genre');
-                    var item = null;
-                    var f = window.__discoverFeed || feed;
-                    if (f && f[genreName] && f[genreName][idx]) {
-                      item = f[genreName][idx];
-                    }
-                    if (item) {
-                      openDiscoverDetail(item);
-                    } else if (window.awToast) {
-                      awToast('Could not load details');
-                    }
-                  };
-                });
-                // Wire heart buttons
-                container.querySelectorAll('.disc-heart').forEach(function(hb){
-                  hb.onclick = function(e){
-                    e.stopPropagation();
-                    toggleWatchlist(hb.getAttribute('data-title'), hb);
-                  };
-                });
-                
-                // Wire View All buttons
-                container.querySelectorAll('.disc-viewall').forEach(function(btn){
-                  btn.onclick = function(){
-                    showGenreGrid(btn.getAttribute('data-genre'), feed);
-                  };
-                });
-              }
-              
-              // View All with infinite scroll pagination
-              var genrePageState = {};
-              async function showGenreGrid(genreName, feed) {
-                var disc = document.getElementById('discover-view');
-                var genreDef = GENRES.find(function(g){ return g.name === genreName; });
-                var items = (feed && feed[genreName]) || [];
-                genrePageState = { genre: genreDef, page: 1, hasMore: true, loading: false, allItems: items.slice() };
-                
-                disc.innerHTML = '<div style="padding:16px;" id="disc-grid-wrap">' +
-                  '<button id="disc-back" style="background:none;border:none;color:#7c3aed;cursor:pointer;font-size:15px;margin-bottom:16px;">‹ Back to Discover</button>' +
-                  '<h2 style="margin:0 0 16px 0;">' + genreName + ' - All Dubbed</h2>' +
-                  '<div id="disc-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px;"></div>' +
-                  '<div id="disc-loadmore" style="text-align:center;padding:20px;"><button id="disc-more-btn" style="background:#7c3aed;color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;">Load More</button></div>' +
-                  '</div>';
-                
-                document.getElementById('disc-back').onclick = function(){ renderDiscover(); };
-                
-                function renderGridItems(newItems) {
-                  var grid = document.getElementById('disc-grid');
-                  newItems.forEach(function(item){
-                    var card = document.createElement('div');
-                    card.className = 'disc-card';
-                    card.setAttribute('data-title', item.title);
-                    card.style.cssText = 'cursor:pointer;';
-                    card.innerHTML = '<div style="position:relative;">' +
-                      '<img src="' + item.poster + '" style="width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:8px;" loading="lazy">' +
-                      '<span style="position:absolute;top:6px;left:6px;background:#7c3aed;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;">' + item.dubLang + ' DUB</span>' +
-                      '<button class="disc-heart" data-title="' + item.title.replace(/"/g, '&quot;') + '" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.6);border:none;color:#fff;font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer;">🤍</button>' +
-                      '</div><div style="font-size:12px;margin-top:6px;">' + item.title + '</div>';
-                    card.onclick = function(e){
-                      if (e.target.classList.contains('disc-heart')) return;
-                      openDiscoverDetail(item);
-                    };
-                    grid.appendChild(card);
-                  });
-                  // Wire hearts
-                  grid.querySelectorAll('.disc-heart').forEach(function(hb){
-                    hb.onclick = function(e){
-                      e.stopPropagation();
-                      toggleWatchlist(hb.getAttribute('data-title'), hb);
-                    };
-                  });
-                }
-                
-                async function loadMore() {
-                  if (genrePageState.loading || !genrePageState.hasMore) return;
-                  genrePageState.loading = true;
-                  var btn = document.getElementById('disc-more-btn');
-                  if (btn) btn.textContent = 'Loading...';
-                  genrePageState.page++;
-                  var result = await fetchGenreFeed(genrePageState.genre, genrePageState.page);
-                  genrePageState.hasMore = result.hasNextPage;
-                  genrePageState.allItems = genrePageState.allItems.concat(result.items);
-                  renderGridItems(result.items);
-                  genrePageState.loading = false;
-                  if (btn) {
-                    if (!genrePageState.hasMore) {
-                      document.getElementById('disc-loadmore').style.display = 'none';
-                    } else {
-                      btn.textContent = 'Load More';
-                    }
-                  }
-                }
-                
-                renderGridItems(genrePageState.allItems);
-                document.getElementById('disc-more-btn').onclick = loadMore;
-                // Infinite scroll
-                disc.onscroll = function(){
-                  if (disc.scrollTop + disc.clientHeight >= disc.scrollHeight - 200) loadMore();
-                };
-              }
-              
-              window.__hideDiscoverView = hideDiscover;
-              function hideDiscover() {
-                document.body.classList.remove('discover-open');
-                var disc = document.getElementById('discover-view');
-                var main = document.querySelector('main') || document.querySelector('[class*="main"]');
-                if (disc) disc.style.display = 'none';
-                if (main) main.style.display = '';
-                if (window.__discBtn) window.__discBtn.classList.remove('active');
-              }
-              
-              // Inject Discover tab after Home
-              function injectDiscoverTab() {
+              function injectUltimateTab() {
                 var nav = document.querySelector('.topbar nav');
-                if (!nav || nav.querySelector('[data-tab="discover"]')) return;
-                
+                if (!nav || nav.querySelector('[data-tab="ultimate-search"]')) return;
                 var buttons = nav.querySelectorAll('button');
                 if (!buttons.length) return;
-                
-                var discBtn = document.createElement('button');
-                discBtn.textContent = 'Discover';
-                discBtn.setAttribute('data-tab', 'discover');
+                var ultBtn = document.createElement('button');
+                ultBtn.textContent = 'Ultimate';
+                ultBtn.setAttribute('data-tab', 'ultimate-search');
                 // Copy class but NOT inline styles (avoids hardcoded white active bg)
-                discBtn.className = buttons[0].className.replace(/\bactive\b/g, '').trim();
-                
-                var tapCount = 0, tapTimer = null;
-                discBtn.onclick = function(){
-                  tapCount++;
-                  if (tapTimer) clearTimeout(tapTimer);
-                  tapTimer = setTimeout(function(){
-                    if (tapCount >= 3) {
-                      // Secret: 3 rapid taps opens the anime search popup
-                      tapCount = 0;
-                      if (window.openAnimeWatch) window.openAnimeWatch("");
-                      else if (typeof openAnimeWatch === 'function') openAnimeWatch("");
-                      return;
-                    }
-                    // Normal: 1 tap opens Discover view
-                    tapCount = 0;
-                    nav.querySelectorAll('button').forEach(function(b){ b.classList.remove('active'); });
-                    discBtn.classList.add('active');
-                    renderDiscover();
-                  }, 800);
+                ultBtn.className = buttons[0].className.replace(/\\bactive\\b/g, '').trim();
+                ultBtn.onclick = function(){
+                  try {
+                    if (window.openAnimeWatch) { window.openAnimeWatch(""); return; }
+                    if (typeof openAnimeWatch === 'function') { openAnimeWatch(""); return; }
+                    if (window.__openAnimeWatch) { window.__openAnimeWatch(""); return; }
+                  } catch(e) {}
+                  // Fallback feedback so tap never appears dead
+                  try {
+                    if (window.awToast) awToast('Search not ready yet, try again');
+                    else alert('Search not ready yet, try again');
+                  } catch(e2) {}
                 };
-                
-                // Insert after Home (first button)
+                // Insert right after Home (first button)
                 if (buttons[0].nextSibling) {
-                  nav.insertBefore(discBtn, buttons[0].nextSibling);
+                  nav.insertBefore(ultBtn, buttons[0].nextSibling);
                 } else {
-                  nav.appendChild(discBtn);
+                  nav.appendChild(ultBtn);
                 }
-
-                // Ultimate Search tab: opens the anime search popup directly
-                if (!nav.querySelector('[data-tab="ultimate-search"]')) {
-                  var ultBtn = document.createElement('button');
-                  ultBtn.textContent = 'Ultimate';
-                  ultBtn.setAttribute('data-tab', 'ultimate-search');
-                  ultBtn.className = discBtn.className;
-                  ultBtn.onclick = function(){
-                    try {
-                      if (window.openAnimeWatch) { window.openAnimeWatch(""); return; }
-                      if (typeof openAnimeWatch === 'function') { openAnimeWatch(""); return; }
-                      if (window.__openAnimeWatch) { window.__openAnimeWatch(""); return; }
-                    } catch(e) {}
-                    // Fallback feedback so tap never appears dead
-                    try {
-                      if (window.awToast) awToast('Search not ready yet, try again');
-                      else alert('Search not ready yet, try again');
-                    } catch(e2) {}
-                  };
-                  // Insert right after Discover button
-                  if (discBtn.nextSibling) {
-                    nav.insertBefore(ultBtn, discBtn.nextSibling);
-                  } else {
-                    nav.appendChild(ultBtn);
-                  }
-                  window.__ultBtn = ultBtn;
-                }
-                
-                // Hide discover when other tabs clicked
-                buttons.forEach(function(btn){
-                  btn.addEventListener('click', function(){
-                    discBtn.classList.remove('active');
-                    hideDiscover();
-                  });
-                });
-                // Store ref for hideDiscover to clear
-                window.__discBtn = discBtn;
+                window.__ultBtn = ultBtn;
               }
-              
               // Run injection periodically (for React re-renders)
-              setInterval(injectDiscoverTab, 2000);
-              injectDiscoverTab();
+              setInterval(injectUltimateTab, 2000);
+              injectUltimateTab();
             })();
             </script>
             <script>
@@ -1516,20 +1164,10 @@ jobs:
               opacity: 1 !important;
               visibility: visible !important;
             }
-            /* When Discover is NOT open, Discover & Ultimate buttons must NEVER be white */
-            body:not(.discover-open) .topbar nav button[data-tab="discover"],
+            /* Ultimate tab button must NEVER be white */
             .topbar nav button[data-tab="ultimate-search"] {
               background: transparent !important;
               color: var(--dim) !important;
-            }
-            /* When Discover IS open, force native tabs to look inactive and only Discover white */
-            body.discover-open .topbar nav button:not([data-tab="discover"]) {
-              background: transparent !important;
-              color: var(--dim) !important;
-            }
-            body.discover-open .topbar nav button[data-tab="discover"] {
-              background: var(--text) !important;
-              color: var(--bg) !important;
             }
             .folder-picker-row {
               display: flex;
@@ -1999,6 +1637,18 @@ jobs:
             .awd-tab{background:transparent;border:0;color:#9aa1b0;font-size:14px;font-weight:700;padding:12px 8px;margin:0 14px 0 0;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
             .awd-tab.active{color:#fff;border-bottom-color:#f2994a}
             .awd-pane{padding-bottom:28px}
+            .msrc-overlay{position:fixed;inset:0;z-index:100003;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;padding:20px}
+            .msrc-box{background:#14161c;border:1px solid #2a2f3a;border-radius:14px;max-width:430px;width:100%;padding:20px;color:#e8ecf3;box-shadow:0 12px 48px rgba(0,0,0,.6);max-height:86vh;overflow-y:auto}
+            .msrc-title{font-size:17px;font-weight:800;margin:0 0 2px;color:#fff}
+            .msrc-sub{font-size:13px;color:#9aa1b0;margin:0 0 14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+            .msrc-group{margin-bottom:14px}
+            .msrc-glabel{font-size:11px;font-weight:800;letter-spacing:1.2px;color:#f2994a;margin-bottom:8px}
+            .msrc-opt{display:flex;align-items:flex-start;gap:10px;padding:9px 10px;border:1px solid #232833;border-radius:9px;margin-bottom:6px;cursor:pointer;font-size:14px}
+            .msrc-opt input{accent-color:#f2994a;width:16px;height:16px;margin-top:2px;flex:none}
+            .msrc-opt small{display:block;font-size:11px;color:#9aa1b0;margin-top:1px}
+            .msrc-actions{display:flex;gap:10px;margin-top:16px}
+            .msrc-cancel{flex:1;background:transparent;border:1px solid #3a3f4b;color:#fff;border-radius:9px;padding:11px;font-size:14px;font-weight:700;cursor:pointer}
+            .msrc-ok{flex:2;background:#f2994a;border:0;color:#14161c;border-radius:9px;padding:11px;font-size:14px;font-weight:800;cursor:pointer}
             @media (max-width:640px){.awd-hero{flex-direction:column;padding:16px}.awd-poster{flex:none;max-width:220px}.awd-eps{grid-template-columns:repeat(2,1fr);gap:10px;padding:0 12px 32px}.awd-epshead,.awd-wosect,.awd-sect,.awd-reviews,.awd-status{padding-left:12px;padding-right:12px}}
 
             /* ===== Anime SUB/DUB watch (streaming API) ===== */
@@ -2526,10 +2176,9 @@ jobs:
             };
 
             window.__renderContinueAndHistory = function(props) {
-              // Capture native opener immediately so Discover works on cold launch
+              // Capture native opener immediately so it works on cold launch
               window.__nativeOpenCollection = function(id) {
                 window.__currentDetailCollectionId = id;
-                if (window.__hideDiscoverView) window.__hideDiscoverView();
                 props.onOpenCollection(id);
               };
               window.__nativeSetTab = props.setTab;
@@ -3111,7 +2760,114 @@ jobs:
               });
             }
 
-            async function lookupAllMetadata(title, kind, year) {
+            // Metadata source picker: shown when adding a new anime or refreshing its
+            // data, so the user chooses which API supplies the details and which
+            // supplies the episodes & watch order.
+            function msrcEsc(s) {
+              return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+              });
+            }
+            function showMetadataSourcePicker(title, kind, current) {
+              current = current || {};
+              return new Promise(function (resolve) {
+                var allSources = [
+                  { id: 'auto', name: 'Auto (recommended)', desc: 'Best match combined from all sources' },
+                  { id: 'anilist', name: 'AniList', desc: 'Posters, relations and franchise watch order' },
+                  { id: 'tvmaze', name: 'TVmaze', desc: 'TV episode lists, titles and air dates' },
+                  { id: 'jikan', name: 'Jikan (MyAnimeList)', desc: 'MAL scores, synopsis and episode titles' }
+                ];
+                var detSources = kind === 'movie'
+                  ? allSources.filter(function (x) { return x.id !== 'tvmaze'; })
+                  : allSources;
+                function groupHtml(name, label, val, list) {
+                  var h = '<div class="msrc-group"><div class="msrc-glabel">' + label + '</div>';
+                  list.forEach(function (x) {
+                    h += '<label class="msrc-opt"><input type="radio" name="' + name + '" value="' + x.id + '"' +
+                      (val === x.id ? ' checked' : '') + '><span><b>' + x.name + '</b><small>' + x.desc + '</small></span></label>';
+                  });
+                  return h + '</div>';
+                }
+                var ov = document.createElement('div');
+                ov.className = 'msrc-overlay';
+                ov.innerHTML = '<div class="msrc-box">' +
+                  '<p class="msrc-title">Choose data source</p>' +
+                  '<p class="msrc-sub">' + msrcEsc(title) + '</p>' +
+                  groupHtml('msrcDet', 'SHOW DETAILS FROM', current.details || 'auto', detSources) +
+                  (kind === 'series' ? groupHtml('msrcEp', 'EPISODES & WATCH ORDER FROM', current.episodes || 'auto', allSources) : '') +
+                  '<div class="msrc-actions"><button type="button" class="msrc-cancel">Cancel</button>' +
+                  '<button type="button" class="msrc-ok">Use these sources</button></div></div>';
+                document.body.appendChild(ov);
+                function done(v) { if (ov.parentNode) ov.parentNode.removeChild(ov); resolve(v); }
+                function picked(name) {
+                  var el = ov.querySelector('input[name="' + name + '"]:checked');
+                  return el ? el.value : 'auto';
+                }
+                ov.querySelector('.msrc-cancel').onclick = function () { done(null); };
+                ov.addEventListener('mousedown', function (e) { if (e.target === ov) done(null); });
+                ov.querySelector('.msrc-ok').onclick = function () {
+                  done({
+                    details: picked('msrcDet'),
+                    episodes: kind === 'series' ? picked('msrcEp') : 'auto'
+                  });
+                };
+              });
+            }
+            window.__showMetadataSourcePicker = showMetadataSourcePicker;
+            function jikanSleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+            async function fetchJikanMatch(title) {
+              try {
+                var r = await origFetch('https://api.jikan.moe/v4/anime?q=' + encodeURIComponent(title) + '&limit=5&sfw=true');
+                if (!r.ok) return null;
+                var j = await r.json();
+                var arr = (j && j.data) || [];
+                if (!arr.length) return null;
+                var norm = String(title).toLowerCase().replace(/[^a-z0-9]/g, '');
+                for (var i = 0; i < arr.length; i++) {
+                  var t = String((arr[i].title_english || arr[i].title) || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                  if (t && t === norm) return arr[i];
+                }
+                return arr[0];
+              } catch (e) { return null; }
+            }
+            async function fetchJikanEpisodes(malId) {
+              var eps = [];
+              try {
+                for (var page = 1; page <= 6; page++) {
+                  var r = await origFetch('https://api.jikan.moe/v4/anime/' + malId + '/episodes?page=' + page);
+                  if (!r.ok) break;
+                  var j = await r.json();
+                  var arr = (j && j.data) || [];
+                  arr.forEach(function (e) {
+                    var n = e.mal_id || (eps.length + 1);
+                    eps.push({
+                      id: 9000000 + n,
+                      seasonNumber: 1,
+                      episodeNumber: n,
+                      title: e.title || ('Episode ' + n),
+                      arriveDate: e.aired ? String(e.aired).slice(0, 10) : null,
+                      airDate: e.aired ? String(e.aired).slice(0, 10) : null,
+                      runtimeMinutes: 24,
+                      sourceUrl: e.url || null,
+                      thumbnailUrl: null,
+                      localFileName: null
+                    });
+                  });
+                  if (!(j.pagination && j.pagination.has_next_page)) break;
+                  await jikanSleep(500);
+                }
+              } catch (e) {}
+              return eps;
+            }
+            async function lookupAllMetadata(title, kind, year, srcPrefs) {
+              var detailsSrc = (srcPrefs && srcPrefs.details) || 'auto';
+              var episodesSrc = (srcPrefs && srcPrefs.episodes) || 'auto';
+              var wantTvDet = detailsSrc === 'auto' || detailsSrc === 'tvmaze';
+              var wantAniDet = detailsSrc === 'auto' || detailsSrc === 'anilist';
+              var wantJikanDet = detailsSrc === 'jikan';
+              var wantTvEps = episodesSrc === 'auto' || episodesSrc === 'tvmaze';
+              var wantAniEps = episodesSrc === 'auto' || episodesSrc === 'anilist';
+              var wantJikanEps = episodesSrc === 'jikan';
               var result = {
                 posterUrl: null,
                 rating: null,
@@ -3141,12 +2897,13 @@ jobs:
 
               var tvmazeEpisodesBySeason = new Map();
               var tvmazeRatings = null;
-              if (kind === "series") {
+              if (kind === "series" && (wantTvDet || wantTvEps)) {
                 try {
                   var rTv = await origFetch("https://api.tvmaze.com/singlesearch/shows?q=" + encodeURIComponent(title) + "&embed[]=episodes&embed[]=seasons");
                   if (rTv.ok) {
                     var show = await rTv.json();
                     if (show) {
+                      if (wantTvDet) {
                       result.posterUrl = (show.image && (show.image.original || show.image.medium)) || null;
                       result.synopsis = cleanHtml(show.summary) || null;
                       if (show.rating && show.rating.average) {
@@ -3158,7 +2915,8 @@ jobs:
                       result.sourceUrl = show.url || null;
                       result.genres = (show.genres && show.genres.length > 0) ? show.genres : [];
                       result.year = result.year || (show.premiered ? Number(show.premiered.slice(0, 4)) : null);
-
+                      }
+                      if (wantTvEps) {
                       var rawSeasons = (show._embedded && show._embedded.seasons) || [];
                       result.seasons = rawSeasons.map(function(s) {
                         return {
@@ -3192,13 +2950,14 @@ jobs:
                         tvmazeEpisodesBySeason.get(sNum).push(epObj);
                         return epObj;
                       });
+                      }
                     }
                   }
                 } catch (e) {}
               }
 
               var VALID_RELATIONS = ["SEQUEL", "PREQUEL", "SIDE_STORY", "PARENT", "SPIN_OFF", "SUMMARY", "ALTERNATIVE"];
-              try {
+              if (wantAniDet || wantAniEps) try {
                 var searchQuery = "query ($search: String) { Media(search: $search, type: ANIME, sort: [SEARCH_MATCH, POPULARITY_DESC]) { id title { english romaji } description(asHtml: false) seasonYear startDate { year month day } format status episodes duration genres averageScore siteUrl nextAiringEpisode { episode airingAt timeUntilAiring } airingSchedule(perPage: 50) { nodes { episode airingAt timeUntilAiring } } coverImage { extraLarge large } reviews(perPage: 4, sort: [RATING_DESC]) { nodes { id summary score user { name } siteUrl } } relations { edges { relationType(version: 2) node { id type format relations { edges { relationType(version: 2) node { id type format relations { edges { relationType(version: 2) node { id type format } } } } } } } } } } }";
 
                 var r1 = await origFetch("https://graphql.anilist.co", {
@@ -3211,6 +2970,7 @@ jobs:
 
                 if (rootMedia) {
                   result.anilistId = rootMedia.id || null;
+                  if (wantAniDet) {
                   result.posterUrl = (rootMedia.coverImage && (rootMedia.coverImage.extraLarge || rootMedia.coverImage.large)) || result.posterUrl;
                   if (tvmazeRatings == null && rootMedia.averageScore) {
                     result.rating = kind === "movie" ? rootMedia.averageScore : Number((rootMedia.averageScore / 10).toFixed(1));
@@ -3221,6 +2981,7 @@ jobs:
                   result.synopsis = result.synopsis || cleanHtml(rootMedia.description);
                   result.genres = (result.genres && result.genres.length > 0) ? result.genres : (rootMedia.genres || []);
                   result.year = result.year || rootMedia.seasonYear || (rootMedia.startDate && rootMedia.startDate.year) || null;
+                  }
 
                   var revNodes = (rootMedia.reviews && rootMedia.reviews.nodes) || [];
                   result.reviews = revNodes.map(function(rv, idx) {
@@ -3295,7 +3056,7 @@ jobs:
                     return da.localeCompare(db) || (a.id - b.id);
                   });
 
-                  if (kind === "series") {
+                  if (kind === "series" && wantAniEps) {
                     var tvNodes = franchiseNodes.filter(function(n) {
                       return n.format === "TV" || (n.id === rootMedia.id && n.format === "ONA");
                     });
@@ -3312,7 +3073,7 @@ jobs:
                       var sDate = formatAniDate(tv.startDate, sYear, isComingSoon);
                       var sThumb = (tv.coverImage && (tv.coverImage.extraLarge || tv.coverImage.large)) || result.posterUrl;
                       var streamEps = (tv.streamingEpisodes || []).slice();
-                      var tvmEps = tvmazeEpisodesBySeason.get(sNum) || [];
+                      var tvmEps = wantTvEps ? (tvmazeEpisodesBySeason.get(sNum) || []) : [];
 
                       var nextEp = tv.nextAiringEpisode ? tv.nextAiringEpisode.episode : null;
                       var airedCount = isComingSoon
@@ -3463,6 +3224,45 @@ jobs:
                 }
               } catch (e) {}
 
+              // Jikan (MyAnimeList) as the chosen source for details and/or episodes
+              if (wantJikanDet || wantJikanEps) {
+                var jm = await fetchJikanMatch(title);
+                if (jm) {
+                  if (wantJikanDet) {
+                    var jImg = (jm.images && jm.images.jpg) || {};
+                    result.posterUrl = jImg.large_image_url || jImg.image_url || result.posterUrl;
+                    result.synopsis = jm.synopsis || result.synopsis;
+                    if (jm.score) {
+                      result.rating = jm.score;
+                      result.ratingScale = 10;
+                      result.ratingSource = "Jikan";
+                    }
+                    var jGenres = [];
+                    (jm.genres || []).concat(jm.themes || []).concat(jm.demographics || []).forEach(function (g) {
+                      if (g && g.name) jGenres.push(g.name);
+                    });
+                    if (jGenres.length > 0) result.genres = jGenres;
+                    result.year = result.year || jm.year || null;
+                    result.sourceUrl = result.sourceUrl || jm.url || null;
+                  }
+                  if (wantJikanEps && kind === "series") {
+                    var jEps = await fetchJikanEpisodes(jm.mal_id);
+                    if (jEps.length > 0) {
+                      result.episodes = jEps;
+                      result.seasons = [{
+                        seasonNumber: 1,
+                        releaseYear: result.year,
+                        firstAirDate: (jEps[0] && jEps[0].airDate) || null,
+                        thumbnailUrl: result.posterUrl,
+                        statusText: jEps.length + " episodes",
+                        badgeText: null,
+                        isComingSoon: false
+                      }];
+                    }
+                  }
+                }
+              }
+              
               // Fetch AnimeThemes trailer URL (cached on collection)
               try {
                 var trailerAnilistId = result.anilistId || null;
@@ -3622,7 +3422,7 @@ jobs:
                         contentType: h.kind || 'series',
                         positionSeconds: h.positionSeconds || 0,
                         durationSeconds: h.durationSeconds || 0,
-                        completed: false,
+                        completed: Boolean(h.completed),
                         lastWatchedAt: h.lastWatchedAt,
                         progressPercent: pct2,
                         isOnline: true,
@@ -3690,7 +3490,12 @@ jobs:
                 }
 
                 var id = db.nextId++;
-                var meta = await lookupAllMetadata(cleanTitle, kind, args.year);
+                var srcPrefs = args.srcPrefs || null;
+                if (!srcPrefs && (kind === "series" || kind === "movie") && !args.discoverCached) {
+                  srcPrefs = await showMetadataSourcePicker(cleanTitle, kind, null);
+                  if (!srcPrefs) return { collection: null, cancelled: true };
+                }
+                var meta = await lookupAllMetadata(cleanTitle, kind, args.year, srcPrefs);
                 var posterUrl = args.posterDataBase64
                   ? ("data:" + (args.posterMimeType || "image/jpeg") + ";base64," + args.posterDataBase64)
                   : meta.posterUrl;
@@ -3752,11 +3557,12 @@ jobs:
                   relatedMedia: meta.relatedMedia,
                   files: [],
                   reviews: meta.reviews,
-                  // Watchlist: Discover-opened items hidden from Home unless hearted
-                  isWatchlist: args.isWatchlist !== undefined ? args.isWatchlist : (window.__discoverOpen ? false : true),
-                  discoverCached: window.__discoverOpen ? true : false,
+                  // Legacy: discoverCached items stay hidden from Home unless hearted
+                  isWatchlist: args.isWatchlist !== undefined ? args.isWatchlist : true,
+                  discoverCached: false,
                   anilistId: meta.anilistId || null,
-                  trailerVideoUrl: meta.trailerVideoUrl || null
+                  trailerVideoUrl: meta.trailerVideoUrl || null,
+                  metadataSources: srcPrefs || { details: "auto", episodes: "auto" }
                 };
 
                 attachFilesToCollection(newCol, parsedFiles);
@@ -3829,7 +3635,9 @@ jobs:
               if (action === "refreshMetadata") {
                 var colM = db.collections.find(function(c) { return Number(c.id) === Number(args.id); });
                 if (colM) {
-                  var refreshed = await lookupAllMetadata(colM.title, colM.kind, colM.year);
+                  var rPrefs = args.srcPrefs || await showMetadataSourcePicker(colM.title, colM.kind, colM.metadataSources || null);
+                  if (!rPrefs) return { ok: false, cancelled: true };
+                  var refreshed = await lookupAllMetadata(colM.title, colM.kind, colM.year, rPrefs);
                   if (refreshed.posterUrl && (!colM.posterUrl || colM.posterUrl.indexOf("data:") !== 0)) {
                     colM.posterUrl = refreshed.posterUrl;
                   }
@@ -3849,6 +3657,7 @@ jobs:
                   }
                   if (refreshed.relatedMedia.length > 0) colM.relatedMedia = refreshed.relatedMedia;
                   if (refreshed.reviews.length > 0) colM.reviews = refreshed.reviews;
+                  colM.metadataSources = rPrefs;
                   saveDB(db);
                 }
                 return { ok: true };
@@ -4836,7 +4645,7 @@ jobs:
                 if (title) searchAnime(title, initialEp || 0);
                 else setStatus('Type an anime name above and hit Search.');
               }
-              // Expose immediately so Discover triple-tap works on cold launch
+              // Expose immediately so the Ultimate tab works on cold launch
               window.openAnimeWatch = openAnimeWatch;
               window.openAnimeWatchShell = openAnimeWatchShell;
 
@@ -5037,7 +4846,6 @@ jobs:
 
               // Unify online search with native library: add to collection DB, open native detail view
               function openOnlineAsNative(r) {
-                window.openOnlineAsNative = openOnlineAsNative; // expose globally for carousel injection
                 if (!r) return;
                 var title = (r.title && (r.title.english || r.title.romaji)) || r.title || 'Unknown';
                 if (typeof title !== 'string') title = String(title);
@@ -5047,13 +4855,13 @@ jobs:
                 handleAction('addCollection', { title: title, kind: kind, year: year, files: [] }).then(function (res) {
                   var col = res && res.collection;
                   if (col) {
-                    if (window.__hideDiscoverView) window.__hideDiscoverView();
                     if (typeof Ot !== 'undefined' && Ot.invalidateQueries) Ot.invalidateQueries();
                     if (window.__nativeOpenCollection) window.__nativeOpenCollection(col.id);
                     else showDetail(r, 0);
                   }
                 }).catch(function () { showDetail(r, 0); });
               }
+              window.openOnlineAsNative = openOnlineAsNative; // eager: Add-to-Home needs it on fresh load
               function showDetail(anime, initialEp) {
                 lastAnime = anime;
                 closeDetailPage();
@@ -5333,6 +5141,14 @@ jobs:
                 return playerOverlay.querySelector('#awpBody');
               }
               function closePlayerShell() {
+                // v17: remember exactly where the user left off. The pause
+                // handler may never have fired if the player was closed while
+                // still playing, so save the live position first.
+                try {
+                  var __cv = playerOverlay && playerOverlay.querySelector('.awp-video');
+                  if (__cv && window.__ohCur && (__cv.currentTime || 0) > 1) { ohTouch(window.__ohCur, __cv.currentTime, __cv.duration || 0); }
+                } catch (e) {}
+                window.__ohCur = null;
                 destroyPlayer();
                 if (playerOverlay) { playerOverlay.remove(); playerOverlay = null; }
                 // Instant UI refresh: trigger listContinueWatching refetch for Home rail
@@ -5344,9 +5160,15 @@ jobs:
               }
               window.__closeOnlinePlayer = closePlayerShell;
               function playEpisode(anime, anilistId, ep, episodes, opts) {
+                // v17: switching episodes (prev/next/replay) -> remember where the
+                // current one stopped, same as closing the player.
+                try {
+                  var __pv = playerOverlay && playerOverlay.querySelector('.awp-video');
+                  if (__pv && window.__ohCur && (__pv.currentTime || 0) > 1) { ohTouch(window.__ohCur, __pv.currentTime, __pv.duration || 0); }
+                } catch (e) {}
                 window.playEpisode = playEpisode; // expose for Continue Watching resume
                 window.autoPlayOnline = autoPlayOnline; // expose for Continue Watching resume
-                window.openAnimeWatch = openAnimeWatch; // expose for Discover 3-tap secret menu
+                window.openAnimeWatch = openAnimeWatch; // expose for the Ultimate tab
                 var b = openPlayerShell();
                 destroyPlayer();
                 b.innerHTML = '<div class="aw-player">' +
@@ -5401,6 +5223,8 @@ jobs:
                   if (h[i].id === id) {
                     h[i].positionSeconds = Math.floor(position || 0);
                     if (duration) h[i].durationSeconds = Math.floor(duration);
+                    // v17: watched to the end -> leave Continue Watching like local files do
+                    if (duration > 0 && (position || 0) / duration > 0.95) h[i].completed = true;
                     h[i].lastWatchedAt = Date.now();
                     found = true; break;
                   }
@@ -5679,6 +5503,7 @@ jobs:
                 var ohId = 'online-' + anilistId + '-' + ep, ohLastSave = 0;
                 // Record to history when playback begins
                 ohRecord(anime, anilistId, ep, episodes, (opts && opts.startAt) || 0, 0, opts && opts.format);
+                window.__ohCur = ohId; // v17: id closePlayerShell saves the final position for
                 video.addEventListener('timeupdate', function () {
                   var d = video.duration || 0, c = video.currentTime || 0;
                   curEl.textContent = fmt(c);
@@ -6176,6 +6001,221 @@ jobs:
             '</head>',
             '<style>.local-clip-preview video{transition:opacity .45s ease}.local-clip-preview.clip-fading video{opacity:0}</style></head>'
           );
+
+          // 16. Detail/info page: always render the clip preview container so the
+          // opening-theme fallback (syncContainerTrailer '.detail-hero') can attach
+          // when no local video exists. With local files nothing changes (random
+          // clip plays as before); without them the container renders .empty and
+          // the existing CSS already hides the placeholder once the theme plays.
+          html = html.replace(
+            'children: [ue && u(To, {',
+            'children: [u(To, {'
+          );
+          // 17. Continue Watching: expose a real refetch for the Home rail so
+          // online watches appear on Home the moment the player closes.
+          // (closePlayerShell called window.__refreshContinueWatching, but it was
+          // never defined, and the aw-continue-refresh event had no listener.)
+          html = html.replace(
+            'A = ca({\n      queryKey: ["continue-watching"],\n      queryFn: () => it.listContinueWatching({\n        limit: 12\n      })\n    });',
+            'A = ca({\n      queryKey: ["continue-watching"],\n      queryFn: () => it.listContinueWatching({\n        limit: 12\n      })\n    });\n    try { window.__refreshContinueWatching = function(){ try { A.refetch(); } catch(e){} }; } catch(e){}'
+          );
+          // 18. Opening-theme offline cache (IndexedDB).
+          // When an anime is added to the Home screen, its opening theme video
+          // is downloaded in the background and stored in IndexedDB, so the
+          // carousel / info-page hero plays it instantly with no re-download.
+          // Deleting the anime removes its cached theme (unless another entry
+          // still references the same theme URL). 800MB cap, oldest evicted first.
+
+          // 18a. Inject the cache engine just before the trailer script block.
+          html = html.replace(
+            '// Online video fallback for Hero Carousel & Detail background preview (when no local file)',
+            `</script>
+            <script>
+            // 18. Opening-theme offline cache engine (IndexedDB).
+            (function(){
+              var TC_DB = 'konosuba-theme-cache';
+              var TC_STORE = 'themes';
+              var TC_MAX_BYTES = 800 * 1024 * 1024;
+              var TC_PROXY = 'http://127.0.0.1:18923';
+              function tcIsApp(){
+                try { if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) return true; } catch(e){}
+                return !!(window.androidBridge || window.AndroidPiP);
+              }
+              function tcKey(url){
+                var h = 5381, s = String(url || ''), i;
+                for (i = 0; i < s.length; i++) { h = (((h << 5) + h) + s.charCodeAt(i)) >>> 0; }
+                return 'theme-' + h.toString(36);
+              }
+              function tcDb(){
+                if (!window.__tcDbPromise) {
+                  window.__tcDbPromise = new Promise(function(resolve, reject){
+                    try {
+                      var req = indexedDB.open(TC_DB, 1);
+                      req.onupgradeneeded = function(){ try { req.result.createObjectStore(TC_STORE, { keyPath: 'key' }); } catch(e){} };
+                      req.onsuccess = function(){ resolve(req.result); };
+                      req.onerror = function(){ reject(req.error || new Error('idb')); };
+                    } catch(e){ reject(e); }
+                  });
+                }
+                return window.__tcDbPromise;
+              }
+              function tcPut(url, blob){
+                return tcDb().then(function(d){
+                  return new Promise(function(resolve){
+                    try {
+                      var t = d.transaction(TC_STORE, 'readwrite');
+                      t.objectStore(TC_STORE).put({ key: tcKey(url), url: url, blob: blob, size: blob.size || 0, savedAt: Date.now() });
+                      t.oncomplete = function(){ resolve(true); };
+                      t.onerror = function(){ resolve(false); };
+                      t.onabort = function(){ resolve(false); };
+                    } catch(e){ resolve(false); }
+                  });
+                }).then(function(ok){ if (ok) { try { tcPrune(); } catch(e){} } return ok; })
+                .catch(function(){ return false; });
+              }
+              function tcGet(url){
+                return tcDb().then(function(d){
+                  return new Promise(function(resolve){
+                    try {
+                      var t = d.transaction(TC_STORE, 'readonly');
+                      var rq = t.objectStore(TC_STORE).get(tcKey(url));
+                      rq.onsuccess = function(){ resolve(rq.result || null); };
+                      rq.onerror = function(){ resolve(null); };
+                    } catch(e){ resolve(null); }
+                  });
+                }).catch(function(){ return null; });
+              }
+              function tcDel(url){
+                return tcDb().then(function(d){
+                  return new Promise(function(resolve){
+                    try {
+                      var t = d.transaction(TC_STORE, 'readwrite');
+                      t.objectStore(TC_STORE).delete(tcKey(url));
+                      t.oncomplete = function(){ resolve(true); };
+                      t.onerror = function(){ resolve(false); };
+                    } catch(e){ resolve(false); }
+                  });
+                }).catch(function(){ return false; });
+              }
+              function tcPrune(){
+                tcDb().then(function(d){
+                  try {
+                    var t = d.transaction(TC_STORE, 'readwrite');
+                    var st = t.objectStore(TC_STORE);
+                    var rq = st.getAll();
+                    rq.onsuccess = function(){
+                      try {
+                        var all = rq.result || [], total = 0, i;
+                        for (i = 0; i < all.length; i++) total += (all[i].size || 0);
+                        if (total <= TC_MAX_BYTES) return;
+                        all.sort(function(a, b){ return (a.savedAt || 0) - (b.savedAt || 0); });
+                        for (i = 0; i < all.length && total > TC_MAX_BYTES; i++) {
+                          total -= (all[i].size || 0);
+                          try { st.delete(all[i].key); } catch(e){}
+                        }
+                      } catch(e){}
+                    };
+                  } catch(e){}
+                }).catch(function(){});
+              }
+              var tcInflight = {};
+              function tcDownload(url){
+                if (!url || tcInflight[url]) return;
+                tcGet(url).then(function(rec){
+                  if (rec && rec.blob) return;
+                  tcInflight[url] = 1;
+                  var done = function(){ try { delete tcInflight[url]; } catch(e){} };
+                  var save = function(blob){
+                    if (blob && blob.size > 0) { tcPut(url, blob).then(done, done); }
+                    else { done(); }
+                  };
+                  var viaProxy = function(){
+                    if (!tcIsApp()) { done(); return; }
+                    fetch(TC_PROXY + '/r?u=' + encodeURIComponent(url)).then(function(r){
+                      if (!r.ok) throw new Error('proxy http ' + r.status);
+                      return r.blob();
+                    }).then(save, function(){ done(); });
+                  };
+                  fetch(url).then(function(r){
+                    if (!r.ok) throw new Error('http ' + r.status);
+                    return r.blob();
+                  }).then(save, viaProxy);
+                }, function(){});
+              }
+              window.__cacheThemeVideo = tcDownload;
+              window.__ThemeCache = { get: tcGet, put: tcPut, del: tcDel, key: tcKey, prune: tcPrune };
+              window.__themeBlobUrl = function(url){
+                return tcGet(url).then(function(rec){
+                  if (rec && rec.blob) {
+                    try { return URL.createObjectURL(rec.blob); } catch(e){}
+                  }
+                  return url;
+                }, function(){ return url; });
+              };
+            })();
+            </script>
+            <script>
+            // Online video fallback for Hero Carousel & Detail background preview (when no local file)`
+          );
+
+          // 18b. playTrailerPreview: prefer the cached copy, else stream now and
+          // save a copy in the background for next time.
+          html = html.replace(
+            "v.style.cssText = 'width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 0.8s ease;pointer-events:none;';\n      v.src = url;",
+            `v.style.cssText = 'width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 0.8s ease;pointer-events:none;';
+                // 18. Offline theme cache: cached copy first, else stream; cache in background.
+                try {
+                  if (window.__themeBlobUrl) { window.__themeBlobUrl(url).then(function(c){ try { v.src = (c || url); } catch(e){} }, function(){ try { v.src = url; } catch(e){} }); }
+                  else { v.src = url; }
+                } catch(e) { try { v.src = url; } catch(e2){} }
+                try { if (window.__cacheThemeVideo) window.__cacheThemeVideo(url); } catch(e) {}`
+          );
+
+          // 18c. clearTrailerLayer: revoke cached-theme object URLs so they don't leak.
+          html = html.replace(
+            "if (vid) { try { vid.pause(); vid.removeAttribute('src'); vid.load(); } catch(e){} }",
+            "if (vid) { try { var __vsrc = vid.getAttribute('src') || vid.src || ''; if (__vsrc.indexOf('blob:') === 0) { try { URL.revokeObjectURL(__vsrc); } catch(e){} } vid.pause(); vid.removeAttribute('src'); vid.load(); } catch(e){} }"
+          );
+
+          // 18d. saveTrailerToCollection: cache in the background whenever a trailer URL is saved.
+          html = html.replace(
+            "col.trailerVideoUrl = trailerUrl;",
+            "col.trailerVideoUrl = trailerUrl;\n                  try { if (window.__cacheThemeVideo) window.__cacheThemeVideo(trailerUrl); } catch(e) {}"
+          );
+
+          // 18e. addCollection: cache the theme when an anime is added (new or existing entry).
+          html = html.replace(
+            "db.collections.unshift(newCol);",
+            "try { if (newCol.trailerVideoUrl && window.__cacheThemeVideo) window.__cacheThemeVideo(newCol.trailerVideoUrl); } catch(e) {}\n                db.collections.unshift(newCol);"
+          );
+          html = html.replace(
+            "attachFilesToCollection(existingCol, parsedFiles);",
+            "try { if (existingCol.trailerVideoUrl && window.__cacheThemeVideo) window.__cacheThemeVideo(existingCol.trailerVideoUrl); } catch(e) {}\n                  attachFilesToCollection(existingCol, parsedFiles);"
+          );
+
+          // 18f. deleteCollection: drop the cached theme when its anime is deleted,
+          // unless another collection still references the same theme URL.
+          html = html.replace(
+            `if (action === "deleteCollection") {
+                db.collections = db.collections.filter(function(c) { return Number(c.id) !== Number(args.id); });
+                saveDB(db);
+                return { ok: true };
+              }`,
+            `if (action === "deleteCollection") {
+                var __doomedCol = (db.collections || []).find(function(c) { return Number(c.id) === Number(args.id); });
+                var __doomedTrailer = __doomedCol ? __doomedCol.trailerVideoUrl : null;
+                db.collections = db.collections.filter(function(c) { return Number(c.id) !== Number(args.id); });
+                saveDB(db);
+                try {
+                  if (__doomedTrailer && window.__ThemeCache) {
+                    var __stillUsed = (db.collections || []).some(function(c) { return c.trailerVideoUrl === __doomedTrailer; });
+                    if (!__stillUsed) { window.__ThemeCache.del(__doomedTrailer); }
+                  }
+                } catch(e) {}
+                return { ok: true };
+              }`
+          );
+
           fs.writeFileSync("www/index.html", html, "utf8");
           EOF_PATCH
 
