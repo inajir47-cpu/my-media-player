@@ -372,12 +372,12 @@ jobs:
               var CACHE_TTL = 48 * 60 * 60 * 1000; // 48 hours
               
               var GENRES = [
-                { name: 'Isekai', query: 'Isekai', anilistGenre: 'Isekai' },
-                { name: 'Romance', query: 'Romance', anilistGenre: 'Romance' },
-                { name: 'Action', query: 'Action', anilistGenre: 'Action' },
-                { name: 'Comedy', query: 'Comedy', anilistGenre: 'Comedy' },
-                { name: 'Fantasy', query: 'Fantasy', anilistGenre: 'Fantasy' },
-                { name: 'Adventure & Sci-Fi', query: 'Adventure', anilistGenre: 'Adventure' }
+                { name: 'Isekai', query: 'Isekai', anilistGenre: null, anilistTag: 'Isekai' },
+                { name: 'Romance', query: 'Romance', anilistGenre: 'Romance', anilistTag: null },
+                { name: 'Action', query: 'Action', anilistGenre: 'Action', anilistTag: null },
+                { name: 'Comedy', query: 'Comedy', anilistGenre: 'Comedy', anilistTag: null },
+                { name: 'Fantasy', query: 'Fantasy', anilistGenre: 'Fantasy', anilistTag: null },
+                { name: 'Adventure & Sci-Fi', query: 'Adventure', anilistGenre: 'Adventure', anilistTag: null }
               ];
               
               function getCache() {
@@ -399,16 +399,23 @@ jobs:
               // Fetch dubbed anime by genre from AniList
               async function fetchGenreFeed(genre, pageNum) {
                 pageNum = pageNum || 1;
-                var query = 'query ($genre: String, $page: Int) { Page(page: $page, perPage: 50) { ' +
-                  'pageInfo { hasNextPage } ' +
-                  'media(genre: $genre, type: ANIME, sort: POPULARITY_DESC, isAdult: false) { ' +
-                  'id title { english romaji } coverImage { large extraLarge } ' +
-                  'averageScore genres format episodes seasonYear } } }';
+                var isTag = !!genre.anilistTag;
+                var query = isTag
+                  ? 'query ($tag: String, $page: Int) { Page(page: $page, perPage: 50) { ' +
+                    'pageInfo { hasNextPage } ' +
+                    'media(tag: $tag, type: ANIME, sort: POPULARITY_DESC, isAdult: false) { ' +
+                    'id title { english romaji } coverImage { large extraLarge } ' +
+                    'averageScore genres format episodes seasonYear } } }'
+                  : 'query ($genre: String, $page: Int) { Page(page: $page, perPage: 50) { ' +
+                    'pageInfo { hasNextPage } ' +
+                    'media(genre: $genre, type: ANIME, sort: POPULARITY_DESC, isAdult: false) { ' +
+                    'id title { english romaji } coverImage { large extraLarge } ' +
+                    'averageScore genres format episodes seasonYear } } }';
                 try {
                   var res = await fetch('https://graphql.anilist.co', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query: query, variables: { genre: genre.anilistGenre, page: pageNum } })
+                    body: JSON.stringify({ query: query, variables: isTag ? { tag: genre.anilistTag, page: pageNum } : { genre: genre.anilistGenre, page: pageNum } })
                   });
                   var data = await res.json();
                   var page = (data.data && data.data.Page) || {};
@@ -517,6 +524,85 @@ jobs:
                 renderDiscoverFeed(false);
               }
               
+              // Load Hentai row from hanime index
+              async function loadHentaiRow() {
+                var carousel = document.getElementById('disc-hentai-carousel');
+                if (!carousel) return;
+                try {
+                  var idx = await hvGetIndex();
+                  var items = (idx || []).slice(0, 15);
+                  if (!items.length) {
+                    carousel.innerHTML = '<p style="color:#888;">No hentai available</p>';
+                    return;
+                  }
+                  window.__discoverHentai = items;
+                  var html = '';
+                  items.forEach(function(e, hidx){
+                    var m = hvMapResult(e);
+                    html += '<div class="disc-card disc-hentai-card" data-hidx="' + hidx + '" ' +
+                      'style="flex:0 0 156px;width:156px;max-width:156px;cursor:pointer;overflow:hidden;">' +
+                      '<div style="position:relative;width:156px;aspect-ratio:2/3;overflow:hidden;border-radius:8px;">' +
+                      '<img src="' + (m.image || '') + '" style="width:100%;height:100%;object-fit:cover;display:block;" loading="lazy">' +
+                      '<span style="position:absolute;top:6px;left:6px;background:#dc2626;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;z-index:2;">18+</span>' +
+                      '</div>' +
+                      '<div style="font-size:12px;margin-top:6px;line-height:1.3;height:2.6em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;text-overflow:ellipsis;word-break:break-word;">' + m.title + '</div>' +
+                      '<div style="font-size:11px;opacity:.6;">' + (m.year || '') + '</div>' +
+                      '</div>';
+                  });
+                  carousel.innerHTML = html;
+                  carousel.querySelectorAll('.disc-hentai-card').forEach(function(card){
+                    card.onclick = function(){
+                      var hidx = parseInt(card.getAttribute('data-hidx'), 10);
+                      var e = window.__discoverHentai[hidx];
+                      if (e) openHentaiDetail(e);
+                    };
+                  });
+                  // View All for hentai
+                  var vaBtn = document.querySelector('.disc-viewall-hentai');
+                  if (vaBtn) vaBtn.onclick = function(){ showHentaiGrid(); };
+                } catch(err) {
+                  carousel.innerHTML = '<p style="color:#888;">Failed to load hentai</p>';
+                }
+              }
+              function openHentaiDetail(e) {
+                var m = hvMapResult(e);
+                // Use the hanime detail flow
+                if (window.showHanimeDetail) {
+                  window.showHanimeDetail(m);
+                } else if (typeof showHanimeDetail === 'function') {
+                  showHanimeDetail(m);
+                } else if (window.openOnlineAsNative) {
+                  window.openOnlineAsNative(m);
+                }
+              }
+              async function showHentaiGrid() {
+                var disc = document.getElementById('discover-view');
+                try {
+                  var idx = await hvGetIndex();
+                  var items = idx || [];
+                  disc.innerHTML = '<div style="padding:16px;">' +
+                    '<button id="disc-back" style="background:none;border:none;color:#7c3aed;cursor:pointer;font-size:15px;margin-bottom:16px;">‹ Back to Discover</button>' +
+                    '<h2 style="margin:0 0 16px 0;">🔞 Hentai (18+) - All</h2>' +
+                    '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px;">' +
+                    items.map(function(e, hidx){
+                      var m = hvMapResult(e);
+                      return '<div class="disc-card" data-hidx="' + hidx + '" style="cursor:pointer;">' +
+                        '<div style="position:relative;width:100%;aspect-ratio:2/3;overflow:hidden;border-radius:8px;">' +
+                        '<img src="' + (m.image || '') + '" style="width:100%;height:100%;object-fit:cover;" loading="lazy">' +
+                        '<span style="position:absolute;top:6px;left:6px;background:#dc2626;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;">18+</span>' +
+                        '</div><div style="font-size:12px;margin-top:6px;">' + m.title + '</div></div>';
+                    }).join('') + '</div></div>';
+                  window.__discoverHentaiAll = items;
+                  document.getElementById('disc-back').onclick = function(){ renderDiscover(); };
+                  disc.querySelectorAll('.disc-card').forEach(function(card){
+                    card.onclick = function(){
+                      var hidx = parseInt(card.getAttribute('data-hidx'), 10);
+                      var e = window.__discoverHentaiAll[hidx];
+                      if (e) openHentaiDetail(e);
+                    };
+                  });
+                } catch(err) {}
+              }
               async function renderDiscoverFeed(force) {
                 var container = document.getElementById('disc-genres');
                 if (!container) return;
@@ -535,42 +621,53 @@ jobs:
                     '<div class="disc-carousel" style="display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch;">';
                   
                   items.slice(0, 15).forEach(function(item, idx){
-                    var itemJson = encodeURIComponent(JSON.stringify({title: item.title, format: item.format, year: item.year}));
                     html += '<div class="disc-card" data-idx="' + idx + '" data-genre="' + g.name + '" ' +
-                      'style="flex:0 0 140px;cursor:pointer;">' +
-                      '<div style="position:relative;">' +
-                      '<img src="' + item.poster + '" style="width:140px;height:200px;object-fit:cover;border-radius:8px;" loading="lazy">' +
-                      '<span style="position:absolute;top:6px;left:6px;background:#7c3aed;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;">' + item.dubLang + ' DUB</span>' +
-                      '<button class="disc-heart" data-title="' + item.title.replace(/"/g, '&quot;') + '" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.6);border:none;color:#fff;font-size:16px;width:30px;height:30px;border-radius:50%;cursor:pointer;">🤍</button>' +
-                      (item.rating ? '<span style="position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;padding:2px 6px;border-radius:4px;">★' + item.rating + '</span>' : '') +
+                      'style="flex:0 0 156px;width:156px;max-width:156px;cursor:pointer;overflow:hidden;">' +
+                      '<div style="position:relative;width:156px;aspect-ratio:2/3;overflow:hidden;border-radius:8px;">' +
+                      '<img src="' + item.poster + '" style="width:100%;height:100%;object-fit:cover;display:block;" loading="lazy">' +
+                      '<span style="position:absolute;top:6px;left:6px;background:#7c3aed;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;z-index:2;">' + item.dubLang + ' DUB</span>' +
+                      '<button class="disc-heart" data-title="' + item.title.replace(/"/g, '&quot;') + '" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.6);border:none;color:#fff;font-size:16px;width:30px;height:30px;border-radius:50%;cursor:pointer;z-index:2;">🤍</button>' +
+                      (item.rating ? '<span style="position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;padding:2px 6px;border-radius:4px;z-index:2;">★' + item.rating + '</span>' : '') +
                       '</div>' +
-                      '<div style="font-size:12px;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + item.title + '</div>' +
-                      '<div style="font-size:11px;opacity:.6;">' + (item.year || '') + ' · ' + (item.format || '') + '</div>' +
+                      '<div style="font-size:12px;margin-top:6px;line-height:1.3;height:2.6em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;text-overflow:ellipsis;word-break:break-word;">' + item.title + '</div>' +
+                      '<div style="font-size:11px;opacity:.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (item.year || '') + ' · ' + (item.format || '') + '</div>' +
                       '</div>';
                   });
                   
                   html += '</div></div>';
                 });
                 
+                // Add Hentai (18+) row using hanime index
+                html += '<div class="disc-genre" id="disc-hentai-row" style="margin-bottom:24px;">' +
+                  '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+                  '<h3 style="margin:0;font-size:16px;">🔞 Hentai (18+)</h3>' +
+                  '<button class="disc-viewall-hentai" style="background:none;border:none;color:#7c3aed;cursor:pointer;font-size:14px;">View All ›</button>' +
+                  '</div>' +
+                  '<div class="disc-carousel" id="disc-hentai-carousel" style="display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch;">' +
+                  '<p style="color:#888;">Loading hentai...</p></div></div>';
+                
                 container.innerHTML = html;
                 
-                // Wire card clicks to native detail view (use cached feed data)
-                var currentFeed = null;
-                loadDiscoverFeed(false).then(function(f){ currentFeed = f; });
+                // Load hentai row
+                loadHentaiRow();
+                
+                // Wire card clicks: store feed on window for reliable access
+                window.__discoverFeed = feed;
                 container.querySelectorAll('.disc-card').forEach(function(card){
                   card.onclick = function(e){
-                    if (e.target.classList.contains('disc-heart')) return;
+                    if (e.target.classList.contains('disc-heart') || e.target.closest('.disc-heart')) return;
                     var idx = parseInt(card.getAttribute('data-idx'), 10);
                     var genreName = card.getAttribute('data-genre');
                     var item = null;
-                    if (currentFeed && currentFeed[genreName] && currentFeed[genreName][idx]) {
-                      item = currentFeed[genreName][idx];
-                    } else {
-                      // Fallback: try to find by title
-                      var title = card.querySelector('div:last-child') ? card.textContent : '';
-                      item = { title: title, format: 'TV' };
+                    var f = window.__discoverFeed || feed;
+                    if (f && f[genreName] && f[genreName][idx]) {
+                      item = f[genreName][idx];
                     }
-                    openDiscoverDetail(item);
+                    if (item) {
+                      openDiscoverDetail(item);
+                    } else if (window.awToast) {
+                      awToast('Could not load details');
+                    }
                   };
                 });
                 // Wire heart buttons
@@ -3902,6 +3999,7 @@ jobs:
               var hvIndex = null, hvIndexPromise = null, hvKeyPromise = null;
 
               function hvGetIndex() {
+                window.hvGetIndex = hvGetIndex;
                 if (hvIndex) return Promise.resolve(hvIndex);
                 if (hvIndexPromise) return hvIndexPromise;
                 hvIndexPromise = dmGetText(HV_INDEX_URL, 30000, false).then(function (t) {
@@ -3931,6 +4029,7 @@ jobs:
               }
 
               function hvMapResult(e) {
+                window.hvMapResult = hvMapResult;
                 var yr = null;
                 try { yr = parseInt(String(e.released_at || '').slice(0, 4), 10) || null; } catch (ign) {}
                 return {
@@ -4377,6 +4476,7 @@ jobs:
               window.__closeOnlineDetail = closeDetailPage;
 
               function showHanimeDetail(anime) {
+                window.showHanimeDetail = showHanimeDetail;
                 lastAnime = anime;
                 closeDetailPage();
                 closeAnimeWatch();
