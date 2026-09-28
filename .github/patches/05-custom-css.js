@@ -4069,6 +4069,8 @@ const localRuntime = `<script data-hatch-cvm-bundle="">
           b.querySelector('#awBackSearch2').onclick = function () { renderResultCards(lastResults, 0); };
         });
       }
+      // Expose for home rows (11-home-rows.js)
+      try { window.openSearchAnimeDetail = openSearchAnimeDetail; } catch(e){}
 
     var detailPage = null;
     function closeDetailPage() {

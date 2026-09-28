@@ -103,16 +103,19 @@ html = html.replace(
 
     // --- Inject rows into home ---
     function injectRows(data) {
-      // Find home content area (below hero carousel)
+      // Find home content area
       var home = document.querySelector('.home-content') || document.querySelector('[data-tab="home"]') || document.body;
       var container = document.getElementById('__homerows');
       if (!container) {
         container = document.createElement('div');
         container.id = '__homerows';
-        // Insert after hero carousel if present
+        // Insert after Continue Watching if present, else after hero carousel
+        // Order: Continue Watching (top) -> Suggestions -> Rest
+        var cw = document.querySelector('.continue-watching') || document.querySelector('[data-continue-watching]');
         var hero = document.querySelector('.home-carousel') || document.querySelector('.hero-carousel');
-        if (hero && hero.parentNode) {
-          hero.parentNode.insertBefore(container, hero.nextSibling);
+        var anchor = cw || hero;
+        if (anchor && anchor.parentNode) {
+          anchor.parentNode.insertBefore(container, anchor.nextSibling);
         } else {
           home.appendChild(container);
         }
@@ -140,8 +143,8 @@ html = html.replace(
           apiGet('/api/anime/search?q=' + encodeURIComponent(title)).then(function(d){
             var results = (d && d.results) || [];
             var match = results[0];
-            if (match && typeof openSearchAnimeDetail === 'function') {
-              openSearchAnimeDetail(match);
+            if (match && typeof window.openSearchAnimeDetail === 'function') {
+              window.openSearchAnimeDetail(match);
             } else if (typeof window.__openOnlineDetail === 'function') {
               window.__openOnlineDetail({ title: title, animeId: anilistId });
             }
