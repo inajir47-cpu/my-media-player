@@ -138,19 +138,19 @@ html = html.replace(
         var anilistId = card.getAttribute('data-anilist');
         var title = card.getAttribute('data-title');
         if (!anilistId) return;
-        // Search our streaming API by title, then open detail
+        // Debug: show what's happening
         var _apiGet = window.apiGet || (typeof apiGet === 'function' ? apiGet : null);
-        if (_apiGet) {
-          _apiGet('/api/anime/search?q=' + encodeURIComponent(title)).then(function(d){
-            var results = (d && d.results) || [];
-            var match = results[0];
-            if (match && typeof window.openSearchAnimeDetail === 'function') {
-              window.openSearchAnimeDetail(match);
-            } else if (typeof window.__openOnlineDetail === 'function') {
-              window.__openOnlineDetail({ title: title, animeId: anilistId });
-            }
-          });
-        }
+        var _openDetail = window.openSearchAnimeDetail || (typeof openSearchAnimeDetail === 'function' ? openSearchAnimeDetail : null);
+        if (!_apiGet) { alert('Debug: apiGet not available'); return; }
+        if (!_openDetail) { alert('Debug: openSearchAnimeDetail not available'); return; }
+        // Search our streaming API by title, then open detail
+        _apiGet('/api/anime/search?q=' + encodeURIComponent(title)).then(function(d){
+          var results = (d && d.results) || [];
+          if (!results.length) { alert('Debug: No results for "' + title + '"'); return; }
+          _openDetail(results[0]);
+        }).catch(function(err){
+          alert('Debug: Search failed - ' + (err && err.message));
+        });
       });
     }
 
