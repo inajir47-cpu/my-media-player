@@ -138,19 +138,15 @@ html = html.replace(
         var anilistId = card.getAttribute('data-anilist');
         var title = card.getAttribute('data-title');
         if (!anilistId) return;
-        // Debug: show what's happening
         var _apiGet = window.apiGet || (typeof apiGet === 'function' ? apiGet : null);
         var _openDetail = window.openSearchAnimeDetail || (typeof openSearchAnimeDetail === 'function' ? openSearchAnimeDetail : null);
-        if (!_apiGet) { alert('Debug: apiGet not available'); return; }
-        if (!_openDetail) { alert('Debug: openSearchAnimeDetail not available'); return; }
+        if (!_apiGet || !_openDetail) return;
         // Search our streaming API by title, then open detail
         _apiGet('/api/anime/search?q=' + encodeURIComponent(title)).then(function(d){
           var results = (d && d.results) || [];
-          if (!results.length) { alert('Debug: No results for "' + title + '"'); return; }
+          if (!results.length) return;
           _openDetail(results[0]);
-        }).catch(function(err){
-          alert('Debug: Search failed - ' + (err && err.message));
-        });
+        }).catch(function(){});
       });
     }
 
@@ -260,18 +256,22 @@ html = html.replace(
       '.hr-loading{text-align:center;padding:20px;color:#888}';
     document.head.appendChild(css);
 
-    // Load when home is visible (check every 2s for first 10s, then on tab clicks)
+    // Load when home is visible
     var loaded = false;
     function tryLoad() {
       if (loaded) return;
-      // Check if home tab is active (hero carousel visible)
-      var hero = document.querySelector('.home-carousel') || document.querySelector('.hero-carousel');
-      if (hero && hero.offsetParent !== null) {
+      // Just load the rows - they're inserted in the right place regardless
+      // of which tab is active. The home tab content exists in DOM.
+      var home = document.querySelector('.home-carousel') || document.querySelector('.hero-carousel') ||
+                 document.querySelector('[data-tab="home"]') || document.body;
+      if (home) {
         loaded = true;
         loadHomeRows();
       }
     }
-    for (var i = 0; i < 5; i++) setTimeout(tryLoad, i * 2000);
+    // Try immediately and on interval
+    setTimeout(tryLoad, 1000);
+    for (var i = 1; i < 5; i++) setTimeout(tryLoad, i * 2000);
     // Also try on tab clicks
     document.addEventListener('click', function(e){
       var tab = e.target.closest('[data-tab]');
