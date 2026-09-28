@@ -3683,8 +3683,6 @@ const localRuntime = `<script data-hatch-cvm-bundle="">
       if (useDirect()) return viaDirect();
       return viaBackend();
     }
-    // Expose for home rows (11-home-rows.js)
-    try { window.apiGet = apiGet; } catch(e){}
     function esc(s) {
       return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
         return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -4071,8 +4069,6 @@ const localRuntime = `<script data-hatch-cvm-bundle="">
           b.querySelector('#awBackSearch2').onclick = function () { renderResultCards(lastResults, 0); };
         });
       }
-      // Expose for home rows (11-home-rows.js)
-      try { window.openSearchAnimeDetail = openSearchAnimeDetail; } catch(e){}
 
     var detailPage = null;
     function closeDetailPage() {
