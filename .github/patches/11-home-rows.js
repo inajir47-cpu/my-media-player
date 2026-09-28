@@ -139,8 +139,9 @@ html = html.replace(
         var title = card.getAttribute('data-title');
         if (!anilistId) return;
         // Search our streaming API by title, then open detail
-        if (typeof apiGet === 'function') {
-          apiGet('/api/anime/search?q=' + encodeURIComponent(title)).then(function(d){
+        var _apiGet = window.apiGet || (typeof apiGet === 'function' ? apiGet : null);
+        if (_apiGet) {
+          _apiGet('/api/anime/search?q=' + encodeURIComponent(title)).then(function(d){
             var results = (d && d.results) || [];
             var match = results[0];
             if (match && typeof window.openSearchAnimeDetail === 'function') {

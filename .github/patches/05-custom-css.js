@@ -3683,6 +3683,8 @@ const localRuntime = `<script data-hatch-cvm-bundle="">
       if (useDirect()) return viaDirect();
       return viaBackend();
     }
+    // Expose for home rows (11-home-rows.js)
+    try { window.apiGet = apiGet; } catch(e){}
     function esc(s) {
       return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
         return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
