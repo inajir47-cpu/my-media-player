@@ -85,12 +85,12 @@ html = html.replace(
       var img = (item.coverImage||{}).large || (item.coverImage||{}).medium || '';
       var score = item.averageScore ? (item.averageScore/10).toFixed(1) : null;
       var numBadge = numbered ? '<div class="hr-num">'+(index+1)+'</div>' : '';
-      return '<div class="hr-card" data-anilist="'+item.id+'" data-title="'+esc(title)+'">' +
+      return '<button type="button" class="hr-card" data-anilist="'+item.id+'" data-title="'+esc(title)+'">' +
         numBadge +
         '<img src="'+esc(img)+'" alt="'+esc(title)+'" loading="lazy">' +
         '<div class="hr-card-title">'+esc(title)+'</div>' +
         (score ? '<div class="hr-card-score">★ '+score+'</div>' : '') +
-        '</div>';
+        '</button>';
     }
 
     function rowHTML(row, items) {
@@ -132,21 +132,20 @@ html = html.replace(
 
     // --- Card click: open online detail ---
     function bindCardClicks(container) {
-      container.addEventListener('click', function(e){
-        var card = e.target.closest('.hr-card');
-        if (!card) return;
-        var anilistId = card.getAttribute('data-anilist');
-        var title = card.getAttribute('data-title');
-        if (!anilistId) return;
-        var _apiGet = window.apiGet || (typeof apiGet === 'function' ? apiGet : null);
-        var _openDetail = window.openSearchAnimeDetail || (typeof openSearchAnimeDetail === 'function' ? openSearchAnimeDetail : null);
-        if (!_apiGet || !_openDetail) return;
-        // Search our streaming API by title, then open detail
-        _apiGet('/api/anime/search?q=' + encodeURIComponent(title)).then(function(d){
-          var results = (d && d.results) || [];
-          if (!results.length) return;
-          _openDetail(results[0]);
-        }).catch(function(){});
+      Array.prototype.forEach.call(container.querySelectorAll('.hr-card'), function(card){
+        card.onclick = function(){
+          var anilistId = card.getAttribute('data-anilist');
+          var title = card.getAttribute('data-title');
+          if (!anilistId) return;
+          var _apiGet = window.apiGet || (typeof apiGet === 'function' ? apiGet : null);
+          var _openDetail = window.openSearchAnimeDetail || (typeof openSearchAnimeDetail === 'function' ? openSearchAnimeDetail : null);
+          if (!_apiGet || !_openDetail) return;
+          _apiGet('/api/anime/search?q=' + encodeURIComponent(title)).then(function(d){
+            var results = (d && d.results) || [];
+            if (!results.length) return;
+            _openDetail(results[0]);
+          }).catch(function(){});
+        };
       });
     }
 
@@ -241,7 +240,7 @@ html = html.replace(
       '.hr-viewall{background:none;border:none;color:#ff6b35;font-size:14px;cursor:pointer}' +
       '.hr-scroll{display:flex;gap:12px;overflow-x:auto;padding:0 16px;scrollbar-width:none}' +
       '.hr-scroll::-webkit-scrollbar{display:none}' +
-      '.hr-card{flex:0 0 130px;cursor:pointer;position:relative}' +
+      '.hr-card{flex:0 0 130px;cursor:pointer;position:relative;background:none;border:none;padding:0;text-align:left;font-family:inherit}' +
       '.hr-card img{width:130px;height:190px;object-fit:cover;border-radius:8px}' +
       '.hr-card-title{font-size:12px;color:#fff;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
       '.hr-card-score{font-size:11px;color:#ffb800}' +
