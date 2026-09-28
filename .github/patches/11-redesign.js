@@ -229,4 +229,5 @@ html = html.replace(
     setTimeout(init, 4000); // fallback
   })();
   </script>
+</body>
 `);
